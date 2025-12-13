@@ -1,0 +1,110 @@
+1. Thông tin chung
+
+Tên đề tài:
+
+TV: TỰ ĐỘNG TRIỂN KHAI MÔ HÌNH HỌC ĐẾN CÁC THIẾT BỊ NHÚNG IOT ĐẢM BẢO NĂNG LƯỢNG TIÊU THỤ PHÙ HỢP VỚI THIẾT BỊ
+
+TA: AUTOMATICALLY DEPLOY MACHINE LEARNING MODELS TO EMBEDDED IOT DEVICES ENSURING DEVICE-SPECIFIC POWER CONSUMPTION 
+
+2. Ý tưởng & bài toán
+
+Xây dựng hệ thống triển khai mô hình ML tại biên (Edge) cho thiết bị IoT nhúng, có khả năng:
+
+Ước lượng năng lượng trước khi triển khai
+
+Giám sát năng lượng sau khi triển khai
+
+Cảnh báo / chặn / rollback khi vượt ngưỡng năng lượng 
+
+Vấn đề hiện tại:
+
+Nhiều IoT chạy pin, môi trường khắc nghiệt, rất nhạy về năng lượng.
+
+Nghiên cứu hiện nay chủ yếu đo trên server / GPU, chưa có dataset chuẩn cho thiết bị nhúng/edge.
+
+Chưa có pipeline MLOps tích hợp cả: auto-deploy + energy estimation + monitoring. 
+
+
+3. Thách thức chính
+
+Dữ liệu:
+
+Chưa có bộ dataset công khai về năng lượng tiêu thụ của mô hình ML trên thiết bị nhúng.
+
+Nhóm phải tự đo trên các board như Jetson Nano, Raspberry Pi, Orange Pi, ghi lại năng lượng, công suất, độ trễ + metadata. 
+
+
+Kỹ thuật:
+
+Chưa có hệ thống kết hợp Deployment automation + Energy consumption estimation trong cùng pipeline.
+
+Thiết bị biên hạn chế tài nguyên, vẫn cần đảm bảo độ chính xác mô hình, thời gian thực, khả năng mở rộng. 
+
+4. Mục tiêu cụ thể
+
+Xây dựng và chuẩn hóa energy dataset từ các đo đạc thực tế.
+
+Phát triển mô hình ước lượng năng lượng dựa trên:
+
+Đặc trưng mô hình (architecture, số tham số, kiểu dữ liệu suy luận…)
+
+Đặc trưng thiết bị (RAM, accelerator, giới hạn công suất…)
+
+Workload (input size, batch size, điều kiện hoạt động…). 
+
+Xây dựng pipeline triển khai tự động:
+
+Chuẩn hóa hồ sơ mô hình + hồ sơ thiết bị
+
+Sinh Dockerfile, script triển khai tương ứng
+
+Cân bằng năng lượng – độ trễ – độ chính xác tùy từng device. 
+
+Đánh giá hệ thống bằng các chỉ số: MAE, MAPE, RMSE, R², Spearman, Kendall, Energy–Delay Product, Performance per Watt, vẽ đồ thị Pareto trade-off sai số vs chi phí tính toán. 
+
+
+5. Nội dung & phương pháp nghiên cứu (4 nội dung lớn)
+
+Nội dung 1 – Khảo sát & tổng quan:
+
+Đọc paper về Edge ML, energy measurement, MLOps trên thiết bị hạn chế.
+
+Lập bảng so sánh, bộ thuật ngữ, tiêu chí đánh giá, đề xuất mô hình hệ thống tổng thể. 
+
+
+Nội dung 2 – Thu thập dataset năng lượng:
+
+Đo năng lượng, công suất, độ trễ trên các thiết bị nhúng.
+
+Chuẩn hóa schema, làm sạch dữ liệu, lưu kèm metadata. 
+
+
+Nội dung 3 – Xây dựng mô hình ước lượng năng lượng:
+
+Thiết kế không gian đặc trưng thống nhất F.
+
+Thử các loại mô hình:
+
+Hồi quy tuyến tính/đa thức (baseline)
+
+Boosted Decision Trees
+
+Compact Neural Networks
+
+Đánh giá với các chiến lược holdout theo architecture và device.
+
+Chọn thuật toán chủ lực độ chính xác > ~90% và phân tích Pareto. 
+
+Nội dung 4 – Hệ thống triển khai & giám sát:
+
+Thiết kế pipeline MLOps: trích xuất đặc trưng → dự báo năng lượng → quyết định triển khai → giám sát và rollback nếu quá ngưỡng.
+
+Lưu đồ quyết định triển khai (Hình 1 trong tài liệu). 
+
+. Kết quả dự kiến
+
+Báo cáo kỹ thuật chi tiết về nền tảng MLOps tối ưu năng lượng cho thiết bị biên.
+
+Báo cáo phân tích định lượng + bộ quy tắc/gợi ý triển khai an toàn.
+
+Bộ dữ liệu năng lượng đã chuẩn hóa để huấn luyện & kiểm chứng mô hình. 

@@ -1,0 +1,19 @@
+version: '2.1'
+
+services:
+  ml-agent:
+    build: .
+    privileged: true
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - 'model-data:/data'
+    environment:
+      - PYTHONUNBUFFERED=1
+    labels:
+      io.balena.features.balena-api: '1'
+      io.balena.features.supervisor-api: '1'
+
+volumes:
+  model-data:

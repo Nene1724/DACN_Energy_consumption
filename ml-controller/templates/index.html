@@ -1,0 +1,1573 @@
+﻿
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT ML Energy Manager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0b1220;
+            --panel: #0f172a;
+            --panel-alt: #111827;
+            --border: #1f2a3d;
+            --text: #e5e7eb;
+            --muted: #94a3b8;
+            --accent: #22d3ee;
+            --accent-strong: #0ea5e9;
+            --danger: #f43f5e;
+            --warning: #f59e0b;
+            --success: #34d399;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Space Grotesk', 'Segoe UI', Tahoma, sans-serif;
+            background: radial-gradient(circle at 20% 20%, rgba(34,211,238,0.08), transparent 35%), radial-gradient(circle at 80% 0%, rgba(244,63,94,0.08), transparent 30%), var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        .shell { max-width: 1600px; margin: 0 auto; padding: 28px 22px 48px; }
+        .topbar { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: rgba(17,24,39,0.7); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 18px; backdrop-filter: blur(6px); }
+        .brand { display: flex; align-items: center; gap: 10px; }
+        .brand .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+        .brand h1 { font-size: 19px; font-weight: 700; letter-spacing: 0.4px; }
+        .brand span { color: var(--muted); font-size: 13px; }
+        .top-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .hero { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; margin-bottom: 18px; }
+        .hero-card, .stat-card { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; padding: 18px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18); }
+        .hero-card h2 { font-size: 24px; margin-bottom: 8px; }
+        .hero-card p { color: var(--muted); line-height: 1.5; }
+        .chip-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+        .chip { padding: 6px 12px; border-radius: 999px; background: rgba(34,211,238,0.12); color: var(--accent); font-weight: 600; font-size: 12px; letter-spacing: 0.03em; }
+        .stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+        .stat { background: linear-gradient(135deg, rgba(34,211,238,0.12), rgba(14,165,233,0.12)); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; }
+        .stat small { color: var(--muted); font-size: 12px; }
+        .stat strong { display: block; font-size: 22px; margin-top: 4px; }
+        .grid { display: grid; grid-template-columns: minmax(360px, 420px) 1fr; gap: 16px; }
+        .panel { background: linear-gradient(180deg, #121a2c 0%, #0d1424 100%); border: 1px solid var(--border); border-radius: 18px; padding: 18px; box-shadow: 0 16px 36px rgba(0,0,0,0.18); margin-bottom: 14px; }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+        .panel-header h3 { font-size: 18px; }
+        .panel-header .muted { color: var(--muted); font-size: 13px; }
+        .form-grid { display: grid; gap: 12px; }
+        .form-control label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
+        .form-control input { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: #0b1324; color: var(--text); }
+        .btn { border: 1px solid transparent; border-radius: 12px; padding: 12px 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; color: var(--text); background: #16213a; }
+        .btn.primary { background: linear-gradient(135deg, #22d3ee, #0ea5e9); color: #04101c; border-color: transparent; }
+        .btn.ghost { border-color: var(--border); background: transparent; color: var(--text); }
+        .btn.full { width: 100%; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .status-row { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+        .status-block { border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #0b1324; }
+        .status-title { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+        .status-value { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-flex; }
+        .dot.idle { background: #475569; }
+        .dot.downloading { background: var(--warning); animation: pulse 1.4s infinite; }
+        .dot.ready { background: var(--success); }
+        .dot.running { background: var(--accent); animation: pulse 1.4s infinite; }
+        .dot.error { background: var(--danger); }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
+        .energy-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
+        .energy-card { border: 1px solid var(--border); border-radius: 12px; padding: 10px; background: #0b1324; }
+        .energy-card small { color: var(--muted); font-size: 12px; }
+        .energy-card .value { font-size: 18px; font-weight: 700; margin-top: 4px; }
+        .badge { padding: 6px 10px; border-radius: 999px; font-size: 11px; letter-spacing: 0.05em; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+        .badge.ok { background: rgba(52,211,153,0.16); color: var(--success); }
+        .badge.over { background: rgba(244,63,94,0.16); color: var(--danger); }
+        .history-list { list-style: none; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 12px; }
+        .history-list li { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding-bottom: 6px; }
+        .history-list li:last-child { border-bottom: none; }
+        .filter-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+        .filter-btn { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: #0b1324; color: var(--muted); cursor: pointer; font-weight: 600; }
+        .filter-btn.active { border-color: var(--accent); color: var(--accent); }
+        .model-list { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; max-height: 550px; overflow-y: auto; padding-right: 4px; }
+        .model-item { border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #0b1324; cursor: pointer; transition: border 0.2s, transform 0.2s; }
+        .model-item:hover { border-color: var(--accent); transform: translateY(-2px); }
+        .model-item.selected { border-color: var(--accent-strong); box-shadow: 0 0 0 1px var(--accent-strong); }
+        .model-item.recommended { border-color: rgba(52,211,153,0.4); }
+        .model-name { font-size: 16px; font-weight: 700; display: flex; gap: 8px; align-items: center; }
+        .model-meta { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 12px; margin: 6px 0 4px; }
+        .model-reason { color: var(--success); font-size: 12px; }
+        .pill { background: rgba(52,211,153,0.16); color: var(--success); border-radius: 999px; padding: 2px 8px; font-size: 10px; letter-spacing: 0.05em; font-weight: 700; }
+        .selection-preview { margin-top: 12px; border: 1px dashed var(--border); border-radius: 12px; padding: 12px; background: #0b1324; color: var(--muted); font-size: 13px; }
+        .selection-preview strong { color: var(--text); }
+        .selection-preview .risk { color: var(--danger); font-weight: 700; }
+        .timeline-wrapper { max-height: 280px; overflow-y: auto; padding-right: 6px; }
+        .timeline { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+        .timeline-entry { display: flex; gap: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: #0b1324; }
+        .timeline-dot { width: 12px; height: 12px; border-radius: 50%; margin-top: 6px; background: var(--accent); }
+        .timeline-entry.success .timeline-dot { background: var(--success); }
+        .timeline-entry.error .timeline-dot { background: var(--danger); }
+        .timeline-entry.info .timeline-dot { background: var(--accent); }
+        .timeline-time { font-size: 12px; color: var(--muted); }
+        .timeline-text { font-size: 14px; }
+        .timeline-empty { color: var(--muted); font-size: 13px; padding: 12px 4px; }
+        .alert-stack { margin: 12px 0; }
+        .alert { padding: 12px 14px; border-radius: 12px; font-weight: 700; border: 1px solid var(--border); }
+        .alert.success { background: rgba(52,211,153,0.12); color: var(--success); border-color: rgba(52,211,153,0.3); }
+        .alert.error { background: rgba(244,63,94,0.12); color: var(--danger); border-color: rgba(244,63,94,0.3); }
+        .alert.info { background: rgba(34,211,238,0.12); color: var(--accent); border-color: rgba(34,211,238,0.3); }
+        .loading-state { text-align: center; padding: 24px 0; color: var(--muted); }
+        .spinner { width: 26px; height: 26px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; margin: 0 auto 8px; animation: spin 0.9s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .predict-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+        .predict-output { border: 1px dashed var(--border); border-radius: 12px; padding: 12px; background: #0b1324; margin-top: 10px; font-size: 13px; }
+        .balena-list { display: flex; flex-direction: column; gap: 10px; max-height: 340px; overflow-y: auto; padding-right: 4px; }
+        .balena-item { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: #0b1324; display: flex; flex-direction: column; gap: 10px; }
+        .balena-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+        .balena-meta { color: var(--muted); font-size: 12px; display: flex; flex-direction: column; gap: 3px; }
+        .balena-actions { display: flex; gap: 8px; align-items: center; }
+        .mini-btn { border: 1px solid var(--border); background: transparent; color: var(--accent); border-radius: 10px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+        .monitor-tabs { display:flex; gap:12px; align-items:flex-end; border-bottom:1px solid var(--border); padding-bottom:6px; margin-bottom:14px; flex-wrap:wrap; }
+        .monitor-tab { padding:10px 2px; border:none; border-bottom:2px solid transparent; background:transparent; color:var(--muted); cursor:pointer; font-weight:700; letter-spacing:0.02em; }
+        .monitor-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+        .monitor-content { display:flex; flex-direction:column; gap:12px; }
+        .monitor-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(320px,1fr)); gap:12px; }
+        .monitor-card { border:1px solid var(--border); border-radius:14px; padding:14px; background: linear-gradient(180deg, #0f172a, #0c1323); color:var(--muted); box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
+        .monitor-card h4 { color: var(--text); margin-bottom:6px; font-size:16px; }
+        .monitor-card small { color: var(--muted); }
+        .bar-row { display:flex; align-items:center; gap:8px; margin:6px 0; }
+        .bar { height:8px; border-radius:8px; background: linear-gradient(90deg, #22d3ee, #0ea5e9); flex:1; }
+        .kpi { display:flex; flex-direction:column; gap:4px; padding:12px; border:1px solid var(--border); border-radius:12px; background:#0b1324; }
+        .kpi small { color: var(--muted); }
+        .kpi strong { font-size:18px; }
+        .metric-list { display:flex; flex-direction:column; gap:6px; }
+        .metric-line { display:flex; align-items:center; gap:10px; }
+        .metric-line span.label { min-width:120px; color:var(--text); font-weight:600; }
+        .metric-line .value { color:var(--muted); min-width:80px; text-align:right; }
+        .pill-sm { padding:4px 8px; border-radius:999px; font-size:11px; border:1px solid var(--border); color:var(--text); background: rgba(34,211,238,0.08); }
+        .view-tabs { 
+            display: flex; 
+            gap: 0; 
+            margin: 12px 0 18px; 
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 0;
+        }
+        .view-tab { 
+            padding: 12px 24px; 
+            border: none;
+            border-bottom: 3px solid transparent;
+            background: transparent;
+            color: var(--muted); 
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            margin-bottom: -2px;
+        }
+        .view-tab:hover {
+            color: var(--text);
+            background: rgba(34,211,238,0.05);
+        }
+        .view-tab.active { 
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+            font-weight: 700;
+        }
+        .hidden { display:none; }
+        @media (max-width: 1100px) {
+            .grid { grid-template-columns: 1fr; }
+            .hero { grid-template-columns: 1fr; }
+            .energy-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+            .predict-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+        }
+        @media (max-width: 720px) {
+            .stat-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+            .energy-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+            .predict-grid { grid-template-columns: 1fr; }
+            .status-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <nav class="topbar">
+            <div class="brand">
+                <span class="dot"></span>
+                <div>
+                    <h1>IoT ML Energy Manager</h1>
+                    <span>Hệ thống quản lý triển khai mô hình ML tiết kiệm năng lượng</span>
+                </div>
+            </div>
+            <div class="top-actions">
+                <button class="btn ghost" onclick="loadAllModels()">Tải tất cả</button>
+                <button class="btn primary" onclick="loadRecommendations()">Đề xuất năng lượng thấp</button>
+            </div>
+        </nav>
+
+        <div class="view-tabs" id="view_tabs">
+            <button class="view-tab active" data-view="deployment">Deployment</button>
+            <button class="view-tab" data-view="monitoring">Monitoring</button>
+        </div>
+
+        <div id="deployment_view">
+        <div class="hero">
+            <div class="hero-card">
+                <h2>Giám sát & điều phối</h2>
+                <p>Chọn model tối ưu năng lượng, dự đoán tiêu thụ trước khi triển khai, theo dõi trạng thái thiết bị và nhật ký deploy theo thời gian thực.</p>
+                <div class="chip-row">
+                    <span class="chip">Energy-aware</span>
+                    <span class="chip">Deployment Logs</span>
+                    <span class="chip">Balena Fleet</span>
+                </div>
+                <div class="filter-tabs">
+                    <button class="filter-btn active" data-filter="all">Tất cả</button>
+                    <button class="filter-btn" data-filter="recommended">Recommended</button>
+                    <button class="filter-btn" data-filter="low_energy">&lt; 50 mWh</button>
+                    <button class="filter-btn" data-filter="small_size">&lt; 30 MB</button>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-grid" id="stats_grid_summary">
+                    <div class="stat">
+                        <small>Tổng models</small>
+                        <strong id="stat_total_main">—</strong>
+                    </div>
+                    <div class="stat">
+                        <small>Dưới 50 mWh</small>
+                        <strong id="stat_50_main">—</strong>
+                    </div>
+                    <div class="stat">
+                        <small>Dưới 100 mWh</small>
+                        <strong id="stat_100_main">—</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="alert_container" class="alert-stack"></div>
+
+        <div class="grid">
+            <div class="col-left">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Thiết bị & Constraints</h3>
+                            <p class="muted">Nhập IP thiết bị.</p>
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-control">
+                            <label for="bbb_ip">Địa chỉ IP thiết bị</label>
+                            <input type="text" id="bbb_ip" value="192.168.137.10" placeholder="192.168.137.10">
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <button class="btn ghost full" onclick="loadRecommendations()">Cập nhật đề xuất</button>
+                            <button class="btn primary full" onclick="loadAllModels()">Tải lại danh sách</button>
+                        </div>
+                    </div>
+                    <div class="status-row" style="margin-top: 12px;">
+                        <div class="status-block" id="device_status">
+                            <div class="status-title">Thiết bị IoT</div>
+                            <div class="status-value"><span class="dot idle"></span>Chưa kết nối</div>
+                        </div>
+                        <div class="status-block" id="model_status">
+                            <div class="status-title">Model hiện tại</div>
+                            <div class="status-value">Chưa có model</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Energy watch</h3>
+                            <p class="muted">Theo dõi năng lượng sau deploy</p>
+                        </div>
+                    </div>
+                    <div class="energy-grid">
+                        <div class="energy-card">
+                            <small>Ngân sách (mWh)</small>
+                            <div class="value" id="energy_budget_value">—</div>
+                        </div>
+                        <div class="energy-card">
+                            <small>Đo mới nhất (mWh)</small>
+                            <div class="value" id="energy_latest_value">—</div>
+                        </div>
+                        <div class="energy-card">
+                            <small>Trung bình (mWh)</small>
+                            <div class="value" id="energy_avg_value">—</div>
+                        </div>
+                        <div class="energy-card">
+                            <small>Trạng thái</small>
+                            <div class="value"><span class="badge" id="energy_status_badge">Chưa có</span></div>
+                        </div>
+                    </div>
+                    <ul class="history-list" id="energy_history_list">
+                        <li><span>Chưa có dữ liệu</span><span></span></li>
+                    </ul>
+                </div>
+                <div class="panel" id="balena_devices_card">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Balena fleet</h3>
+                            <p class="muted">Danh sách thiết bị sẵn sàng</p>
+                        </div>
+                        <button class="btn ghost" id="balena_refresh_btn" type="button">Làm mới</button>
+                    </div>
+                    <div class="form-grid" style="margin-bottom: 8px;">
+                        <div class="form-control">
+                            <label>Balena app slug (tùy chọn)</label>
+                            <input type="text" id="balena_app_filter" placeholder="myorg/fleet hoặc fleet_slug">
+                        </div>
+                        <label style="display:flex; align-items:center; gap:8px; color: var(--muted); font-size: 13px;">
+                            <input type="checkbox" id="balena_online_only" checked>
+                            Chỉ hiển thị online
+                        </label>
+                    </div>
+                    <div class="muted" id="balena_devices_message"></div>
+                    <div class="balena-list" id="balena_device_list">
+                        <div class="loading-state">
+                            <div class="spinner"></div>
+                            Đang tải danh sách thiết bị Balena Cloud...
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Deployment log</h3>
+                            <p class="muted">Nhật ký pipeline</p>
+                        </div>
+                    </div>
+                    <div class="timeline-wrapper" id="deployment_log_wrapper">
+                        <p class="timeline-empty" id="deployment_log_placeholder">Chưa có hoạt động deploy nào.</p>
+                        <ul class="timeline" id="deployment_log"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-right">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Model library</h3>
+                            <p class="muted">Chọn model và kiểm tra ngưỡng năng lượng</p>
+                        </div>
+                        <button class="btn primary" id="deploy_btn" onclick="deployModel()" disabled>Deploy model đã chọn</button>
+                    </div>
+                    <div id="model_list" class="model-list">
+                        <div class="loading-state">
+                            <div class="spinner"></div>
+                            Đang sẵn sàng tải dữ liệu...
+                        </div>
+                    </div>
+                    <div class="selection-preview" id="selection_preview">
+                        Hãy chọn một model để xem dữ liệu và kiểm tra ngưỡng năng lượng.
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Energy predictor</h3>
+                            <p class="muted">Dự đoán năng lượng cho metadata model</p>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn ghost" onclick="prefillPredictFromSelection()">Dùng model đang chọn</button>
+                            <button class="btn primary" onclick="predictEnergy()">Dự đoán</button>
+                        </div>
+                    </div>
+                    <div class="predict-grid">
+                        <div class="form-control">
+                            <label>Params (M)</label>
+                            <input type="number" step="0.01" id="pred_params_m" placeholder="ví dụ 25.5">
+                        </div>
+                        <div class="form-control">
+                            <label>GFLOPs</label>
+                            <input type="number" step="0.01" id="pred_gflops" placeholder="ví dụ 4.3">
+                        </div>
+                        <div class="form-control">
+                            <label>GMACs</label>
+                            <input type="number" step="0.01" id="pred_gmacs" placeholder="ví dụ 8.6">
+                        </div>
+                        <div class="form-control">
+                            <label>Size (MB)</label>
+                            <input type="number" step="0.01" id="pred_size_mb" placeholder="ví dụ 22">
+                        </div>
+                        <div class="form-control">
+                            <label>Latency (s)</label>
+                            <input type="number" step="0.0001" id="pred_latency" placeholder="ví dụ 0.12">
+                        </div>
+                        <div class="form-control">
+                            <label>Throughput (iter/s)</label>
+                            <input type="number" step="0.0001" id="pred_throughput" placeholder="ví dụ 8.5">
+                        </div>
+                    </div>
+                    <div class="predict-output" id="predict_output">
+                        Nhập đủ thông tin rồi bấm “Dự đoán” để xem năng lượng ước lượng.
+                    </div>
+                </div>
+
+                <div class="panel" id="stats_card">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Benchmark snapshot</h3>
+                            <p class="muted">Thống kê nhanh</p>
+                        </div>
+                    </div>
+                    <div class="stat-grid" id="stats_grid">
+                        <div class="stat">
+                            <small>Tổng models</small>
+                            <strong id="stat_total">0</strong>
+                        </div>
+                        <div class="stat">
+                            <small>Dưới 50 mWh</small>
+                            <strong id="stat_50">0</strong>
+                        </div>
+                        <div class="stat">
+                            <small>Dưới 100 mWh</small>
+                            <strong id="stat_100">0</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div> <!-- end deployment_view -->
+
+        <div id="monitoring_view" class="hidden">
+            <div class="hero">
+            </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h3>Monitoring</h3>
+                        <p class="muted">Snapshot các biểu đồ giám sát</p>
+                    </div>
+                </div>
+                <div class="monitor-tabs" id="monitor_tabs">
+                    <button class="monitor-tab active" data-tab="timeseries">Time-series</button>
+                    <button class="monitor-tab" data-tab="status">Status / Health</button>
+                    <button class="monitor-tab" data-tab="distribution">Phân bố</button>
+                    <button class="monitor-tab" data-tab="advanced">Nâng cao</button>
+                </div>
+                <div class="monitor-content" id="monitor_content"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const DEFAULT_BUDGET_MWH = 100;
+        let allModels = [];
+        let selectedModel = null;
+        let currentFilter = 'all';
+        let statusInterval = null;
+        let balenaDevices = [];
+        const monitoringData = {
+            timeseries: [
+                { label: '-15m', energy: 5.1, latency: 0.14, throughput: 48 },
+                { label: '-10m', energy: 5.4, latency: 0.13, throughput: 50 },
+                { label: '-5m', energy: 5.0, latency: 0.12, throughput: 52 },
+                { label: 'Now', energy: 4.8, latency: 0.11, throughput: 54 }
+            ],
+            status: {
+                budgetUsed: 42,
+                avgLatency: 0.12,
+                uptime: '99.2%',
+                thermal: 54,
+                memory: 68,
+                successRate: 98
+            },
+            distribution: {
+                buckets: [
+                    { label: '0-4', value: 2 },
+                    { label: '4-5', value: 5 },
+                    { label: '5-6', value: 9 },
+                    { label: '6-7', value: 6 },
+                    { label: '7-8', value: 3 }
+                ],
+                box: { min: 4.2, p25: 4.8, p50: 5.3, p75: 6.2, max: 7.1 }
+            },
+            advanced: {
+                tradeoff: [
+                    { model: 'mobilenetv3_small_075', energy: 4.8, latency: 0.11 },
+                    { model: 'efficientnet_b0', energy: 6.3, latency: 0.16 },
+                    { model: 'resnet50', energy: 7.4, latency: 0.21 }
+                ],
+                heatmap: [
+                    { slot: '08:00', energy: 4.9 },
+                    { slot: '10:00', energy: 5.2 },
+                    { slot: '12:00', energy: 6.1 },
+                    { slot: '14:00', energy: 6.4 },
+                    { slot: '16:00', energy: 5.7 }
+                ]
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            // Load deployment logs từ server khi trang được tải
+            loadDeploymentLogs();
+            
+            const viewTabs = document.getElementById('view_tabs');
+            const deploymentView = document.getElementById('deployment_view');
+            const monitoringView = document.getElementById('monitoring_view');
+            if (viewTabs) {
+                viewTabs.addEventListener('click', (evt) => {
+                    const btn = evt.target.closest('.view-tab');
+                    if (!btn) return;
+                    const view = btn.dataset.view;
+                    viewTabs.querySelectorAll('.view-tab').forEach(el => el.classList.toggle('active', el.dataset.view === view));
+                    if (deploymentView) deploymentView.classList.toggle('hidden', view !== 'deployment');
+                    if (monitoringView) monitoringView.classList.toggle('hidden', view !== 'monitoring');
+                });
+            }
+
+            const monitorTabs = document.getElementById('monitor_tabs');
+            if (monitorTabs) {
+                monitorTabs.addEventListener('click', (evt) => {
+                    const btn = evt.target.closest('.monitor-tab');
+                    if (!btn) return;
+                    const tab = btn.dataset.tab;
+                    monitorTabs.querySelectorAll('.monitor-tab').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
+                    renderMonitoringTab(tab);
+                });
+                renderMonitoringTab('timeseries');
+            }
+
+            document.querySelector('.filter-tabs').addEventListener('click', (evt) => {
+                const btn = evt.target.closest('button');
+                if (!btn) return;
+                setFilterActive(btn.dataset.filter);
+                filterModels(btn.dataset.filter);
+            });
+
+            document.getElementById('model_list').addEventListener('click', (evt) => {
+                const item = evt.target.closest('.model-item');
+                if (!item) return;
+                selectModel(decodeURIComponent(item.dataset.model));
+            });
+
+            const balenaList = document.getElementById('balena_device_list');
+            if (balenaList) {
+                balenaList.addEventListener('click', (evt) => {
+                    const button = evt.target.closest('[data-endpoint]');
+                    if (!button) return;
+                    evt.preventDefault();
+                    const endpoint = button.dataset.endpoint ? decodeURIComponent(button.dataset.endpoint) : '';
+                    const name = button.dataset.name ? decodeURIComponent(button.dataset.name) : '';
+                    useBalenaEndpoint(endpoint, name);
+                });
+            }
+
+            const balenaRefreshBtn = document.getElementById('balena_refresh_btn');
+            if (balenaRefreshBtn) {
+                balenaRefreshBtn.addEventListener('click', () => loadBalenaDevices(true));
+            }
+
+            const balenaAppFilter = document.getElementById('balena_app_filter');
+            if (balenaAppFilter) {
+                balenaAppFilter.addEventListener('input', () => {
+                    clearTimeout(balenaAppFilter._debounce);
+                    balenaAppFilter._debounce = setTimeout(() => loadBalenaDevices(), 400);
+                });
+            }
+
+            const balenaOnlineToggle = document.getElementById('balena_online_only');
+            if (balenaOnlineToggle) {
+                balenaOnlineToggle.addEventListener('change', () => loadBalenaDevices());
+            }
+
+            loadRecommendations();
+            startStatusPolling();
+            renderSelectionPreview();
+            renderEnergyMetrics(null);
+            loadBalenaDevices();
+        });
+
+        function loadRecommendations() {
+            showLoading();
+            fetch(`/api/models/recommended?device_type=BBB&max_energy=${DEFAULT_BUDGET_MWH}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        allModels = data.recommendations || [];
+                        selectedModel = null;
+                        displayStats(data.stats);
+                        setFilterActive('all');
+                        filterModels('all');
+                        renderSelectionPreview();
+                        document.getElementById('deploy_btn').disabled = true;
+                        showAlert('success', 'Đã tải danh sách models đề xuất');
+                    } else {
+                        showAlert('error', data.error || 'Không thể tải danh sách đề xuất');
+                    }
+                })
+                .catch(err => showAlert('error', 'Không tải được dữ liệu: ' + err));
+        }
+
+        function loadAllModels() {
+            showLoading();
+            fetch('/api/models/all')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        allModels = data.models || [];
+                        selectedModel = null;
+                        displayStats(null);
+                        setFilterActive('all');
+                        filterModels('all');
+                        renderSelectionPreview();
+                        document.getElementById('deploy_btn').disabled = true;
+                        showAlert('info', 'Đã tải toàn bộ danh sách models');
+                    } else {
+                        showAlert('error', data.error || 'Không thể tải tất cả models');
+                    }
+                })
+                .catch(err => showAlert('error', 'Không tải được dữ liệu: ' + err));
+        }
+
+        function filterModels(type) {
+            currentFilter = type;
+            renderModelList();
+        }
+
+        function renderModelList() {
+            let filtered = [...allModels];
+            switch (currentFilter) {
+                case 'recommended':
+                    filtered = filtered.filter(m => m.recommended);
+                    break;
+                case 'low_energy':
+                    filtered = filtered.filter(m => Number(m.energy_mwh) < 50);
+                    break;
+                case 'small_size':
+                    filtered = filtered.filter(m => Number(m.size_mb) < 30);
+                    break;
+                default:
+                    break;
+            }
+            if (selectedModel && !filtered.some(m => m.name === selectedModel)) {
+                selectedModel = null;
+            }
+            displayModels(filtered);
+            document.getElementById('deploy_btn').disabled = !selectedModel;
+            renderSelectionPreview();
+        }
+
+        function displayModels(models) {
+            const container = document.getElementById('model_list');
+            if (!models || models.length === 0) {
+                container.innerHTML = '<div class="loading-state">Không có model nào phù hợp với bộ lọc hiện tại.</div>';
+                return;
+            }
+            container.innerHTML = models.map(model => {
+                const rawName = model.name || 'Unnamed model';
+                const encodedName = encodeURIComponent(rawName);
+                const escapedName = escapeHtml(rawName);
+                const reason = model.reason ? `<div class="model-reason">${escapeHtml(model.reason)}</div>` : '';
+                const selectedClass = selectedModel === model.name ? 'selected' : '';
+                const recommendedClass = model.recommended ? 'recommended' : '';
+                const badge = model.recommended ? '<span class="pill">Recommended</span>' : '';
+                return `
+                    <div class="model-item ${selectedClass} ${recommendedClass}" data-model="${encodedName}">
+                        <div class="model-name">${escapedName}${badge}</div>
+                        <div class="model-meta">
+                            <span>Năng lượng: <strong>${formatMetric(model.energy_mwh, 2)} mWh</strong></span>
+                            <span>Kích thước: <strong>${formatMetric(model.size_mb, 2)} MB</strong></span>
+                            <span>Độ trễ: <strong>${formatMetric(model.latency_s, 3)} s</strong></span>
+                            <span>Params: <strong>${formatMetric(model.params_m, 2)} M</strong></span>
+                        </div>
+                        ${reason}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectModel(modelName) {
+            selectedModel = modelName;
+            renderModelList();
+            renderSelectionPreview();
+            showAlert('info', `Đã chọn ${modelName}`);
+        }
+
+        function deployModel() {
+            if (!selectedModel) {
+                showAlert('error', 'Vui lòng chọn một model trước khi deploy');
+                return;
+            }
+            const bbbIp = (document.getElementById('bbb_ip').value || '').trim();
+            if (!bbbIp) {
+                showAlert('error', 'Vui lòng nhập IP thiết bị IoT trước khi deploy');
+                return;
+            }
+            const energyBudget = DEFAULT_BUDGET_MWH;
+            const modelDetails = getModelByName(selectedModel);
+            let forceDeploy = false;
+            if (modelDetails && Number(modelDetails.energy_mwh) > energyBudget) {
+                const confirmOverride = window.confirm(
+                    `Model cần ${modelDetails.energy_mwh} mWh, vượt ngưỡng ${energyBudget} mWh. Bạn có muốn tiếp tục deploy và chấp nhận cảnh báo không?`
+                );
+                if (!confirmOverride) {
+                    showAlert('error', 'Deploy bị hủy do vượt ngưỡng năng lượng');
+                    showDeploymentLog('Deploy bị hủy do vượt ngưỡng năng lượng đặt trước', 'error');
+                    return;
+                }
+                forceDeploy = true;
+            }
+            showAlert('info', 'Đang tiến hành deploy model...');
+            showDeploymentLog(`Bắt đầu deploy ${selectedModel} lên thiết bị ${bbbIp}`, 'info');
+            if (energyBudget !== null) {
+                showDeploymentLog(`Ngân sách năng lượng: ${energyBudget} mWh`, 'info');
+            }
+            document.getElementById('deploy_btn').disabled = true;
+            fetch('/api/deploy', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    bbb_ip: bbbIp,
+                    model_name: selectedModel,
+                    max_energy: energyBudget,
+                    force: forceDeploy
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('deploy_btn').disabled = false;
+                if (data.success) {
+                    showAlert('success', 'Deploy thành công!');
+                    showDeploymentLog(`Hoàn tất deploy ${selectedModel} (${data.model_info.energy_avg_mwh} mWh)`, 'success');
+                    if (data.energy_budget_mwh) {
+                        showDeploymentLog(`Đang giám sát với ngân sách ${data.energy_budget_mwh} mWh`, 'info');
+                        // Start energy monitoring (simulated)
+                        startEnergyMonitoring(selectedModel, data.energy_budget_mwh);
+                    }
+                } else {
+                    showAlert('error', 'Deploy thất bại: ' + data.error);
+                    showDeploymentLog(`Lỗi deploy: ${data.error}`, 'error');
+                }
+            })
+            .catch(err => {
+                document.getElementById('deploy_btn').disabled = false;
+                showAlert('error', 'Không thể kết nối: ' + err);
+                showDeploymentLog('Không thể kết nối tới controller hoặc thiết bị IoT', 'error');
+            });
+        }
+
+        let energyMonitoringInterval = null;
+        
+        function startEnergyMonitoring(modelName, budget) {
+            // Clear existing interval
+            if (energyMonitoringInterval) {
+                clearInterval(energyMonitoringInterval);
+            }
+            
+            // Update budget display
+            document.getElementById('energy_budget_value').textContent = budget.toFixed(1);
+            
+            // Initial fetch
+            updateEnergyMonitoring(modelName, budget);
+            
+            // Poll every 5 seconds
+            energyMonitoringInterval = setInterval(() => {
+                updateEnergyMonitoring(modelName, budget);
+            }, 5000);
+        }
+        
+        function updateEnergyMonitoring(modelName, budget) {
+            fetch(`/api/energy/monitor?model=${encodeURIComponent(modelName)}&duration=60`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.readings && data.readings.length > 0) {
+                        const stats = data.statistics;
+                        const latest = data.readings[data.readings.length - 1];
+                        
+                        // Update cards
+                        document.getElementById('energy_latest_value').textContent = latest.energy_mwh.toFixed(1);
+                        document.getElementById('energy_avg_value').textContent = stats.average_mwh.toFixed(1);
+                        
+                        // Update status badge
+                        const statusBadge = document.getElementById('energy_status_badge');
+                        if (stats.average_mwh > budget) {
+                            statusBadge.textContent = 'Vượt ngưỡng';
+                            statusBadge.className = 'badge error';
+                        } else {
+                            statusBadge.textContent = 'Ổn định';
+                            statusBadge.className = 'badge success';
+                        }
+                        
+                        // Update history list (last 6 readings)
+                        const historyList = document.getElementById('energy_history_list');
+                        const recentReadings = data.readings.slice(-6).reverse();
+                        historyList.innerHTML = recentReadings.map(reading => {
+                            const time = new Date(reading.timestamp).toLocaleTimeString('vi-VN', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                            });
+                            const status = reading.status === 'spike' ? ' ⚠️' : '';
+                            return `<li><span>${time}${status}</span><span>${reading.energy_mwh.toFixed(1)} mWh</span></li>`;
+                        }).join('');
+                    }
+                })
+                .catch(err => {
+                    console.error('Failed to fetch energy monitoring data:', err);
+                });
+        }
+        
+        function stopEnergyMonitoring() {
+            if (energyMonitoringInterval) {
+                clearInterval(energyMonitoringInterval);
+                energyMonitoringInterval = null;
+            }
+        }
+
+        function predictEnergy() {
+            const payload = {
+                params_m: Number(document.getElementById('pred_params_m').value),
+                gflops: Number(document.getElementById('pred_gflops').value),
+                gmacs: Number(document.getElementById('pred_gmacs').value),
+                size_mb: Number(document.getElementById('pred_size_mb').value),
+                latency_avg_s: Number(document.getElementById('pred_latency').value),
+                throughput_iter_per_s: Number(document.getElementById('pred_throughput').value),
+            };
+            const missing = Object.entries(payload).filter(([_, v]) => Number.isNaN(v));
+            if (missing.length) {
+                document.getElementById('predict_output').innerHTML = '<span style="color: var(--danger);">Vui lòng nhập đầy đủ tất cả trường số.</span>';
+                return;
+            }
+            document.getElementById('predict_output').innerHTML = `
+                <div class="loading-state" style="padding:8px 0;">
+                    <div class="spinner"></div>
+                    Đang dự đoán năng lượng...
+                </div>
+            `;
+            fetch('/api/predict-energy', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    document.getElementById('predict_output').innerHTML = `<span style="color: var(--danger);">Lỗi: ${escapeHtml(data.error || 'Không thể dự đoán')}</span>`;
+                    return;
+                }
+                const pred = data.predictions && data.predictions[0];
+                if (!pred) {
+                    document.getElementById('predict_output').innerHTML = '<span style="color: var(--danger);">Không có kết quả trả về.</span>';
+                    return;
+                }
+                document.getElementById('predict_output').innerHTML = `
+                    <div style="display:flex; gap:10px; align-items:center; margin-bottom:6px;">
+                        <span class="badge ${pred.prediction_mwh > (data.model_info?.energy_budget_mwh || 0) ? 'over' : 'ok'}">Energy Est.</span>
+                        <strong style="font-size:18px;">${formatMetric(pred.prediction_mwh,2)} mWh</strong>
+                        <span class="muted">CI: ${formatMetric(pred.ci_lower_mwh,2)} - ${formatMetric(pred.ci_upper_mwh,2)} mWh</span>
+                    </div>
+                    <div class="muted">Model: ${escapeHtml(pred.model_name || 'N/A')}</div>
+                `;
+            })
+            .catch(err => {
+                document.getElementById('predict_output').innerHTML = `<span style="color: var(--danger);">Lỗi kết nối: ${escapeHtml(err)}</span>`;
+            });
+        }
+
+        function prefillPredictFromSelection() {
+            if (!selectedModel) {
+                showAlert('error', 'Chưa chọn model để điền thông số');
+                return;
+            }
+            const m = getModelByName(selectedModel);
+            if (!m) {
+                showAlert('error', 'Không tìm thấy thông tin model đã chọn');
+                return;
+            }
+            document.getElementById('pred_params_m').value = m.params_m || '';
+            document.getElementById('pred_gflops').value = m.gflops || '';
+            document.getElementById('pred_size_mb').value = m.size_mb || '';
+            document.getElementById('pred_latency').value = m.latency_s || '';
+            document.getElementById('pred_throughput').value = m.throughput || '';
+            showAlert('info', 'Đã điền thông số sẵn có, bổ sung GMACs nếu thiếu.');
+        }
+
+        function loadBalenaDevices(showNotification = false) {
+            const list = document.getElementById('balena_device_list');
+            if (!list) return;
+            showBalenaLoading();
+            const params = new URLSearchParams();
+            const appFilter = document.getElementById('balena_app_filter');
+            const appValue = appFilter && appFilter.value ? appFilter.value.trim() : '';
+            if (appValue) params.set('app', appValue);
+            const onlineToggle = document.getElementById('balena_online_only');
+            if (onlineToggle && onlineToggle.checked) params.set('online_only', 'true');
+            const query = params.toString();
+            const url = query ? `/api/balena/devices?${query}` : '/api/balena/devices';
+            fetch(url)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        balenaDevices = data.devices || [];
+                        renderBalenaDevices(balenaDevices);
+                        if (showNotification) {
+                            showAlert('success', 'Đã làm mới danh sách thiết bị Balena');
+                        }
+                    } else {
+                        showBalenaDevicesMessage(data.error || 'Không thể tải thiết bị Balena', 'error');
+                    }
+                })
+                .catch(err => showBalenaDevicesMessage('Không thể kết nối Balena: ' + err, 'error'));
+        }
+
+        function showBalenaLoading() {
+            const list = document.getElementById('balena_device_list');
+            if (!list) return;
+            list.innerHTML = `
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    Đang tải danh sách thiết bị Balena Cloud...
+                </div>
+            `;
+        }
+
+        function renderBalenaDevices(devices) {
+            const message = document.getElementById('balena_devices_message');
+            const list = document.getElementById('balena_device_list');
+            if (!list) return;
+            if (!devices.length) {
+                if (message) message.textContent = '';
+                list.innerHTML = '';
+                return;
+            }
+            if (message) message.textContent = `Tìm thấy ${devices.length} thiết bị`;
+            list.innerHTML = devices.map(dev => {
+                const statusBadge = dev.is_online
+                    ? '<span class="badge ok" data-badge="status">ONLINE</span>'
+                    : '<span class="badge over" data-badge="status">OFFLINE</span>';
+                const endpoint = dev.endpoint ? encodeURIComponent(dev.endpoint) : '';
+                const name = dev.name ? encodeURIComponent(dev.name) : '';
+                const deviceType = dev.app && dev.app.name ? dev.app.name : (dev.app && dev.app.slug ? dev.app.slug : 'N/A');
+                return `
+                    <div class="balena-item ${dev.is_online ? 'online' : 'offline'}">
+                        <div class="balena-head">
+                            <div>
+                                <h4>${escapeHtml(dev.name || 'Device')}</h4>
+                                ${statusBadge}
+                            </div>
+                            <div class="balena-actions">
+                                ${dev.webconsole_url ? `<a class="mini-btn" href="${escapeHtml(dev.webconsole_url)}" target="_blank">Webconsole</a>` : ''}
+                                ${dev.endpoint ? `<button class="mini-btn" data-endpoint="${endpoint}" data-name="${name}">Connect</button>` : ''}
+                            </div>
+                        </div>
+                        <div class="balena-meta">
+                            <span>UUID: ${escapeHtml(dev.uuid || '--')}</span>
+                            <span>IP: ${escapeHtml(dev.ip_address || dev.vpn_address || '--')}</span>
+                            <span>OS: ${escapeHtml(dev.os_version || '--')}</span>
+                            <span>Type: ${escapeHtml(deviceType)}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showBalenaDevicesMessage(message, type = 'info') {
+            const messageEl = document.getElementById('balena_devices_message');
+            if (messageEl) {
+                messageEl.textContent = message;
+                messageEl.className = type === 'error' ? 'muted error' : (type === 'success' ? 'muted success' : 'muted');
+            }
+        }
+
+        function useBalenaEndpoint(endpoint, name) {
+            if (!endpoint) return;
+            showBalenaDevicesMessage('', 'info');
+            fetch(`/api/status?bbb_ip=${endpoint}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        updateDeviceStatus(data.status);
+                        showBalenaDevicesMessage('', 'success');
+                        const btns = document.querySelectorAll(`.mini-btn[data-endpoint="${encodeURIComponent(endpoint)}"]`);
+                        btns.forEach(btn => btn.outerHTML = `<span class="badge ok">Connected</span>`);
+                    } else {
+                        showBalenaDevicesMessage(data.error || 'Kết nối thất bại', 'error');
+                    }
+                })
+                .catch(err => showBalenaDevicesMessage('Không thể kết nối: ' + err, 'error'));
+        }
+
+        function startStatusPolling() {
+            if (statusInterval) clearInterval(statusInterval);
+            statusInterval = setInterval(() => {
+                const bbbIp = (document.getElementById('bbb_ip').value || '').trim();
+                if (!bbbIp) return;
+                fetch(`/api/status?bbb_ip=${bbbIp}`)
+                    .then(r => r.json())
+                    .then(data => { if (data.success) updateDeviceStatus(data.status); })
+                    .catch(() => {});
+            }, 5000);
+        }
+
+        function updateDeviceStatus(status) {
+            const deviceStatus = document.getElementById('device_status');
+            const modelStatus = document.getElementById('model_status');
+            const normalized = (status && status.status) ? status.status : 'idle';
+            const statusClass = ['idle', 'downloading', 'ready', 'running', 'error'].includes(normalized) ? normalized : 'idle';
+            deviceStatus.querySelector('.status-value').innerHTML = `<span class="dot ${statusClass}"></span>${normalized.toUpperCase()}`;
+            if (status && status.model_name) {
+                modelStatus.querySelector('.status-value').textContent = status.model_name;
+            } else {
+                modelStatus.querySelector('.status-value').textContent = 'Chưa có model';
+            }
+            renderEnergyMetrics(status ? status.energy_metrics : null);
+        }
+
+        function displayStats(stats) {
+            const card = document.getElementById('stats_card');
+            const mainTotal = document.getElementById('stat_total_main');
+            const main50 = document.getElementById('stat_50_main');
+            const main100 = document.getElementById('stat_100_main');
+            if (!stats) {
+                card.style.display = 'block';
+                document.getElementById('stat_total').textContent = '—';
+                document.getElementById('stat_50').textContent = '—';
+                document.getElementById('stat_100').textContent = '—';
+                mainTotal.textContent = '—';
+                main50.textContent = '—';
+                main100.textContent = '—';
+                return;
+            }
+            card.style.display = 'block';
+            document.getElementById('stat_total').textContent = stats.total_models || 0;
+            document.getElementById('stat_50').textContent = stats.models_under_50mwh || 0;
+            document.getElementById('stat_100').textContent = stats.models_under_100mwh || 0;
+            mainTotal.textContent = stats.total_models || 0;
+            main50.textContent = stats.models_under_50mwh || 0;
+            main100.textContent = stats.models_under_100mwh || 0;
+        }
+
+        function renderEnergyMetrics(metrics) {
+            const budgetEl = document.getElementById('energy_budget_value');
+            const latestEl = document.getElementById('energy_latest_value');
+            const avgEl = document.getElementById('energy_avg_value');
+            const badge = document.getElementById('energy_status_badge');
+            const historyEl = document.getElementById('energy_history_list');
+            if (!metrics) {
+                budgetEl.textContent = 'N/a';
+                latestEl.textContent = 'N/a';
+                avgEl.textContent = 'N/a';
+                badge.textContent = 'Chưa có';
+                badge.className = 'badge';
+                historyEl.innerHTML = '<li><span>Chưa có dữ liệu</span><span></span></li>';
+                return;
+            }
+            const budget = metrics.budget_mwh;
+            const latest = metrics.latest_mwh;
+            const average = metrics.avg_mwh;
+            const history = Array.isArray(metrics.history) ? metrics.history.slice(-6).reverse() : [];
+            budgetEl.textContent = budget != null ? formatMetric(budget, 2) : 'N/a';
+            latestEl.textContent = latest != null ? formatMetric(latest, 2) : 'N/a';
+            avgEl.textContent = average != null ? formatMetric(average, 2) : 'N/a';
+            const state = metrics.status === 'over_budget' ? 'over' : 'ok';
+            badge.textContent = state === 'over' ? 'Vượt ngưỡng' : 'Ổn định';
+            badge.className = `badge ${state === 'over' ? 'over' : 'ok'}`;
+            if (!history.length) {
+                historyEl.innerHTML = '<li><span>Chưa có dữ liệu</span><span></span></li>';
+            } else {
+                historyEl.innerHTML = history.map(item => `
+                    <li><span>${formatTimestamp(item.timestamp)}</span><span>${formatMetric(item.energy_mwh, 2)} mWh</span></li>
+                `).join('');
+            }
+
+            if (history.length) {
+                monitoringData.timeseries = history.slice(0, 6).map(item => ({
+                    label: formatTimestamp(item.timestamp),
+                    energy: item.energy_mwh,
+                    latency: item.latency_s || item.latency_avg_s || 0.12,
+                    throughput: item.throughput || item.throughput_iter_per_s || 0
+                })).reverse();
+            }
+            monitoringData.status = {
+                budgetUsed: budget ? Math.min(150, Math.round((latest / budget) * 100)) : (metrics.status === 'over_budget' ? 120 : 42),
+                avgLatency: metrics.latency_avg_s || metrics.latency_s || 0.12,
+                uptime: metrics.uptime_pct ? `${formatMetric(metrics.uptime_pct, 1)}%` : '99.0%',
+                thermal: metrics.thermal_c || 54,
+                memory: metrics.memory_used_pct || 68,
+                successRate: metrics.success_rate || 98
+            };
+            const activeMonitorTab = document.querySelector('#monitor_tabs .monitor-tab.active');
+            if (activeMonitorTab) {
+                renderMonitoringTab(activeMonitorTab.dataset.tab);
+            }
+        }
+
+        function renderMonitoringTab(tab) {
+
+            const container = document.getElementById('monitor_content');
+            if (!container) return;
+            if (tab === 'timeseries') {
+                const series = monitoringData.timeseries || [];
+                const maxEnergy = Math.max(...series.map(s => s.energy || 0), 1);
+                container.innerHTML = `
+                    <div class="monitor-row">
+                        <div class="monitor-card">
+                            <h4>Line / Area</h4>
+                            <small>Năng lượng theo thời gian (mWh)</small>
+                            <div class="metric-list">
+                                ${series.map(item => renderMetricLine(item.label, item.energy, maxEnergy, 'mWh')).join('')}
+                            </div>
+                        </div>
+                        <div class="monitor-card">
+                            <h4>Multi-axis</h4>
+                            <small>Energy vs latency & throughput</small>
+                            <div class="metric-list">
+                                ${series.map(item => {
+                                    const barWidth = Math.min(100, Math.max(12, Math.round((item.latency || 0.01) / 0.25 * 100)));
+                                    return `
+                                        <div class="metric-line">
+                                            <span class="label">${escapeHtml(item.label)}</span>
+                                            <div class="bar" style="width:${barWidth}%; background: linear-gradient(90deg, #8b5cf6, #22d3ee);"></div>
+                                            <span class="value">${formatMetric(item.latency, 3)} s • ${formatMetric(item.throughput, 0)} it/s</span>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            if (tab === 'status') {
+                const stat = monitoringData.status || {};
+                container.innerHTML = `
+                    <div class="monitor-row">
+                        <div class="monitor-card">
+                            <h4>Gauge</h4>
+                            <small>Ngân sách đã dùng</small>
+                            <div class="metric-line">
+                                <span class="label">Budget used</span>
+                                <div class="bar" style="width:${Math.min(100, stat.budgetUsed || 0)}%;"></div>
+                                <span class="value">${formatMetric(stat.budgetUsed, 0)}%</span>
+                            </div>
+                            <div class="metric-line">
+                                <span class="label">Uptime</span>
+                                <div class="bar" style="width:${parsePercent(stat.uptime)}%; background: linear-gradient(90deg, #34d399, #10b981);"></div>
+                                <span class="value">${escapeHtml(stat.uptime || '--')}</span>
+                            </div>
+                        </div>
+                        <div class="monitor-card">
+                            <h4>Status / Health</h4>
+                            <div class="monitor-row" style="grid-template-columns: repeat(auto-fit, minmax(160px,1fr));">
+                                ${renderKpi('Latency avg', `${formatMetric(stat.avgLatency, 3)} s`)}
+                                ${renderKpi('Memory used', `${formatMetric(stat.memory, 0)} %`)}
+                                ${renderKpi('Thermal', `${formatMetric(stat.thermal, 0)} °C`)}
+                                ${renderKpi('Success rate', `${formatMetric(stat.successRate, 0)} %`)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            if (tab === 'distribution') {
+                const dist = monitoringData.distribution || {};
+                const buckets = dist.buckets || [];
+                const maxBucket = Math.max(...buckets.map(b => b.value || 0), 1);
+                container.innerHTML = `
+                    <div class="monitor-row">
+                        <div class="monitor-card">
+                            <h4>Histogram</h4>
+                            <small>Phân bố tiêu thụ năng lượng</small>
+                            <div class="metric-list">
+                                ${buckets.map(bucket => renderMetricLine(bucket.label, bucket.value, maxBucket, 'lần ghi nhận')).join('')}
+                            </div>
+                        </div>
+                        <div class="monitor-card">
+                            <h4>Box summary</h4>
+                            <small>Min / P25 / P50 / P75 / Max</small>
+                            <div class="metric-list">
+                                ${['min','p25','p50','p75','max'].map(key => {
+                                    const v = dist.box ? dist.box[key] : null;
+                                    const base = dist.box && dist.box.max ? dist.box.max : 1;
+                                    const width = Math.min(100, Math.max(10, Math.round(((v || 0) / base) * 100)));
+                                    return `
+                                        <div class="metric-line">
+                                            <span class="label">${key.toUpperCase()}</span>
+                                            <div class="bar" style="width:${width}%;"></div>
+                                            <span class="value">${formatMetric(v, 2)} mWh</span>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            if (tab === 'advanced') {
+                // Load real data from API for Pareto analysis
+                fetch('/api/models/all')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success && data.models) {
+                            renderParetoAnalysis(data.models);
+                        } else {
+                            renderParetoPlaceholder();
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Failed to load Pareto data:', err);
+                        renderParetoPlaceholder();
+                    });
+                return;
+            }
+
+            container.innerHTML = '<div class="monitor-card">Chưa có dữ liệu giám sát.</div>';
+        }
+
+        function renderParetoAnalysis(models) {
+            const container = document.getElementById('monitor_content');
+            if (!container) return;
+
+            // Filter models with valid data
+            const validModels = models.filter(m => 
+                m.energy_avg_mwh > 0 && 
+                m.latency_avg_s > 0 && 
+                m.size_mb > 0
+            );
+
+            // Sort by energy for Pareto frontier
+            const sortedByEnergy = [...validModels].sort((a, b) => a.energy_avg_mwh - b.energy_avg_mwh);
+            
+            // Compute Pareto frontier (Energy vs Latency)
+            // A point is on frontier if no other point dominates it (lower energy AND lower latency)
+            const paretoFrontier = [];
+            for (const model of sortedByEnergy) {
+                const isDominated = validModels.some(other => 
+                    other.energy_avg_mwh < model.energy_avg_mwh && 
+                    other.latency_avg_s < model.latency_avg_s
+                );
+                if (!isDominated) {
+                    paretoFrontier.push(model);
+                }
+            }
+
+            // Top 15 efficient models for display
+            const topEfficient = sortedByEnergy.slice(0, 15);
+            
+            // Energy vs Size trade-off
+            const sortedBySize = [...validModels].sort((a, b) => a.size_mb - b.size_mb);
+            const topCompact = sortedBySize.slice(0, 15);
+
+            // Compute efficiency metric: throughput / energy
+            const withEfficiency = validModels.map(m => ({
+                ...m,
+                efficiency: m.throughput_iter_per_s / m.energy_avg_mwh
+            })).sort((a, b) => b.efficiency - a.efficiency);
+            const topEfficiencyModels = withEfficiency.slice(0, 10);
+
+            const maxEnergy = Math.max(...topEfficient.map(m => m.energy_avg_mwh), 1);
+            const maxLatency = Math.max(...topEfficient.map(m => m.latency_avg_s), 1);
+            const maxSize = Math.max(...topCompact.map(m => m.size_mb), 1);
+            const maxEff = Math.max(...topEfficiencyModels.map(m => m.efficiency), 1);
+
+            container.innerHTML = `
+                <div class="monitor-row">
+                    <div class="monitor-card">
+                        <h4>⚡ Energy vs Latency (Pareto Frontier)</h4>
+                        <small>${paretoFrontier.length} models trên Pareto frontier • Tối ưu cả năng lượng và tốc độ</small>
+                        <div class="metric-list" style="max-height: 400px; overflow-y: auto;">
+                            ${topEfficient.map((model, idx) => {
+                                const isParetoOptimal = paretoFrontier.some(p => p.model === model.model);
+                                const energyWidth = Math.min(100, Math.round((model.energy_avg_mwh / maxEnergy) * 100));
+                                const latencyWidth = Math.min(100, Math.round((model.latency_avg_s / maxLatency) * 100));
+                                return `
+                                    <div class="metric-line" style="position: relative; margin-bottom: 12px;">
+                                        <span class="label" style="font-size: 12px; font-weight: ${isParetoOptimal ? '700' : '400'};">
+                                            ${idx + 1}. ${escapeHtml(model.model)}
+                                            ${isParetoOptimal ? '<span style="color: #22d3ee;">★</span>' : ''}
+                                        </span>
+                                        <div style="display: flex; flex-direction: column; gap: 2px; flex: 1;">
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <span style="font-size: 10px; color: var(--muted); min-width: 60px;">Energy</span>
+                                                <div class="bar" style="width:${energyWidth}%; height: 6px; background: linear-gradient(90deg, #22d3ee, #0ea5e9);"></div>
+                                                <span style="font-size: 11px; color: var(--text); min-width: 70px;">${model.energy_avg_mwh.toFixed(1)} mWh</span>
+                                            </div>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <span style="font-size: 10px; color: var(--muted); min-width: 60px;">Latency</span>
+                                                <div class="bar" style="width:${latencyWidth}%; height: 6px; background: linear-gradient(90deg, #8b5cf6, #a855f7);"></div>
+                                                <span style="font-size: 11px; color: var(--text); min-width: 70px;">${model.latency_avg_s.toFixed(3)} s</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        <div style="margin-top: 12px; padding: 8px; background: rgba(34,211,238,0.1); border-radius: 8px; font-size: 11px; color: var(--muted);">
+                            ★ Pareto optimal: Không có model nào tốt hơn cả năng lượng VÀ latency
+                        </div>
+                    </div>
+                    <div class="monitor-card">
+                        <h4>📦 Energy vs Size Trade-off</h4>
+                        <small>Top 15 models nhẹ nhất • Phù hợp thiết bị RAM hạn chế</small>
+                        <div class="metric-list" style="max-height: 400px; overflow-y: auto;">
+                            ${topCompact.map((model, idx) => {
+                                const energyWidth = Math.min(100, Math.round((model.energy_avg_mwh / maxEnergy) * 100));
+                                const sizeWidth = Math.min(100, Math.round((model.size_mb / maxSize) * 100));
+                                return `
+                                    <div class="metric-line" style="position: relative; margin-bottom: 12px;">
+                                        <span class="label" style="font-size: 12px;">
+                                            ${idx + 1}. ${escapeHtml(model.model)}
+                                        </span>
+                                        <div style="display: flex; flex-direction: column; gap: 2px; flex: 1;">
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <span style="font-size: 10px; color: var(--muted); min-width: 60px;">Size</span>
+                                                <div class="bar" style="width:${sizeWidth}%; height: 6px; background: linear-gradient(90deg, #34d399, #10b981);"></div>
+                                                <span style="font-size: 11px; color: var(--text); min-width: 70px;">${model.size_mb.toFixed(1)} MB</span>
+                                            </div>
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <span style="font-size: 10px; color: var(--muted); min-width: 60px;">Energy</span>
+                                                <div class="bar" style="width:${energyWidth}%; height: 6px; background: linear-gradient(90deg, #22d3ee, #0ea5e9);"></div>
+                                                <span style="font-size: 11px; color: var(--text); min-width: 70px;">${model.energy_avg_mwh.toFixed(1)} mWh</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+                <div class="monitor-row" style="margin-top: 16px;">
+                    <div class="monitor-card">
+                        <h4>🚀 Performance per Watt (Efficiency)</h4>
+                        <small>Top 10 models hiệu quả nhất • Throughput / Energy</small>
+                        <div class="metric-list">
+                            ${topEfficiencyModels.map((model, idx) => {
+                                const effWidth = Math.min(100, Math.round((model.efficiency / maxEff) * 100));
+                                return `
+                                    <div class="metric-line">
+                                        <span class="label" style="font-size: 12px;">${idx + 1}. ${escapeHtml(model.model)}</span>
+                                        <div class="bar" style="width:${effWidth}%; background: linear-gradient(90deg, #fbbf24, #f59e0b);"></div>
+                                        <span class="value" style="font-size: 11px;">${model.efficiency.toFixed(2)} iter/mWh</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                    <div class="monitor-card">
+                        <h4>📊 Summary Statistics</h4>
+                        <small>Tổng quan benchmark 126 models</small>
+                        <div class="metric-list">
+                            ${[
+                                { label: 'Total Models', value: models.length, unit: '' },
+                                { label: 'Avg Energy', value: (models.reduce((sum, m) => sum + (m.energy_avg_mwh || 0), 0) / models.length), unit: ' mWh' },
+                                { label: 'Avg Latency', value: (models.reduce((sum, m) => sum + (m.latency_avg_s || 0), 0) / models.length), unit: ' s' },
+                                { label: 'Avg Size', value: (models.reduce((sum, m) => sum + (m.size_mb || 0), 0) / models.length), unit: ' MB' },
+                                { label: 'Min Energy', value: Math.min(...models.map(m => m.energy_avg_mwh || Infinity)), unit: ' mWh' },
+                                { label: 'Max Energy', value: Math.max(...models.map(m => m.energy_avg_mwh || 0)), unit: ' mWh' }
+                            ].map(stat => `
+                                <div class="metric-line">
+                                    <span class="label">${stat.label}</span>
+                                    <span class="value">${stat.value.toFixed(2)}${stat.unit}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderParetoPlaceholder() {
+            const container = document.getElementById('monitor_content');
+            if (!container) return;
+            const adv = monitoringData.advanced || {};
+                const tradeoff = adv.tradeoff || [];
+                const heatmap = adv.heatmap || [];
+                const maxEnergy = Math.max(...tradeoff.map(t => t.energy || 0), 1);
+                const maxHeat = Math.max(...heatmap.map(h => h.energy || 0), 1);
+                container.innerHTML = `
+                    <div class="monitor-row">
+                        <div class="monitor-card">
+                            <h4>Pareto / Scatter</h4>
+                            <small>Trade-off năng lượng vs latency</small>
+                            <div class="metric-list">
+                                ${tradeoff.map(item => `
+                                    <div class="metric-line">
+                                        <span class="label">${escapeHtml(item.model)}</span>
+                                        <div class="bar" style="width:${Math.min(100, Math.round((item.energy || 0) / maxEnergy * 100))}%; background: linear-gradient(90deg, #22d3ee, #34d399);"></div>
+                                        <span class="value">${formatMetric(item.energy, 2)} mWh • ${formatMetric(item.latency, 3)} s</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <div class="monitor-card">
+                            <h4>Heatmap slot</h4>
+                            <small>Tiêu thụ theo khung giờ</small>
+                            <div class="metric-list">
+                                ${heatmap.map(item => renderMetricLine(item.slot, item.energy, maxHeat, 'mWh')).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+        }
+
+        function renderMetricLine(label, value, maxValue, unit = '') {
+            const safeMax = maxValue && maxValue > 0 ? maxValue : 1;
+            const width = Math.min(100, Math.max(10, Math.round((value / safeMax) * 100)));
+            return `
+                <div class="metric-line">
+                    <span class="label">${escapeHtml(label)}</span>
+                    <div class="bar" style="width:${width}%;"></div>
+                    <span class="value">${formatMetric(value, 2)} ${unit}</span>
+                </div>
+            `;
+        }
+
+        function renderKpi(label, value) {
+            return `
+                <div class="kpi">
+                    <small>${escapeHtml(label)}</small>
+                    <strong>${escapeHtml(value)}</strong>
+                </div>
+            `;
+        }
+
+        function parsePercent(value) {
+            const num = Number(String(value || '').replace('%', ''));
+            if (Number.isNaN(num)) return 0;
+            return Math.min(100, Math.max(0, num));
+        }
+
+        function renderSelectionPreview() {
+            const preview = document.getElementById('selection_preview');
+            if (!preview) return;
+            if (!selectedModel) { preview.textContent = 'Hãy chọn một model để xem dữ liệu và kiểm tra ngưỡng năng lượng.'; return; }
+            const model = getModelByName(selectedModel);
+            if (!model) { preview.textContent = 'Không tìm thấy thông tin model trong tập dữ liệu.'; return; }
+            const parsedBudget = DEFAULT_BUDGET_MWH;
+            const energy = Number(model.energy_mwh);
+            const exceeding = !Number.isNaN(energy) && energy > parsedBudget;
+            preview.innerHTML = `
+                <div><strong>${escapeHtml(model.name)}</strong></div>
+                <div>Năng lượng: <strong>${formatMetric(model.energy_mwh, 2)} mWh</strong> ${exceeding ? '<span class="risk">Vượt ngưỡng!</span>' : ''}</div>
+                <div>Ngưỡng hiện tại: <strong>${formatMetric(parsedBudget, 2)} mWh</strong></div>
+                <div>Kích thước: <strong>${formatMetric(model.size_mb, 2)} MB</strong> • Độ trễ: <strong>${formatMetric(model.latency_s, 3)} s</strong></div>
+            `;
+        }
+
+        function getModelByName(name) {
+            if (!name) return null;
+            return allModels.find(model => model.name === name) || null;
+        }
+
+        function showAlert(type, message) {
+            const container = document.getElementById('alert_container');
+            container.innerHTML = `<div class="alert ${type}">${message}</div>`;
+            setTimeout(() => { container.innerHTML = ''; }, 5000);
+        }
+
+        function showLoading() {
+            document.getElementById('model_list').innerHTML = `
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    Đang tải dữ liệu từ controller...
+                </div>
+            `;
+        }
+
+        function loadDeploymentLogs() {
+            fetch('/api/logs?limit=50')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.logs && data.logs.length > 0) {
+                        const placeholder = document.getElementById('deployment_log_placeholder');
+                        if (placeholder) placeholder.style.display = 'none';
+                        
+                        const log = document.getElementById('deployment_log');
+                        log.innerHTML = ''; // Clear existing
+                        
+                        // Logs đã được reverse ở backend (mới nhất lên đầu)
+                        // Reverse lại để hiển thị cũ nhất lên đầu
+                        const sortedLogs = [...data.logs].reverse();
+                        
+                        sortedLogs.forEach(logEntry => {
+                            const entry = document.createElement('li');
+                            entry.className = `timeline-entry ${logEntry.type || 'info'}`;
+                            
+                            const timestamp = new Date(logEntry.timestamp);
+                            const timeString = timestamp.toLocaleTimeString('vi-VN', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                            });
+                            
+                            entry.innerHTML = `
+                                <span class="timeline-dot"></span>
+                                <div>
+                                    <p class="timeline-time">${timeString}</p>
+                                    <p class="timeline-text">${escapeHtml(logEntry.message)}</p>
+                                </div>
+                            `;
+                            log.appendChild(entry);
+                        });
+                        
+                        // Scroll to bottom
+                        const wrapper = document.getElementById('deployment_log_wrapper');
+                        if (wrapper) {
+                            wrapper.scrollTop = wrapper.scrollHeight;
+                        }
+                        
+                        // Update stats nếu cần
+                        if (data.stats) {
+                            console.log('Deployment Stats:', data.stats);
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error('Failed to load deployment logs:', err);
+                });
+        }
+
+        function showDeploymentLog(message, level = 'info') {
+            const placeholder = document.getElementById('deployment_log_placeholder');
+            if (placeholder) placeholder.style.display = 'none';
+            const log = document.getElementById('deployment_log');
+            const entry = document.createElement('li');
+            entry.className = `timeline-entry ${level}`;
+            entry.innerHTML = `
+                <span class="timeline-dot"></span>
+                <div>
+                    <p class="timeline-time">${new Date().toLocaleTimeString()}</p>
+                    <p class="timeline-text">${message}</p>
+                </div>
+            `;
+            log.appendChild(entry);
+            const wrapper = document.getElementById('deployment_log_wrapper');
+            wrapper.scrollTop = wrapper.scrollHeight;
+        }
+
+        function setFilterActive(filter) {
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.filter === filter);
+            });
+        }
+
+        function formatTimestamp(value) {
+            if (!value) return '--';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return escapeHtml(String(value));
+            return date.toLocaleTimeString();
+        }
+
+        function escapeHtml(value = '') {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatMetric(value, digits = 2) {
+            if (value === undefined || value === null || value === '') return '—';
+            const num = Number(value);
+            if (Number.isNaN(num)) return escapeHtml(String(value));
+            return Number(num.toFixed(digits));
+        }
+    </script>
+</body>
+</html>
