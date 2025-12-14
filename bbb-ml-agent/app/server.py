@@ -13,6 +13,7 @@ app = Flask(__name__)
 MODEL_DIR = "/data/models"
 os.makedirs(MODEL_DIR, exist_ok=True)
 CURRENT_MODEL_PATH = os.path.join(MODEL_DIR, "current_model.bin")
+STATE_FILE_PATH = os.path.join(MODEL_DIR, "agent_state.json")
 ENERGY_HISTORY_LIMIT = 40
 
 
@@ -96,11 +97,51 @@ def record_energy_sample(energy_mwh, power_mw=None, latency_s=None, note=None, t
     return not over_budget
 
 
+def save_state_to_disk():
+    """Persist current state to disk"""
+    import json
+    try:
+        state_data = {
+            "model_name": STATE.get("model_name"),
+            "model_info": STATE.get("model_info"),
+            "status": STATE.get("status"),
+            "last_update": STATE.get("last_update")
+        }
+        with open(STATE_FILE_PATH, "w") as f:
+            json.dump(state_data, f)
+    except Exception as e:
+        log(f"Failed to save state: {e}")
+
+
+def load_state_from_disk():
+    """Restore state from disk on startup"""
+    import json
+    try:
+        if os.path.exists(STATE_FILE_PATH):
+            with open(STATE_FILE_PATH, "r") as f:
+                state_data = json.load(f)
+            STATE["model_name"] = state_data.get("model_name")
+            STATE["model_info"] = state_data.get("model_info")
+            # Don't restore status, start as ready if model exists
+            if STATE["model_name"] and os.path.exists(CURRENT_MODEL_PATH):
+                STATE["status"] = "ready"
+                log(f"Restored model state: {STATE['model_name']}")
+            else:
+                STATE["status"] = "idle"
+            return True
+    except Exception as e:
+        log(f"Failed to load state: {e}")
+    return False
+
+
 def set_state(**kwargs):
     """Update agent state"""
     for k, v in kwargs.items():
         STATE[k] = v
     STATE["last_update"] = datetime.utcnow().isoformat() + "Z"
+    # Persist important state changes to disk
+    if "model_name" in kwargs or "model_info" in kwargs or "status" in kwargs:
+        save_state_to_disk()
 
 
 def log(message):
@@ -271,6 +312,11 @@ def deploy():
         return jsonify({"error": "model_name and model_url are required"}), 400
 
     try:
+        # Stop old model if running
+        if STATE.get("status") == "running" or STATE.get("inference_active"):
+            log(f"Stopping current model before deployment")
+            set_state(status="ready", inference_active=False)
+        
         log(f"Starting deployment: {model_name}")
         reset_energy_metrics(energy_budget_value)
         set_state(
@@ -293,11 +339,14 @@ def deploy():
                 if chunk:
                     f.write(chunk)
 
-        # Replace current model
+        # Replace current model (automatically removes old model)
+        if os.path.exists(CURRENT_MODEL_PATH):
+            log(f"Removing old model: {CURRENT_MODEL_PATH}")
         os.replace(tmp_path, CURRENT_MODEL_PATH)
         file_size = os.path.getsize(CURRENT_MODEL_PATH)
         
         log(f"Model downloaded: {file_size} bytes")
+        log(f"Old model removed, new model deployed")
         set_state(
             status="ready",
             model_name=model_name,
@@ -307,6 +356,7 @@ def deploy():
         )
 
         # Auto-start model inference in background
+        log(f"Auto-starting new model: {model_name}")
         threading.Thread(target=start_model_inference, daemon=True).start()
 
         return jsonify({
@@ -445,10 +495,15 @@ if __name__ == "__main__":
     log("BBB ML Agent starting...")
     log(f"Model directory: {MODEL_DIR}")
     
+    # Restore state from previous session
+    load_state_from_disk()
+    
     # Check if there's an existing model
     if os.path.exists(CURRENT_MODEL_PATH):
         size = os.path.getsize(CURRENT_MODEL_PATH)
         log(f"Found existing model: {size} bytes")
+        if STATE.get("model_name"):
+            log(f"Current model: {STATE['model_name']}")
     
     # Start Flask server
     app.run(host="0.0.0.0", port=8000)
