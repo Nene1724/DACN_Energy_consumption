@@ -4,14 +4,8 @@ from datetime import datetime
 from flask import Flask, request, jsonify
 import requests
 
-# For system metrics
-try:
-    import psutil
-    HAS_PSUTIL = True
-except ImportError:
-    HAS_PSUTIL = False
-    
 import shutil
+import time
 
 app = Flask(__name__)
 
@@ -115,10 +109,127 @@ def log(message):
     print(f"[{timestamp}] {message}", flush=True)
 
 
+def _read_text(path):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except Exception:
+        return None
+
+
+def _cpu_percent_from_proc(sample_interval_s=0.15):
+    """Compute CPU utilization (%) from /proc/stat without psutil."""
+    def read_cpu_ticks():
+        raw = _read_text("/proc/stat")
+        if not raw:
+            return None
+        first = raw.splitlines()[0].split()
+        if len(first) < 5 or first[0] != "cpu":
+            return None
+        ticks = [int(x) for x in first[1:]]
+        total = sum(ticks)
+        idle = ticks[3] + (ticks[4] if len(ticks) > 4 else 0)
+        return total, idle
+
+    a = read_cpu_ticks()
+    if a is None:
+        return None
+    time.sleep(max(0.0, float(sample_interval_s)))
+    b = read_cpu_ticks()
+    if b is None:
+        return None
+
+    total_delta = b[0] - a[0]
+    idle_delta = b[1] - a[1]
+    if total_delta <= 0:
+        return None
+    usage = 100.0 * (1.0 - (idle_delta / total_delta))
+    return max(0.0, min(100.0, usage))
+
+
+def _memory_from_proc():
+    raw = _read_text("/proc/meminfo")
+    if not raw:
+        return None
+    mem = {}
+    for line in raw.splitlines():
+        parts = line.split(":", 1)
+        if len(parts) != 2:
+            continue
+        key = parts[0].strip()
+        value = parts[1].strip().split()[0]
+        try:
+            mem[key] = int(value) * 1024  # kB -> bytes
+        except Exception:
+            continue
+    total = mem.get("MemTotal")
+    available = mem.get("MemAvailable")
+    if total is None or available is None:
+        return None
+    used = max(0, total - available)
+    return {
+        "total_bytes": int(total),
+        "available_bytes": int(available),
+        "used_bytes": int(used),
+        "used_percent": round((used / total) * 100.0, 2) if total else None,
+    }
+
+
+def _storage_for_path(path="/"):
+    try:
+        usage = shutil.disk_usage(path)
+        total = int(usage.total)
+        used = int(usage.used)
+        free = int(usage.free)
+        return {
+            "path": path,
+            "total_bytes": total,
+            "used_bytes": used,
+            "free_bytes": free,
+            "used_percent": round((used / total) * 100.0, 2) if total else None,
+        }
+    except Exception:
+        return None
+
+
+def _temperature_c():
+    raw = _read_text("/sys/class/thermal/thermal_zone0/temp")
+    if not raw:
+        return None
+    try:
+        v = float(raw)
+        return round(v / 1000.0, 1) if v > 200 else round(v, 1)
+    except Exception:
+        return None
+
+
 @app.route("/status", methods=["GET"])
 def status():
     """Return current agent status"""
     return jsonify(STATE)
+
+
+@app.route("/metrics", methods=["GET"])
+def metrics():
+    """Lightweight device metrics without native deps (works on armv7)."""
+    cpu = _cpu_percent_from_proc()
+    mem = _memory_from_proc()
+    storage = _storage_for_path("/")
+    temp = _temperature_c()
+
+    return jsonify({
+        "success": True,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "cpu": {"percent": round(cpu, 2) if cpu is not None else None},
+        "memory": mem,
+        "storage": storage,
+        "temperature_c": temp,
+        "agent": {
+            "status": STATE.get("status"),
+            "model_name": STATE.get("model_name"),
+            "inference_active": STATE.get("inference_active"),
+        },
+    })
 
 
 @app.route("/deploy", methods=["POST"])
