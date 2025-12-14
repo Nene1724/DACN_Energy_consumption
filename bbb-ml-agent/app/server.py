@@ -193,14 +193,26 @@ def _storage_for_path(path="/"):
 
 
 def _temperature_c():
-    raw = _read_text("/sys/class/thermal/thermal_zone0/temp")
-    if not raw:
-        return None
-    try:
-        v = float(raw)
-        return round(v / 1000.0, 1) if v > 200 else round(v, 1)
-    except Exception:
-        return None
+    """Try multiple thermal zones to find CPU temperature."""
+    thermal_paths = [
+        "/sys/class/thermal/thermal_zone0/temp",
+        "/sys/class/thermal/thermal_zone1/temp",
+        "/sys/class/thermal/thermal_zone2/temp",
+        "/sys/devices/virtual/thermal/thermal_zone0/temp",
+    ]
+    
+    for path in thermal_paths:
+        raw = _read_text(path)
+        if raw:
+            try:
+                v = float(raw)
+                # BBB returns temp in millidegrees, but some systems return degrees
+                return round(v / 1000.0, 1) if v > 200 else round(v, 1)
+            except Exception:
+                continue
+    
+    # If no thermal zone found, return None
+    return None
 
 
 @app.route("/status", methods=["GET"])

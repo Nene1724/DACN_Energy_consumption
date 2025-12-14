@@ -1,27 +1,52 @@
 import pandas as pd
 import os
+import re
 from typing import Optional
 
 
 class ModelAnalyzer:
-    def __init__(self, csv_path, predictor_service: Optional[object] = None):
+    def __init__(self, csv_path, predictor_service: Optional[object] = None, model_store_dir: str = None):
         """Load và phân tích benchmark data"""
         self.df = pd.read_csv(csv_path)
         self.df = self.df.sort_values('energy_avg_mwh')
         self.predictor_service = predictor_service
+        self.model_store_dir = model_store_dir or os.path.join(os.path.dirname(os.path.dirname(__file__)), 'model_store')
+    
+    def _normalize_key(self, value: str) -> str:
+        """Normalize model name for comparison"""
+        return "".join(ch.lower() for ch in value if ch.isalnum())
+    
+    def _check_model_downloaded(self, model_name: str) -> bool:
+        """Check if model artifact exists in model_store"""
+        if not os.path.isdir(self.model_store_dir):
+            return False
+        
+        normalized = self._normalize_key(model_name)
+        if not normalized:
+            return False
+        
+        # Check for exact match (case-insensitive, alphanumeric only)
+        for filename in os.listdir(self.model_store_dir):
+            base, _ = os.path.splitext(filename)
+            if self._normalize_key(base) == normalized:
+                return True
+        
+        return False
     
     def get_all_models(self):
         """Trả về danh sách tất cả models với thông tin cơ bản"""
         models = []
         for _, row in self.df.iterrows():
+            model_name = row['model']
             models.append({
-                'name': row['model'],
+                'name': model_name,
                 'params_m': round(row['params_m'], 2),
                 'size_mb': round(row['size_mb'], 2),
                 'energy_mwh': round(row['energy_avg_mwh'], 2),
                 'latency_s': round(row['latency_avg_s'], 4),
                 'throughput': round(row['throughput_iter_per_s'], 2),
-                'input_resolution': row['input_resolution_actual']
+                'input_resolution': row['input_resolution_actual'],
+                'downloaded': self._check_model_downloaded(model_name)
             })
         return models
     

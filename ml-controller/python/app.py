@@ -12,7 +12,7 @@ app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.dirna
 # TODO: Move to environment variables in production
 if not os.getenv("BALENA_API_TOKEN"):
     # Try Session Token first (JWT format)
-    session_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MzY0MTIyLCJleHAiOjE3NjU2NTI0OTcsImp3dF9zZWNyZXQiOiJXRVMzRE1DNjMyRVhXWE1YN0RSU1JJUVBEM0pLT1YyTiIsImF1dGhUaW1lIjoxNzY1NTMyODU4ODc1LCJpYXQiOjE3NjU1MzI4NTh9.MDjHMuGc-_pGBcKOnZL9t9PMpXJQmpLwQhyeorPFuw4"
+    session_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MzY0MTIyLCJleHAiOjE3NjU4MDkyOTksImp3dF9zZWNyZXQiOiJXRVMzRE1DNjMyRVhXWE1YN0RSU1JJUVBEM0pLT1YyTiIsImF1dGhUaW1lIjoxNzY1Njc5Njk5Mjg4LCJpYXQiOjE3NjU2ODA4MDd9.O5uXxj2byOiIFaVZd94C3sdgi9Oh1LD-2AUGexKHSZg"
     # Fallback to API Key
     api_key = "KTfVKRmgeSxIgFxFq9aAdstuOAHSWAFu"
     
@@ -31,7 +31,7 @@ BALENA_DEFAULT_TIMEOUT = int(os.getenv("BALENA_API_TIMEOUT", "30"))
 
 # Initialize predictor + analyzer + log manager
 predictor_service = EnergyPredictorService(ARTIFACTS_DIR)
-analyzer = ModelAnalyzer(CSV_PATH, predictor_service=predictor_service)
+analyzer = ModelAnalyzer(CSV_PATH, predictor_service=predictor_service, model_store_dir=MODEL_STORE_DIR)
 log_manager = LogManager(LOG_FILE_PATH, max_logs=500)
 
 
@@ -175,6 +175,12 @@ def fetch_balena_devices(app_slug=None, online_only=False, limit=50, token=None)
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/favicon.ico")
+def favicon():
+    """Return empty response for favicon to avoid 404 errors"""
+    return "", 204
 
 
 @app.route("/api/models/all", methods=["GET"])
@@ -352,84 +358,6 @@ def deploy():
         }), 500
 
 
-@app.route("/api/energy/monitor", methods=["GET"])
-def get_energy_monitor():
-    """
-    API: Simulated energy monitoring (mock data)
-    Trả về dữ liệu năng lượng giả lập vì không có INA3221 sensor
-    """
-    import random
-    import time
-    from datetime import datetime, timedelta
-    
-    try:
-        # Get parameters
-        model_name = request.args.get("model", "unknown")
-        duration_seconds = int(request.args.get("duration", 60))
-        
-        # Simulate baseline energy từ model info
-        model_info = analyzer.get_model_details(model_name) if model_name != "unknown" else None
-        
-        if model_info and model_info.get("energy_avg_mwh"):
-            base_energy = model_info["energy_avg_mwh"]
-        else:
-            base_energy = 75.0  # Default baseline
-        
-        # Generate simulated energy readings
-        num_readings = min(duration_seconds // 2, 30)  # Max 30 readings
-        current_time = datetime.now()
-        
-        readings = []
-        for i in range(num_readings):
-            # Realistic variation: ±15% random noise
-            noise_factor = random.uniform(0.85, 1.15)
-            # Add slight upward drift over time (thermal effect)
-            drift_factor = 1 + (i / num_readings) * 0.05
-            # Occasional spikes (10% chance)
-            spike_factor = random.uniform(1.2, 1.5) if random.random() < 0.1 else 1.0
-            
-            energy_reading = base_energy * noise_factor * drift_factor * spike_factor
-            
-            timestamp = (current_time - timedelta(seconds=(num_readings - i) * 2)).isoformat()
-            
-            readings.append({
-                "timestamp": timestamp,
-                "energy_mwh": round(energy_reading, 2),
-                "power_w": round(energy_reading / 3.6, 2),  # Approximate W from mWh
-                "temperature_c": round(45 + random.uniform(-5, 10), 1),
-                "status": "spike" if spike_factor > 1.0 else "normal"
-            })
-        
-        # Compute statistics
-        energies = [r["energy_mwh"] for r in readings]
-        avg_energy = sum(energies) / len(energies) if energies else 0
-        min_energy = min(energies) if energies else 0
-        max_energy = max(energies) if energies else 0
-        std_energy = (sum((e - avg_energy) ** 2 for e in energies) / len(energies)) ** 0.5 if energies else 0
-        
-        return jsonify({
-            "success": True,
-            "model": model_name,
-            "baseline_energy_mwh": base_energy,
-            "readings": readings,
-            "statistics": {
-                "average_mwh": round(avg_energy, 2),
-                "min_mwh": round(min_energy, 2),
-                "max_mwh": round(max_energy, 2),
-                "std_dev_mwh": round(std_energy, 2),
-                "num_readings": len(readings),
-                "duration_seconds": duration_seconds
-            },
-            "note": "Simulated data - no physical sensor connected"
-        })
-        
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
-
 @app.route("/api/status", methods=["GET"])
 def get_status():
     """API: Lấy trạng thái của BBB"""
@@ -451,6 +379,70 @@ def get_status():
             "error": str(e)
         }), 500
 
+@app.route("/api/device/metrics", methods=["GET"])
+def get_device_metrics():
+    """API: Lấy system metrics từ thiết bị BBB (CPU, Memory, Storage, Temperature)"""
+    bbb_ip = request.args.get("bbb_ip")
+    if not bbb_ip:
+        return jsonify({"success": False, "error": "bbb_ip is required"}), 400
+
+    try:
+        resp = requests.get(f"http://{bbb_ip}:8000/metrics", timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        
+        return jsonify(data)
+        
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            "success": False,
+            "error": f"Unable to connect to device {bbb_ip}",
+            "device_offline": True
+        }), 200
+    except requests.exceptions.Timeout:
+        return jsonify({
+            "success": False,
+            "error": f"Device {bbb_ip} did not respond (timeout)",
+            "device_timeout": True
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"Error: {str(e)}"
+        }), 200
+
+@app.route("/api/balena/fleets", methods=["GET"])
+def get_balena_fleets():
+    """API: Liệt kê các fleet/application trên Balena Cloud"""
+    token = os.getenv("BALENA_API_TOKEN")
+    if not token:
+        return jsonify({
+            "success": False,
+            "error": "BALENA_API_TOKEN not configured on controller.",
+            "needs_token": True
+        }), 400
+
+    try:
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json"
+        }
+        url = f"{BALENA_API_BASE.rstrip('/')}/v6/application?$select=id,app_name,slug&$orderby=app_name asc"
+        resp = requests.get(url, headers=headers, timeout=BALENA_DEFAULT_TIMEOUT)
+        resp.raise_for_status()
+        payload = resp.json()
+        apps = payload.get("d") or payload.get("value") or []
+        fleets = [{"id": app.get("id"), "name": app.get("app_name"), "slug": app.get("slug")} for app in apps]
+        return jsonify({"success": True, "fleets": fleets})
+    except requests.HTTPError as e:
+        status = e.response.status_code if e.response else 502
+        try:
+            msg = e.response.json()
+        except Exception:
+            msg = e.response.text if e.response else str(e)
+        return jsonify({"success": False, "error": f"Balena API error ({status}): {msg}"}), status
+    except requests.RequestException as e:
+        return jsonify({"success": False, "error": f"Connection error: {str(e)}"}), 500
 
 @app.route("/api/balena/devices", methods=["GET"])
 def get_balena_devices():
@@ -514,102 +506,6 @@ def get_balena_devices():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route("/api/logs", methods=["GET"])
-def get_logs():
-    """API: Lấy deployment logs"""
-    try:
-        limit = request.args.get("limit", type=int, default=100)
-        log_type = request.args.get("type")
-        
-        logs = log_manager.get_logs(limit=limit, log_type=log_type)
-        stats = log_manager.get_deployment_stats()
-        
-        return jsonify({
-            "success": True,
-            "logs": logs,
-            "stats": stats
-        })
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
-
-@app.route("/api/logs/clear", methods=["POST"])
-def clear_logs():
-    """API: Xóa toàn bộ logs"""
-    try:
-        log_manager.clear_logs()
-        log_manager.add_log(
-            log_type="info",
-            message="Logs đã được xóa bởi người dùng"
-        )
-        return jsonify({
-            "success": True,
-            "message": "Đã xóa toàn bộ logs"
-        })
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
-
-@app.route("/api/logs/export", methods=["GET"])
-def export_logs():
-    """API: Export logs ra file"""
-    try:
-        format_type = request.args.get("format", "json")
-        
-        if format_type == "json":
-            data = log_manager._read_logs()
-            return jsonify(data)
-        elif format_type == "csv":
-            import io
-            import csv
-            from flask import make_response
-            
-            data = log_manager._read_logs()
-            output = io.StringIO()
-            
-            if data["logs"]:
-                fieldnames = ["timestamp", "type", "message"]
-                all_metadata_keys = set()
-                for log in data["logs"]:
-                    all_metadata_keys.update(log.get("metadata", {}).keys())
-                fieldnames.extend(sorted(all_metadata_keys))
-                
-                writer = csv.DictWriter(output, fieldnames=fieldnames)
-                writer.writeheader()
-                
-                for log in data["logs"]:
-                    row = {
-                        "timestamp": log.get("timestamp"),
-                        "type": log.get("type"),
-                        "message": log.get("message")
-                    }
-                    for key in all_metadata_keys:
-                        row[key] = log.get("metadata", {}).get(key, "")
-                    writer.writerow(row)
-            
-            response = make_response(output.getvalue())
-            response.headers["Content-Disposition"] = "attachment; filename=deployment_logs.csv"
-            response.headers["Content-Type"] = "text/csv"
-            return response
-        else:
-            return jsonify({
-                "success": False,
-                "error": "Format không hợp lệ (json hoặc csv)"
-            }), 400
-            
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-
-
 @app.route("/api/predict-energy", methods=["POST"])
 def predict_energy():
     """API: Dự đoán năng lượng tiêu thụ từ metadata model"""
@@ -647,6 +543,74 @@ def predict_energy():
 def download_model(filename):
     """Endpoint để BBB tải model files"""
     return send_from_directory(MODEL_STORE_DIR, filename, as_attachment=False)
+
+
+@app.route("/api/logs", methods=["GET"])
+def get_logs():
+    """API: Lấy deployment logs"""
+    try:
+        limit = request.args.get("limit", type=int, default=50)
+        log_type = request.args.get("type")  # filter by type: success, error, info, warning
+        
+        logs = log_manager.get_logs(limit=limit, log_type=log_type)
+        stats = log_manager.get_deployment_stats()
+        
+        return jsonify({
+            "success": True,
+            "logs": logs,
+            "stats": stats
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route("/api/logs/clear", methods=["POST"])
+def clear_logs():
+    """API: Xóa tất cả logs"""
+    try:
+        log_manager.clear_logs()
+        return jsonify({
+            "success": True,
+            "message": "Đã xóa tất cả logs"
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+@app.route("/api/logs/export", methods=["GET"])
+def export_logs():
+    """API: Export logs ra JSON hoặc CSV"""
+    try:
+        format_type = request.args.get("format", "json").lower()
+        
+        if format_type == "json":
+            data = log_manager.export_logs(format_type="json")
+            return jsonify(data)
+        elif format_type == "csv":
+            csv_data = log_manager.export_logs(format_type="csv")
+            from flask import Response
+            return Response(
+                csv_data,
+                mimetype="text/csv",
+                headers={"Content-Disposition": "attachment;filename=deployment_logs.csv"}
+            )
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Format không hợp lệ. Chỉ hỗ trợ 'json' hoặc 'csv'"
+            }), 400
+            
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 
 if __name__ == "__main__":

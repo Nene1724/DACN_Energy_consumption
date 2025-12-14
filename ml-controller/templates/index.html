@@ -1,6 +1,6 @@
 ﻿
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,30 +28,56 @@
             background: radial-gradient(circle at 20% 20%, rgba(34,211,238,0.08), transparent 35%), radial-gradient(circle at 80% 0%, rgba(244,63,94,0.08), transparent 30%), var(--bg);
             color: var(--text);
             min-height: 100vh;
+            line-height: 1.55;
         }
         .shell { max-width: 1600px; margin: 0 auto; padding: 28px 22px 48px; }
-        .topbar { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: rgba(17,24,39,0.7); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 18px; backdrop-filter: blur(6px); }
-        .brand { display: flex; align-items: center; gap: 10px; }
-        .brand .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-        .brand h1 { font-size: 19px; font-weight: 700; letter-spacing: 0.4px; }
-        .brand span { color: var(--muted); font-size: 13px; }
-        .top-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-        .hero { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; margin-bottom: 18px; }
-        .hero-card, .stat-card { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; padding: 18px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18); }
-        .hero-card h2 { font-size: 24px; margin-bottom: 8px; }
-        .hero-card p { color: var(--muted); line-height: 1.5; }
-        .chip-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+        .page-title { text-align: center; margin-bottom: 22px; }
+        .page-title h1 { 
+            font-size: 28px; 
+            font-weight: 800; 
+            letter-spacing: 0.6px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 12px;
+            text-shadow: 0 0 20px rgba(34, 211, 238, 0.6), 0 0 40px rgba(34, 211, 238, 0.3);
+            animation: titleGlow 3s ease-in-out infinite;
+        }
+        @keyframes titleGlow {
+            0%, 100% { text-shadow: 0 0 20px rgba(34, 211, 238, 0.6), 0 0 40px rgba(34, 211, 238, 0.3); }
+            50% { text-shadow: 0 0 30px rgba(34, 211, 238, 0.9), 0 0 60px rgba(34, 211, 238, 0.5), 0 0 80px rgba(34, 211, 238, 0.2); }
+        }
+        .page-title h1::before {
+            content: '';
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #22d3ee, #0ea5e9);
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.8), 0 0 30px rgba(34, 211, 238, 0.5);
+            animation: dotPulse 2s ease-in-out infinite;
+        }
+        @keyframes dotPulse {
+            0%, 100% { box-shadow: 0 0 15px rgba(34, 211, 238, 0.8), 0 0 30px rgba(34, 211, 238, 0.5); transform: scale(1); }
+            50% { box-shadow: 0 0 25px rgba(34, 211, 238, 1), 0 0 50px rgba(34, 211, 238, 0.7), 0 0 70px rgba(34, 211, 238, 0.4); transform: scale(1.15); }
+        }
+        .page-title p { color: var(--muted); margin-top: 6px; }
+        .section-lede { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+        .section-lede h2 { font-size: 22px; }
+        .section-lede p { color: var(--muted); line-height: 1.6; max-width: 780px; }
+        .chip-row { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0; }
         .chip { padding: 6px 12px; border-radius: 999px; background: rgba(34,211,238,0.12); color: var(--accent); font-weight: 600; font-size: 12px; letter-spacing: 0.03em; }
-        .stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-        .stat { background: linear-gradient(135deg, rgba(34,211,238,0.12), rgba(14,165,233,0.12)); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; }
-        .stat small { color: var(--muted); font-size: 12px; }
-        .stat strong { display: block; font-size: 22px; margin-top: 4px; }
+        .filter-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin: 8px 0 16px; }
+        .filter-note { color: var(--muted); font-size: 12px; }
+        .inline-stats { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: 13px; }
+        .inline-stats strong { color: var(--text); margin-left: 4px; }
         .grid { display: grid; grid-template-columns: minmax(360px, 420px) 1fr; gap: 16px; }
-        .panel { background: linear-gradient(180deg, #121a2c 0%, #0d1424 100%); border: 1px solid var(--border); border-radius: 18px; padding: 18px; box-shadow: 0 16px 36px rgba(0,0,0,0.18); margin-bottom: 14px; }
+        .panel { background: linear-gradient(180deg, #121a2c 0%, #0d1424 100%); border: 1px solid var(--border); border-radius: 18px; padding: 18px; box-shadow: 0 16px 36px rgba(0,0,0,0.18); margin-bottom: 16px; }
         .panel-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+        .panel-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
         .panel-header h3 { font-size: 18px; }
         .panel-header .muted { color: var(--muted); font-size: 13px; }
-        .form-grid { display: grid; gap: 12px; }
+        .form-grid { display: grid; gap: 14px; }
         .form-control label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
         .form-control input { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: #0b1324; color: var(--text); }
         .btn { border: 1px solid transparent; border-radius: 12px; padding: 12px 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; color: var(--text); background: #16213a; }
@@ -80,15 +106,19 @@
         .history-list { list-style: none; margin-top: 10px; display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 12px; }
         .history-list li { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding-bottom: 6px; }
         .history-list li:last-child { border-bottom: none; }
-        .filter-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
-        .filter-btn { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: #0b1324; color: var(--muted); cursor: pointer; font-weight: 600; }
-        .filter-btn.active { border-color: var(--accent); color: var(--accent); }
+        .filter-select { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: #0b1324; color: var(--text); font-weight: 600; min-width: 190px; }
+        .library-filter-bar { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin: 4px 0 10px; }
         .model-list { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; max-height: 550px; overflow-y: auto; padding-right: 4px; }
         .model-item { border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #0b1324; cursor: pointer; transition: border 0.2s, transform 0.2s; }
         .model-item:hover { border-color: var(--accent); transform: translateY(-2px); }
         .model-item.selected { border-color: var(--accent-strong); box-shadow: 0 0 0 1px var(--accent-strong); }
         .model-item.recommended { border-color: rgba(52,211,153,0.4); }
+        .model-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; flex-wrap: wrap; }
         .model-name { font-size: 16px; font-weight: 700; display: flex; gap: 8px; align-items: center; }
+        .model-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .status-pill { padding: 4px 8px; border-radius: 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.02em; }
+        .status-pill.ok { background: rgba(52,211,153,0.16); color: var(--success); }
+        .status-pill.warn { background: rgba(244,63,94,0.16); color: var(--danger); }
         .model-meta { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 12px; margin: 6px 0 4px; }
         .model-reason { color: var(--success); font-size: 12px; }
         .pill { background: rgba(52,211,153,0.16); color: var(--success); border-radius: 999px; padding: 2px 8px; font-size: 10px; letter-spacing: 0.05em; font-weight: 700; }
@@ -124,7 +154,7 @@
         .monitor-tabs { display:flex; gap:12px; align-items:flex-end; border-bottom:1px solid var(--border); padding-bottom:6px; margin-bottom:14px; flex-wrap:wrap; }
         .monitor-tab { padding:10px 2px; border:none; border-bottom:2px solid transparent; background:transparent; color:var(--muted); cursor:pointer; font-weight:700; letter-spacing:0.02em; }
         .monitor-tab.active { color: var(--text); border-bottom-color: var(--accent); }
-        .monitor-content { display:flex; flex-direction:column; gap:12px; }
+        .monitor-content { display:flex; flex-direction:column; gap:14px; }
         .monitor-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(320px,1fr)); gap:12px; }
         .monitor-card { border:1px solid var(--border); border-radius:14px; padding:14px; background: linear-gradient(180deg, #0f172a, #0c1323); color:var(--muted); box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
         .monitor-card h4 { color: var(--text); margin-bottom:6px; font-size:16px; }
@@ -168,15 +198,46 @@
             border-bottom-color: var(--accent);
             font-weight: 700;
         }
+        .device-metrics { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:16px; margin-bottom:16px; }
+        .metric-card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+        .metric-card h4 { font-size: 14px; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .metric-value { font-size: 32px; font-weight: 700; margin: 8px 0; }
+        .metric-bar-container { background: rgba(255,255,255,0.05); height: 12px; border-radius: 8px; overflow: hidden; margin-top: 8px; }
+        .metric-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-strong)); transition: width 0.3s ease; }
+        .metric-bar.warning { background: linear-gradient(90deg, var(--warning), #f97316); }
+        .metric-bar.danger { background: linear-gradient(90deg, var(--danger), #dc2626); }
+        .metric-label { color: var(--muted); font-size: 13px; margin-top: 6px; }
+        .sparkline { width: 100%; height: 44px; margin-top: 10px; display:block; }
+        .chart-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; }
+        .chart-card { border:1px solid var(--border); border-radius:14px; padding:14px; background: linear-gradient(180deg, #0f172a, #0c1323); }
+        .chart-title { display:flex; justify-content:space-between; align-items:flex-end; gap:10px; margin-bottom:10px; }
+        .chart-title h4 { margin:0; font-size:16px; color:var(--text); }
+        .chart-title small { color:var(--muted); }
+        .chart-svg { width:100%; height:170px; display:block; border-radius:12px; background:#0b1324; border:1px solid var(--border); }
+        .gauge-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:12px; }
+        .gauge-card { border:1px solid var(--border); border-radius:14px; padding:14px; background:#0b1324; display:flex; flex-direction:column; gap:10px; }
+        .gauge-head { display:flex; justify-content:space-between; gap:12px; align-items:center; }
+        .gauge-head h5 { margin:0; font-size:13px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; }
+        .gauge-head strong { font-size:16px; color:var(--text); }
+        .gauge-svg { width:100%; height:120px; display:block; }
+        .stacked-bar { height:12px; border-radius:8px; overflow:hidden; background: rgba(255,255,255,0.05); border:1px solid var(--border); display:flex; }
+        .stacked-seg { height:100%; }
+        .stacked-used { background: linear-gradient(90deg, var(--accent), var(--accent-strong)); }
+        .stacked-free { background: rgba(148,163,184,0.18); }
+        @media (max-width: 980px) {
+            .chart-grid { grid-template-columns: 1fr; }
+        }
+        .service-status { display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(34,211,238,0.08); border-radius: 10px; }
+        .service-status .dot { width: 12px; height: 12px; }
+        .service-name { font-weight: 600; font-size: 16px; }
+        .service-info { color: var(--muted); font-size: 13px; }
         .hidden { display:none; }
         @media (max-width: 1100px) {
             .grid { grid-template-columns: 1fr; }
-            .hero { grid-template-columns: 1fr; }
             .energy-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
             .predict-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
         }
         @media (max-width: 720px) {
-            .stat-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
             .energy-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
             .predict-grid { grid-template-columns: 1fr; }
             .status-row { grid-template-columns: 1fr; }
@@ -185,19 +246,10 @@
 </head>
 <body>
     <div class="shell">
-        <nav class="topbar">
-            <div class="brand">
-                <span class="dot"></span>
-                <div>
-                    <h1>IoT ML Energy Manager</h1>
-                    <span>Hệ thống quản lý triển khai mô hình ML tiết kiệm năng lượng</span>
-                </div>
-            </div>
-            <div class="top-actions">
-                <button class="btn ghost" onclick="loadAllModels()">Tải tất cả</button>
-                <button class="btn primary" onclick="loadRecommendations()">Đề xuất năng lượng thấp</button>
-            </div>
-        </nav>
+        <header class="page-title">
+            <h1>IoT ML Energy Manager</h1>
+            <p>Deploy ML models and monitor device energy & performance.</p>
+        </header>
 
         <div class="view-tabs" id="view_tabs">
             <button class="view-tab active" data-view="deployment">Deployment</button>
@@ -205,69 +257,34 @@
         </div>
 
         <div id="deployment_view">
-        <div class="hero">
-            <div class="hero-card">
-                <h2>Giám sát & điều phối</h2>
-                <p>Chọn model tối ưu năng lượng, dự đoán tiêu thụ trước khi triển khai, theo dõi trạng thái thiết bị và nhật ký deploy theo thời gian thực.</p>
-                <div class="chip-row">
-                    <span class="chip">Energy-aware</span>
-                    <span class="chip">Deployment Logs</span>
-                    <span class="chip">Balena Fleet</span>
-                </div>
-                <div class="filter-tabs">
-                    <button class="filter-btn active" data-filter="all">Tất cả</button>
-                    <button class="filter-btn" data-filter="recommended">Recommended</button>
-                    <button class="filter-btn" data-filter="low_energy">&lt; 50 mWh</button>
-                    <button class="filter-btn" data-filter="small_size">&lt; 30 MB</button>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-grid" id="stats_grid_summary">
-                    <div class="stat">
-                        <small>Tổng models</small>
-                        <strong id="stat_total_main">—</strong>
-                    </div>
-                    <div class="stat">
-                        <small>Dưới 50 mWh</small>
-                        <strong id="stat_50_main">—</strong>
-                    </div>
-                    <div class="stat">
-                        <small>Dưới 100 mWh</small>
-                        <strong id="stat_100_main">—</strong>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="alert_container" class="alert-stack"></div>
+            <div id="alert_container" class="alert-stack"></div>
 
         <div class="grid">
             <div class="col-left">
                 <div class="panel">
                     <div class="panel-header">
                         <div>
-                            <h3>Thiết bị & Constraints</h3>
-                            <p class="muted">Nhập IP thiết bị.</p>
+                            <h3>Device & Constraints</h3>
+                            <p class="muted">Enter the device IP or select from Balena.</p>
                         </div>
                     </div>
                     <div class="form-grid">
                         <div class="form-control">
-                            <label for="bbb_ip">Địa chỉ IP thiết bị</label>
+                            <label for="bbb_ip">Device IP address</label>
                             <input type="text" id="bbb_ip" value="192.168.137.10" placeholder="192.168.137.10">
                         </div>
                         <div style="display:flex; gap:10px;">
-                            <button class="btn ghost full" onclick="loadRecommendations()">Cập nhật đề xuất</button>
-                            <button class="btn primary full" onclick="loadAllModels()">Tải lại danh sách</button>
+                            <button class="btn primary full" onclick="loadAllModels()">Load models</button>
                         </div>
                     </div>
                     <div class="status-row" style="margin-top: 12px;">
                         <div class="status-block" id="device_status">
-                            <div class="status-title">Thiết bị IoT</div>
-                            <div class="status-value"><span class="dot idle"></span>Chưa kết nối</div>
+                            <div class="status-title">Device status</div>
+                            <div class="status-value"><span class="dot idle"></span>Not connected</div>
                         </div>
                         <div class="status-block" id="model_status">
-                            <div class="status-title">Model hiện tại</div>
-                            <div class="status-value">Chưa có model</div>
+                            <div class="status-title">Current model</div>
+                            <div class="status-value">No model</div>
                         </div>
                     </div>
                 </div>
@@ -275,55 +292,57 @@
                 <div class="panel">
                     <div class="panel-header">
                         <div>
-                            <h3>Energy watch</h3>
-                            <p class="muted">Theo dõi năng lượng sau deploy</p>
+                            <h3>Energy Watch</h3>
+                            <p class="muted">Track energy after deployment</p>
                         </div>
                     </div>
                     <div class="energy-grid">
                         <div class="energy-card">
-                            <small>Ngân sách (mWh)</small>
+                            <small>Budget (mWh)</small>
                             <div class="value" id="energy_budget_value">—</div>
                         </div>
                         <div class="energy-card">
-                            <small>Đo mới nhất (mWh)</small>
+                            <small>Latest (mWh)</small>
                             <div class="value" id="energy_latest_value">—</div>
                         </div>
                         <div class="energy-card">
-                            <small>Trung bình (mWh)</small>
+                            <small>Average (mWh)</small>
                             <div class="value" id="energy_avg_value">—</div>
                         </div>
                         <div class="energy-card">
-                            <small>Trạng thái</small>
-                            <div class="value"><span class="badge" id="energy_status_badge">Chưa có</span></div>
+                            <small>Status</small>
+                            <div class="value"><span class="badge" id="energy_status_badge">No data</span></div>
                         </div>
                     </div>
                     <ul class="history-list" id="energy_history_list">
-                        <li><span>Chưa có dữ liệu</span><span></span></li>
+                        <li><span>No data yet</span><span></span></li>
                     </ul>
                 </div>
                 <div class="panel" id="balena_devices_card">
                     <div class="panel-header">
                         <div>
                             <h3>Balena fleet</h3>
-                            <p class="muted">Danh sách thiết bị sẵn sàng</p>
+                            <p class="muted">Available devices</p>
                         </div>
-                        <button class="btn ghost" id="balena_refresh_btn" type="button">Làm mới</button>
+                        <button class="btn ghost" id="balena_refresh_btn" type="button">Refresh</button>
                     </div>
                     <div class="form-grid" style="margin-bottom: 8px;">
                         <div class="form-control">
-                            <label>Balena app slug (tùy chọn)</label>
-                            <input type="text" id="balena_app_filter" placeholder="myorg/fleet hoặc fleet_slug">
+                            <label>Balena fleet filter (optional)</label>
+                            <select id="balena_app_filter" class="filter-select" style="width: 100%;">
+                                <option value="">All fleets</option>
+                            </select>
                         </div>
                         <label style="display:flex; align-items:center; gap:8px; color: var(--muted); font-size: 13px;">
                             <input type="checkbox" id="balena_online_only" checked>
-                            Chỉ hiển thị online
+                            Online only
                         </label>
                     </div>
                     <div class="muted" id="balena_devices_message"></div>
                     <div class="balena-list" id="balena_device_list">
                         <div class="loading-state">
                             <div class="spinner"></div>
-                            Đang tải danh sách thiết bị Balena Cloud...
+                            Loading Balena Cloud devices...
                         </div>
                     </div>
                 </div>
@@ -331,12 +350,12 @@
                 <div class="panel">
                     <div class="panel-header">
                         <div>
-                            <h3>Deployment log</h3>
-                            <p class="muted">Nhật ký pipeline</p>
+                            <h3>Deployment Log</h3>
+                            <p class="muted">Pipeline events</p>
                         </div>
                     </div>
                     <div class="timeline-wrapper" id="deployment_log_wrapper">
-                        <p class="timeline-empty" id="deployment_log_placeholder">Chưa có hoạt động deploy nào.</p>
+                        <p class="timeline-empty" id="deployment_log_placeholder">No deployments yet.</p>
                         <ul class="timeline" id="deployment_log"></ul>
                     </div>
                 </div>
@@ -346,31 +365,42 @@
                 <div class="panel">
                     <div class="panel-header">
                         <div>
-                            <h3>Model library</h3>
-                            <p class="muted">Chọn model và kiểm tra ngưỡng năng lượng</p>
+                            <h3>Model Library</h3>
+                            <p class="muted">Select a model and validate the energy budget</p>
                         </div>
-                        <button class="btn primary" id="deploy_btn" onclick="deployModel()" disabled>Deploy model đã chọn</button>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <button class="btn primary" id="deploy_btn" onclick="deployModel()" disabled>Deploy selected model</button>
+                        </div>
+                    </div>
+                    <div class="library-filter-bar">
+                        <span class="filter-note" id="filter_result_note">Counting models...</span>
+                        <select id="filter_select" class="filter-select">
+                            <option value="all">All</option>
+                            <option value="recommended">Recommended</option>
+                            <option value="under_50">Under 50 mWh</option>
+                            <option value="under_100">Under 100 mWh</option>
+                        </select>
                     </div>
                     <div id="model_list" class="model-list">
                         <div class="loading-state">
                             <div class="spinner"></div>
-                            Đang sẵn sàng tải dữ liệu...
+                            Ready to load data...
                         </div>
                     </div>
                     <div class="selection-preview" id="selection_preview">
-                        Hãy chọn một model để xem dữ liệu và kiểm tra ngưỡng năng lượng.
+                        Select a model to review details and validate budget.
                     </div>
                 </div>
 
                 <div class="panel">
                     <div class="panel-header">
                         <div>
-                            <h3>Energy predictor</h3>
-                            <p class="muted">Dự đoán năng lượng cho metadata model</p>
+                            <h3>Energy Predictor</h3>
+                            <p class="muted">Estimate energy from model metadata</p>
                         </div>
                         <div style="display:flex; gap:8px;">
-                            <button class="btn ghost" onclick="prefillPredictFromSelection()">Dùng model đang chọn</button>
-                            <button class="btn primary" onclick="predictEnergy()">Dự đoán</button>
+                            <button class="btn ghost" onclick="prefillPredictFromSelection()">Use selected model</button>
+                            <button class="btn primary" onclick="predictEnergy()">Predict</button>
                         </div>
                     </div>
                     <div class="predict-grid">
@@ -399,52 +429,84 @@
                             <input type="number" step="0.0001" id="pred_throughput" placeholder="ví dụ 8.5">
                         </div>
                     </div>
-                    <div class="predict-output" id="predict_output">
-                        Nhập đủ thông tin rồi bấm “Dự đoán” để xem năng lượng ước lượng.
-                    </div>
+                        <div class="predict-output" id="predict_output">Fill the fields and click “Predict”.</div>
                 </div>
 
-                <div class="panel" id="stats_card">
-                    <div class="panel-header">
-                        <div>
-                            <h3>Benchmark snapshot</h3>
-                            <p class="muted">Thống kê nhanh</p>
-                        </div>
-                    </div>
-                    <div class="stat-grid" id="stats_grid">
-                        <div class="stat">
-                            <small>Tổng models</small>
-                            <strong id="stat_total">0</strong>
-                        </div>
-                        <div class="stat">
-                            <small>Dưới 50 mWh</small>
-                            <strong id="stat_50">0</strong>
-                        </div>
-                        <div class="stat">
-                            <small>Dưới 100 mWh</small>
-                            <strong id="stat_100">0</strong>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
         </div> <!-- end deployment_view -->
 
         <div id="monitoring_view" class="hidden">
-            <div class="hero">
-            </div>
             <div class="panel">
                 <div class="panel-header">
                     <div>
                         <h3>Monitoring</h3>
-                        <p class="muted">Snapshot các biểu đồ giám sát</p>
+                        <p class="muted" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                            <span>Target device:</span>
+                            <select id="monitor_device_selector" class="filter-select" style="min-width: 260px;">
+                                <option value="">Select a device</option>
+                            </select>
+                            <span style="color: var(--muted); font-size: 12px;">• Last update: <span id="monitor_last_update">—</span></span>
+                        </p>
+                    </div>
+                    <div class="panel-actions">
+                        <button class="btn ghost" id="monitor_refresh_btn" type="button">Refresh</button>
+                    </div>
+                </div>
+
+                <div class="service-status" id="service_status" style="margin-bottom: 16px;">
+                    <span class="dot idle" id="service_dot"></span>
+                    <div style="flex: 1;">
+                        <div class="service-name">ml-agent</div>
+                        <div class="service-info">Agent: <span id="service_state">unknown</span></div>
+                    </div>
+                    <span class="badge" id="service_badge">Unknown</span>
+                </div>
+
+                <div class="device-metrics">
+                    <div class="metric-card">
+                        <h4>CPU</h4>
+                        <div class="metric-value" id="cpu_value">—</div>
+                        <div class="metric-bar-container"><div class="metric-bar" id="cpu_bar" style="width: 0%"></div></div>
+                        <div class="metric-label" id="cpu_label">Usage</div>
+                        <svg class="sparkline" id="cpu_spark" viewBox="0 0 100 30" preserveAspectRatio="none"></svg>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Temperature</h4>
+                        <div class="metric-value" id="temp_value">—</div>
+                        <div class="metric-bar-container"><div class="metric-bar" id="temp_bar" style="width: 0%"></div></div>
+                        <div class="metric-label" id="temp_label">CPU temperature</div>
+                        <svg class="sparkline" id="temp_spark" viewBox="0 0 100 30" preserveAspectRatio="none"></svg>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Memory</h4>
+                        <div class="metric-value" id="memory_value">—</div>
+                        <div class="metric-bar-container"><div class="metric-bar" id="memory_bar" style="width: 0%"></div></div>
+                        <div class="metric-label" id="memory_label">—</div>
+                        <svg class="sparkline" id="memory_spark" viewBox="0 0 100 30" preserveAspectRatio="none"></svg>
+                    </div>
+                    <div class="metric-card">
+                        <h4>Storage</h4>
+                        <div class="metric-value" id="storage_value">—</div>
+                        <div class="metric-bar-container"><div class="metric-bar" id="storage_bar" style="width: 0%"></div></div>
+                        <div class="metric-label" id="storage_label">—</div>
+                        <svg class="sparkline" id="storage_spark" viewBox="0 0 100 30" preserveAspectRatio="none"></svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h3>Charts</h3>
+                        <p class="muted">Real-time device metrics</p>
                     </div>
                 </div>
                 <div class="monitor-tabs" id="monitor_tabs">
-                    <button class="monitor-tab active" data-tab="timeseries">Time-series</button>
-                    <button class="monitor-tab" data-tab="status">Status / Health</button>
-                    <button class="monitor-tab" data-tab="distribution">Phân bố</button>
-                    <button class="monitor-tab" data-tab="advanced">Nâng cao</button>
+                    <button class="monitor-tab active" data-tab="overview">Overview</button>
+                    <button class="monitor-tab" data-tab="trends">Trends</button>
+                    <button class="monitor-tab" data-tab="distribution">Distribution</button>
+                    <button class="monitor-tab" data-tab="models">Model analytics</button>
                 </div>
                 <div class="monitor-content" id="monitor_content"></div>
             </div>
@@ -457,49 +519,232 @@
         let currentFilter = 'all';
         let statusInterval = null;
         let balenaDevices = [];
-        const monitoringData = {
-            timeseries: [
-                { label: '-15m', energy: 5.1, latency: 0.14, throughput: 48 },
-                { label: '-10m', energy: 5.4, latency: 0.13, throughput: 50 },
-                { label: '-5m', energy: 5.0, latency: 0.12, throughput: 52 },
-                { label: 'Now', energy: 4.8, latency: 0.11, throughput: 54 }
-            ],
-            status: {
-                budgetUsed: 42,
-                avgLatency: 0.12,
-                uptime: '99.2%',
-                thermal: 54,
-                memory: 68,
-                successRate: 98
-            },
-            distribution: {
-                buckets: [
-                    { label: '0-4', value: 2 },
-                    { label: '4-5', value: 5 },
-                    { label: '5-6', value: 9 },
-                    { label: '6-7', value: 6 },
-                    { label: '7-8', value: 3 }
-                ],
-                box: { min: 4.2, p25: 4.8, p50: 5.3, p75: 6.2, max: 7.1 }
-            },
-            advanced: {
-                tradeoff: [
-                    { model: 'mobilenetv3_small_075', energy: 4.8, latency: 0.11 },
-                    { model: 'efficientnet_b0', energy: 6.3, latency: 0.16 },
-                    { model: 'resnet50', energy: 7.4, latency: 0.21 }
-                ],
-                heatmap: [
-                    { slot: '08:00', energy: 4.9 },
-                    { slot: '10:00', energy: 5.2 },
-                    { slot: '12:00', energy: 6.1 },
-                    { slot: '14:00', energy: 6.4 },
-                    { slot: '16:00', energy: 5.7 }
-                ]
+        const MAX_METRIC_POINTS = 120;
+        let deviceMetricsHistory = [];
+        let lastDeviceMetrics = null;
+        let metricsPollInterval = null;
+        let activeMonitorTab = 'overview';
+
+        let recommendedSet = new Set();
+
+        function refreshDeviceMetrics({ silent = false } = {}) {
+            const selector = document.getElementById('monitor_device_selector');
+            const bbbIpInput = document.getElementById('bbb_ip');
+            let bbbIp = selector && selector.value ? selector.value.trim() : '';
+            if (!bbbIp && bbbIpInput) bbbIp = bbbIpInput.value.trim();
+            
+            if (!bbbIp) {
+                if (!silent) showAlert('warning', 'Please select a device first.');
+                setDeviceMetricsUnavailable('No device selected');
+                return;
             }
-        };
+
+            fetch(`/api/device/metrics?bbb_ip=${encodeURIComponent(bbbIp)}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data || !data.success) {
+                        const message = (data && data.error) ? String(data.error) : 'Device metrics are unavailable.';
+                        setDeviceMetricsUnavailable(message);
+                        if (!silent) showAlert('error', message);
+                        return;
+                    }
+
+                    lastDeviceMetrics = normalizeDeviceMetrics(data);
+                    pushDeviceMetricsSample(lastDeviceMetrics);
+                    renderDeviceMetricsCards(lastDeviceMetrics);
+                    renderMonitoringTab(activeMonitorTab);
+                    document.getElementById('monitor_last_update').textContent = formatTimestamp(data.timestamp);
+                    if (!silent) showAlert('success', 'Device metrics updated.');
+                })
+                .catch(err => {
+                    const msg = 'Connection error: ' + err;
+                    setDeviceMetricsUnavailable(msg);
+                    if (!silent) showAlert('error', msg);
+                });
+        }
+
+        function startMetricsPolling() {
+            stopMetricsPolling();
+            refreshDeviceMetrics({ silent: true });
+            metricsPollInterval = setInterval(() => refreshDeviceMetrics({ silent: true }), 5000);
+        }
+
+        function stopMetricsPolling() {
+            if (metricsPollInterval) {
+                clearInterval(metricsPollInterval);
+                metricsPollInterval = null;
+            }
+        }
+
+        function normalizeDeviceMetrics(data) {
+            const cpuPercent = data.cpu && typeof data.cpu.percent === 'number' ? data.cpu.percent : null;
+            const temperatureC = typeof data.temperature_c === 'number' ? data.temperature_c : null;
+            const memory = data.memory || null;
+            const storage = data.storage || null;
+
+            const memUsedPercent = memory && typeof memory.used_percent === 'number' ? memory.used_percent : null;
+            const diskUsedPercent = storage && typeof storage.used_percent === 'number' ? storage.used_percent : null;
+
+            return {
+                timestamp: data.timestamp || new Date().toISOString(),
+                cpuPercent,
+                temperatureC,
+                memory,
+                storage,
+                memUsedPercent,
+                diskUsedPercent,
+                agent: data.agent || null,
+            };
+        }
+
+        function pushDeviceMetricsSample(sample) {
+            deviceMetricsHistory.push(sample);
+            if (deviceMetricsHistory.length > MAX_METRIC_POINTS) {
+                deviceMetricsHistory = deviceMetricsHistory.slice(deviceMetricsHistory.length - MAX_METRIC_POINTS);
+            }
+        }
+
+        function setDeviceMetricsUnavailable(reason) {
+            document.getElementById('cpu_value').textContent = '—';
+            document.getElementById('temp_value').textContent = '—';
+            document.getElementById('memory_value').textContent = '—';
+            document.getElementById('storage_value').textContent = '—';
+            document.getElementById('memory_label').textContent = '—';
+            document.getElementById('storage_label').textContent = '—';
+            document.getElementById('monitor_last_update').textContent = '—';
+
+            const badge = document.getElementById('service_badge');
+            const dot = document.getElementById('service_dot');
+            const state = document.getElementById('service_state');
+            if (badge) { badge.textContent = 'Unavailable'; badge.className = 'badge over'; }
+            if (dot) dot.className = 'dot error';
+            if (state) state.textContent = reason ? String(reason).slice(0, 80) : 'unavailable';
+
+            renderSparkline(document.getElementById('cpu_spark'), []);
+            renderSparkline(document.getElementById('temp_spark'), []);
+            renderSparkline(document.getElementById('memory_spark'), []);
+            renderSparkline(document.getElementById('storage_spark'), []);
+        }
+
+        function renderDeviceMetricsCards(m) {
+            const cpuUsage = (typeof m.cpuPercent === 'number') ? Math.round(m.cpuPercent) : null;
+            const tempC = (typeof m.temperatureC === 'number') ? m.temperatureC : null;
+
+            if (cpuUsage != null) {
+                document.getElementById('cpu_value').textContent = cpuUsage + '%';
+                document.getElementById('cpu_bar').style.width = cpuUsage + '%';
+                document.getElementById('cpu_bar').className = 'metric-bar ' + (cpuUsage > 85 ? 'danger' : cpuUsage > 70 ? 'warning' : '');
+            } else {
+                document.getElementById('cpu_value').textContent = 'N/A';
+                document.getElementById('cpu_bar').style.width = '0%';
+                document.getElementById('cpu_bar').className = 'metric-bar';
+            }
+
+            if (tempC != null) {
+                document.getElementById('temp_value').textContent = `${formatMetric(tempC, 1)}°C`;
+                const tempPercent = Math.min((tempC / 85) * 100, 100);
+                document.getElementById('temp_bar').style.width = tempPercent + '%';
+                document.getElementById('temp_bar').className = 'metric-bar ' + (tempC > 75 ? 'danger' : tempC > 65 ? 'warning' : '');
+            } else {
+                document.getElementById('temp_value').textContent = 'N/A';
+                document.getElementById('temp_bar').style.width = '0%';
+                document.getElementById('temp_bar').className = 'metric-bar';
+            }
+
+            if (m.memory && typeof m.memUsedPercent === 'number') {
+                const usedBytes = m.memory.used_bytes;
+                const totalBytes = m.memory.total_bytes;
+                const usedMB = usedBytes != null ? Math.round(usedBytes / (1024 * 1024)) : null;
+                const totalMB = totalBytes != null ? Math.round(totalBytes / (1024 * 1024)) : null;
+                const percent = Math.round(m.memUsedPercent);
+                document.getElementById('memory_value').textContent = percent + '%';
+                document.getElementById('memory_label').textContent = (usedMB != null && totalMB != null) ? `${usedMB} MB / ${totalMB} MB` : '—';
+                document.getElementById('memory_bar').style.width = percent + '%';
+                document.getElementById('memory_bar').className = 'metric-bar ' + (percent > 92 ? 'danger' : percent > 80 ? 'warning' : '');
+            } else {
+                document.getElementById('memory_value').textContent = 'N/A';
+                document.getElementById('memory_label').textContent = '—';
+                document.getElementById('memory_bar').style.width = '0%';
+                document.getElementById('memory_bar').className = 'metric-bar';
+            }
+
+            if (m.storage && typeof m.diskUsedPercent === 'number') {
+                const usedBytes = m.storage.used_bytes;
+                const totalBytes = m.storage.total_bytes;
+                const usedGB = usedBytes != null ? (usedBytes / (1024 * 1024 * 1024)) : null;
+                const totalGB = totalBytes != null ? (totalBytes / (1024 * 1024 * 1024)) : null;
+                const percent = Math.round(m.diskUsedPercent);
+                document.getElementById('storage_value').textContent = percent + '%';
+                document.getElementById('storage_label').textContent = (usedGB != null && totalGB != null) ? `${formatMetric(usedGB, 2)} GB / ${formatMetric(totalGB, 2)} GB` : '—';
+                document.getElementById('storage_bar').style.width = percent + '%';
+                document.getElementById('storage_bar').className = 'metric-bar ' + (percent > 92 ? 'danger' : percent > 80 ? 'warning' : '');
+            } else {
+                document.getElementById('storage_value').textContent = 'N/A';
+                document.getElementById('storage_label').textContent = '—';
+                document.getElementById('storage_bar').style.width = '0%';
+                document.getElementById('storage_bar').className = 'metric-bar';
+            }
+
+            const state = (m.agent && m.agent.status) ? String(m.agent.status) : 'unknown';
+            const badge = document.getElementById('service_badge');
+            const dot = document.getElementById('service_dot');
+            const stateEl = document.getElementById('service_state');
+            if (stateEl) stateEl.textContent = state;
+
+            if (badge && dot) {
+                if (state === 'running') {
+                    badge.textContent = 'Running';
+                    badge.className = 'badge ok';
+                    dot.className = 'dot running';
+                } else if (state === 'error') {
+                    badge.textContent = 'Error';
+                    badge.className = 'badge over';
+                    dot.className = 'dot error';
+                } else if (state === 'ready' || state === 'idle') {
+                    badge.textContent = state === 'ready' ? 'Ready' : 'Idle';
+                    badge.className = 'badge';
+                    dot.className = 'dot idle';
+                } else {
+                    badge.textContent = 'Unknown';
+                    badge.className = 'badge';
+                    dot.className = 'dot idle';
+                }
+            }
+
+            renderSparklines();
+        }
+
+        function renderSparklines() {
+            const cpuSeries = deviceMetricsHistory.map(p => p.cpuPercent).filter(v => typeof v === 'number');
+            const tempSeries = deviceMetricsHistory.map(p => p.temperatureC).filter(v => typeof v === 'number');
+            const memSeries = deviceMetricsHistory.map(p => p.memUsedPercent).filter(v => typeof v === 'number');
+            const diskSeries = deviceMetricsHistory.map(p => p.diskUsedPercent).filter(v => typeof v === 'number');
+            renderSparkline(document.getElementById('cpu_spark'), cpuSeries);
+            renderSparkline(document.getElementById('temp_spark'), tempSeries);
+            renderSparkline(document.getElementById('memory_spark'), memSeries);
+            renderSparkline(document.getElementById('storage_spark'), diskSeries);
+        }
+
+        function renderSparkline(svgEl, values) {
+            if (!svgEl) return;
+            const v = Array.isArray(values) ? values.slice(-40) : [];
+            if (v.length < 2) {
+                svgEl.innerHTML = '';
+                return;
+            }
+            const min = Math.min(...v);
+            const max = Math.max(...v);
+            const span = (max - min) || 1;
+            const points = v.map((val, i) => {
+                const x = (i / (v.length - 1)) * 100;
+                const y = 30 - ((val - min) / span) * 28 - 1;
+                return `${x.toFixed(2)},${y.toFixed(2)}`;
+            }).join(' ');
+            svgEl.innerHTML = `<polyline fill="none" stroke="var(--accent)" stroke-width="2" points="${points}" />`;
+        }
 
         window.addEventListener('DOMContentLoaded', () => {
-            // Load deployment logs từ server khi trang được tải
+            // Load deployment logs from server on page load
             loadDeploymentLogs();
             
             const viewTabs = document.getElementById('view_tabs');
@@ -513,7 +758,19 @@
                     viewTabs.querySelectorAll('.view-tab').forEach(el => el.classList.toggle('active', el.dataset.view === view));
                     if (deploymentView) deploymentView.classList.toggle('hidden', view !== 'deployment');
                     if (monitoringView) monitoringView.classList.toggle('hidden', view !== 'monitoring');
+                    
+                    if (view === 'monitoring') {
+                        startMetricsPolling();
+                        renderMonitoringTab(activeMonitorTab);
+                    } else {
+                        stopMetricsPolling();
+                    }
                 });
+            }
+
+            const monitorRefreshBtn = document.getElementById('monitor_refresh_btn');
+            if (monitorRefreshBtn) {
+                monitorRefreshBtn.addEventListener('click', () => refreshDeviceMetrics());
             }
 
             const monitorTabs = document.getElementById('monitor_tabs');
@@ -522,20 +779,29 @@
                     const btn = evt.target.closest('.monitor-tab');
                     if (!btn) return;
                     const tab = btn.dataset.tab;
+                    activeMonitorTab = tab || 'overview';
                     monitorTabs.querySelectorAll('.monitor-tab').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
                     renderMonitoringTab(tab);
                 });
-                renderMonitoringTab('timeseries');
+                renderMonitoringTab('overview');
             }
 
-            document.querySelector('.filter-tabs').addEventListener('click', (evt) => {
-                const btn = evt.target.closest('button');
-                if (!btn) return;
-                setFilterActive(btn.dataset.filter);
-                filterModels(btn.dataset.filter);
-            });
+            const filterSelect = document.getElementById('filter_select');
+            if (filterSelect) {
+                filterSelect.addEventListener('change', (evt) => {
+                    setFilterActive(evt.target.value);
+                    filterModels(evt.target.value);
+                });
+            }
 
             document.getElementById('model_list').addEventListener('click', (evt) => {
+                const downloadBtn = evt.target.closest('[data-download]');
+                if (downloadBtn) {
+                    evt.stopPropagation();
+                    const modelName = decodeURIComponent(downloadBtn.dataset.download);
+                    handleDownload(modelName, downloadBtn);
+                    return;
+                }
                 const item = evt.target.closest('.model-item');
                 if (!item) return;
                 selectModel(decodeURIComponent(item.dataset.model));
@@ -560,64 +826,91 @@
 
             const balenaAppFilter = document.getElementById('balena_app_filter');
             if (balenaAppFilter) {
-                balenaAppFilter.addEventListener('input', () => {
-                    clearTimeout(balenaAppFilter._debounce);
-                    balenaAppFilter._debounce = setTimeout(() => loadBalenaDevices(), 400);
+                balenaAppFilter.addEventListener('change', () => {
+                    loadBalenaDevices();
                 });
             }
 
-            const balenaOnlineToggle = document.getElementById('balena_online_only');
-            if (balenaOnlineToggle) {
-                balenaOnlineToggle.addEventListener('change', () => loadBalenaDevices());
+            const monitorDeviceSelector = document.getElementById('monitor_device_selector');
+            if (monitorDeviceSelector) {
+                monitorDeviceSelector.addEventListener('change', (e) => {
+                    const selectedIp = e.target.value;
+                    if (selectedIp) {
+                        document.getElementById('bbb_ip').value = selectedIp;
+                        refreshDeviceMetrics({ silent: false });
+                    }
+                });
             }
 
-            loadRecommendations();
+            loadInitialData();
             startStatusPolling();
             renderSelectionPreview();
+            updateFilterCount(0);
             renderEnergyMetrics(null);
+            loadBalenaFleets();
             loadBalenaDevices();
         });
 
-        function loadRecommendations() {
+        async function loadInitialData() {
             showLoading();
-            fetch(`/api/models/recommended?device_type=BBB&max_energy=${DEFAULT_BUDGET_MWH}`)
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        allModels = data.recommendations || [];
-                        selectedModel = null;
-                        displayStats(data.stats);
-                        setFilterActive('all');
-                        filterModels('all');
-                        renderSelectionPreview();
-                        document.getElementById('deploy_btn').disabled = true;
-                        showAlert('success', 'Đã tải danh sách models đề xuất');
-                    } else {
-                        showAlert('error', data.error || 'Không thể tải danh sách đề xuất');
-                    }
-                })
-                .catch(err => showAlert('error', 'Không tải được dữ liệu: ' + err));
+            try {
+                await Promise.all([loadRecommendations(), loadAllModels()]);
+            } catch (err) {
+                console.error(err);
+            }
         }
 
-        function loadAllModels() {
-            showLoading();
-            fetch('/api/models/all')
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        allModels = data.models || [];
-                        selectedModel = null;
-                        displayStats(null);
-                        setFilterActive('all');
-                        filterModels('all');
-                        renderSelectionPreview();
-                        document.getElementById('deploy_btn').disabled = true;
-                        showAlert('info', 'Đã tải toàn bộ danh sách models');
-                    } else {
-                        showAlert('error', data.error || 'Không thể tải tất cả models');
-                    }
-                })
-                .catch(err => showAlert('error', 'Không tải được dữ liệu: ' + err));
+        async function loadRecommendations() {
+            try {
+                const resp = await fetch(`/api/models/recommended?device_type=BBB&max_energy=${DEFAULT_BUDGET_MWH}`);
+                const data = await resp.json();
+                if (data.success) {
+                    const names = (data.recommendations || []).map(m => m.name);
+                    recommendedSet = new Set(names);
+                    applyRecommendationsToModels();
+                    displayStats(data.stats);
+                    showAlert('success', 'Loaded recommended models.');
+                } else {
+                    updateFilterCount(allModels.length || 0);
+                    showAlert('error', data.error || 'Unable to load recommendations.');
+                }
+            } catch (err) {
+                updateFilterCount(allModels.length || 0);
+                showAlert('error', 'Failed to load data: ' + err);
+            }
+        }
+
+        async function loadAllModels() {
+            try {
+                const resp = await fetch('/api/models/all');
+                const data = await resp.json();
+                if (data.success) {
+                    allModels = data.models || [];
+                applyRecommendationsToModels();
+                selectedModel = null;
+                displayStats(data.stats || null);
+                setFilterActive('all');
+                filterModels('all');
+                renderSelectionPreview();
+                    document.getElementById('deploy_btn').disabled = true;
+                    updateFilterCount(allModels.length || 0);
+                    showAlert('info', 'Loaded full model list.');
+                } else {
+                    updateFilterCount(allModels.length || 0);
+                    showAlert('error', data.error || 'Unable to load model list.');
+                }
+            } catch (err) {
+                updateFilterCount(allModels.length || 0);
+                showAlert('error', 'Failed to load data: ' + err);
+            }
+        }
+
+        function applyRecommendationsToModels() {
+            if (!Array.isArray(allModels) || !allModels.length) return;
+            allModels = allModels.map(m => ({
+                ...m,
+                recommended: recommendedSet.has(m.name)
+            }));
         }
 
         function filterModels(type) {
@@ -625,14 +918,30 @@
             renderModelList();
         }
 
+        function isLibraryModel(model) {
+            if (!model || typeof model !== 'object') return false;
+            if (model.is_library != null) return Boolean(model.is_library);
+            if (model.library != null) return Boolean(model.library);
+            if (model.source) {
+                return String(model.source).toLowerCase().includes('library');
+            }
+            return false;
+        }
+
         function renderModelList() {
             let filtered = [...allModels];
+
+            // Then apply additional filters
             switch (currentFilter) {
                 case 'recommended':
                     filtered = filtered.filter(m => m.recommended);
                     break;
+                case 'under_50':
                 case 'low_energy':
                     filtered = filtered.filter(m => Number(m.energy_mwh) < 50);
+                    break;
+                case 'under_100':
+                    filtered = filtered.filter(m => Number(m.energy_mwh) < 100);
                     break;
                 case 'small_size':
                     filtered = filtered.filter(m => Number(m.size_mb) < 30);
@@ -643,15 +952,23 @@
             if (selectedModel && !filtered.some(m => m.name === selectedModel)) {
                 selectedModel = null;
             }
+            updateFilterCount(filtered.length);
             displayModels(filtered);
             document.getElementById('deploy_btn').disabled = !selectedModel;
             renderSelectionPreview();
         }
 
+        function updateFilterCount(count) {
+            const note = document.getElementById('filter_result_note');
+            if (!note) return;
+            const label = count === 1 ? 'model available' : 'models available';
+            note.textContent = `${count} ${label} after filters`;
+        }
+
         function displayModels(models) {
             const container = document.getElementById('model_list');
             if (!models || models.length === 0) {
-                container.innerHTML = '<div class="loading-state">Không có model nào phù hợp với bộ lọc hiện tại.</div>';
+                container.innerHTML = '<div class="loading-state">No models match the current filter.</div>';
                 return;
             }
             container.innerHTML = models.map(model => {
@@ -662,13 +979,21 @@
                 const selectedClass = selectedModel === model.name ? 'selected' : '';
                 const recommendedClass = model.recommended ? 'recommended' : '';
                 const badge = model.recommended ? '<span class="pill">Recommended</span>' : '';
+                const downloadStatus = model.downloaded ? '<span class="status-pill ok">Downloaded</span>' : '<span class="status-pill warn">Not downloaded</span>';
+                const downloadBtn = model.downloaded ? '' : `<button class="mini-btn" data-download="${encodedName}">Download</button>`;
                 return `
                     <div class="model-item ${selectedClass} ${recommendedClass}" data-model="${encodedName}">
-                        <div class="model-name">${escapedName}${badge}</div>
+                        <div class="model-head">
+                            <div class="model-name">${escapedName}${badge}</div>
+                            <div class="model-actions">
+                                ${downloadStatus}
+                                ${downloadBtn}
+                            </div>
+                        </div>
                         <div class="model-meta">
-                            <span>Năng lượng: <strong>${formatMetric(model.energy_mwh, 2)} mWh</strong></span>
-                            <span>Kích thước: <strong>${formatMetric(model.size_mb, 2)} MB</strong></span>
-                            <span>Độ trễ: <strong>${formatMetric(model.latency_s, 3)} s</strong></span>
+                            <span>Energy: <strong>${formatMetric(model.energy_mwh, 2)} mWh</strong></span>
+                            <span>Size: <strong>${formatMetric(model.size_mb, 2)} MB</strong></span>
+                            <span>Latency: <strong>${formatMetric(model.latency_s, 3)} s</strong></span>
                             <span>Params: <strong>${formatMetric(model.params_m, 2)} M</strong></span>
                         </div>
                         ${reason}
@@ -681,17 +1006,17 @@
             selectedModel = modelName;
             renderModelList();
             renderSelectionPreview();
-            showAlert('info', `Đã chọn ${modelName}`);
+            showAlert('info', `Selected ${modelName}`);
         }
 
         function deployModel() {
             if (!selectedModel) {
-                showAlert('error', 'Vui lòng chọn một model trước khi deploy');
+                showAlert('error', 'Please select a model before deploying.');
                 return;
             }
             const bbbIp = (document.getElementById('bbb_ip').value || '').trim();
             if (!bbbIp) {
-                showAlert('error', 'Vui lòng nhập IP thiết bị IoT trước khi deploy');
+                showAlert('error', 'Please enter the device IP before deploying.');
                 return;
             }
             const energyBudget = DEFAULT_BUDGET_MWH;
@@ -699,19 +1024,19 @@
             let forceDeploy = false;
             if (modelDetails && Number(modelDetails.energy_mwh) > energyBudget) {
                 const confirmOverride = window.confirm(
-                    `Model cần ${modelDetails.energy_mwh} mWh, vượt ngưỡng ${energyBudget} mWh. Bạn có muốn tiếp tục deploy và chấp nhận cảnh báo không?`
+                    `This model is estimated at ${modelDetails.energy_mwh} mWh, above the ${energyBudget} mWh budget. Continue anyway?`
                 );
                 if (!confirmOverride) {
-                    showAlert('error', 'Deploy bị hủy do vượt ngưỡng năng lượng');
-                    showDeploymentLog('Deploy bị hủy do vượt ngưỡng năng lượng đặt trước', 'error');
+                    showAlert('error', 'Deployment cancelled (over budget).');
+                    showDeploymentLog('Deployment cancelled (over budget).', 'error');
                     return;
                 }
                 forceDeploy = true;
             }
-            showAlert('info', 'Đang tiến hành deploy model...');
-            showDeploymentLog(`Bắt đầu deploy ${selectedModel} lên thiết bị ${bbbIp}`, 'info');
+            showAlert('info', 'Deploying model...');
+            showDeploymentLog(`Starting deployment: ${selectedModel} -> ${bbbIp}`, 'info');
             if (energyBudget !== null) {
-                showDeploymentLog(`Ngân sách năng lượng: ${energyBudget} mWh`, 'info');
+                showDeploymentLog(`Energy budget: ${energyBudget} mWh`, 'info');
             }
             document.getElementById('deploy_btn').disabled = true;
             fetch('/api/deploy', {
@@ -728,23 +1053,68 @@
             .then(data => {
                 document.getElementById('deploy_btn').disabled = false;
                 if (data.success) {
-                    showAlert('success', 'Deploy thành công!');
-                    showDeploymentLog(`Hoàn tất deploy ${selectedModel} (${data.model_info.energy_avg_mwh} mWh)`, 'success');
+                    showAlert('success', 'Deployment completed.');
+                    showDeploymentLog(`Deployment completed: ${selectedModel} (${data.model_info.energy_avg_mwh} mWh)`, 'success');
                     if (data.energy_budget_mwh) {
-                        showDeploymentLog(`Đang giám sát với ngân sách ${data.energy_budget_mwh} mWh`, 'info');
+                        showDeploymentLog(`Monitoring with budget ${data.energy_budget_mwh} mWh`, 'info');
                         // Start energy monitoring (simulated)
                         startEnergyMonitoring(selectedModel, data.energy_budget_mwh);
                     }
                 } else {
-                    showAlert('error', 'Deploy thất bại: ' + data.error);
-                    showDeploymentLog(`Lỗi deploy: ${data.error}`, 'error');
+                    const errorMsg = data.error || 'Unknown error';
+                    showAlert('error', 'Deployment failed: ' + errorMsg);
+                    showDeploymentLog(`Deployment error: ${errorMsg}`, 'error');
+                    
+                    // Show helpful message for connection errors
+                    if (errorMsg.includes('connect') || errorMsg.includes('Connection') || errorMsg.includes('refused')) {
+                        showAlert('warning', 'Check: device online, correct IP, agent running on port 8000.');
+                    }
                 }
             })
             .catch(err => {
                 document.getElementById('deploy_btn').disabled = false;
-                showAlert('error', 'Không thể kết nối: ' + err);
-                showDeploymentLog('Không thể kết nối tới controller hoặc thiết bị IoT', 'error');
+                const errMsg = String(err);
+                showAlert('error', 'Unable to connect: ' + errMsg);
+                showDeploymentLog('Unable to connect to controller or device.', 'error');
+                
+                // Additional guidance for common errors
+                if (errMsg.includes('Failed to fetch') || errMsg.includes('NetworkError')) {
+                    showAlert('warning', 'Network error: check that the controller server is running.');
+                }
             });
+        }
+
+        function handleDownload(modelName, buttonEl) {
+            if (!modelName) return;
+            const btn = buttonEl || null;
+            const originalText = btn ? btn.textContent : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Downloading...';
+            }
+            showAlert('info', `Downloading model ${modelName}...`);
+            fetch('/api/models/download', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model_name: modelName })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        allModels = allModels.map(m => m.name === modelName ? { ...m, downloaded: true } : m);
+                        showAlert('success', data.message || `Downloaded ${modelName}`);
+                        renderModelList();
+                    } else {
+                        showAlert('error', data.error || `Download failed: ${modelName}`);
+                    }
+                })
+                .catch(err => showAlert('error', 'Download error: ' + err))
+                .finally(() => {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = originalText || 'Download';
+                    }
+                });
         }
 
         let energyMonitoringInterval = null;
@@ -782,10 +1152,10 @@
                         // Update status badge
                         const statusBadge = document.getElementById('energy_status_badge');
                         if (stats.average_mwh > budget) {
-                            statusBadge.textContent = 'Vượt ngưỡng';
+                            statusBadge.textContent = 'Over budget';
                             statusBadge.className = 'badge error';
                         } else {
-                            statusBadge.textContent = 'Ổn định';
+                            statusBadge.textContent = 'Stable';
                             statusBadge.className = 'badge success';
                         }
                         
@@ -793,12 +1163,12 @@
                         const historyList = document.getElementById('energy_history_list');
                         const recentReadings = data.readings.slice(-6).reverse();
                         historyList.innerHTML = recentReadings.map(reading => {
-                            const time = new Date(reading.timestamp).toLocaleTimeString('vi-VN', {
+                            const time = new Date(reading.timestamp).toLocaleTimeString('en-US', {
                                 hour: '2-digit',
                                 minute: '2-digit',
                                 second: '2-digit'
                             });
-                            const status = reading.status === 'spike' ? ' ⚠️' : '';
+                            const status = reading.status === 'spike' ? ' (spike)' : '';
                             return `<li><span>${time}${status}</span><span>${reading.energy_mwh.toFixed(1)} mWh</span></li>`;
                         }).join('');
                     }
@@ -826,13 +1196,13 @@
             };
             const missing = Object.entries(payload).filter(([_, v]) => Number.isNaN(v));
             if (missing.length) {
-                document.getElementById('predict_output').innerHTML = '<span style="color: var(--danger);">Vui lòng nhập đầy đủ tất cả trường số.</span>';
+                document.getElementById('predict_output').innerHTML = '<span style="color: var(--danger);">Please fill in all numeric fields.</span>';
                 return;
             }
             document.getElementById('predict_output').innerHTML = `
                 <div class="loading-state" style="padding:8px 0;">
                     <div class="spinner"></div>
-                    Đang dự đoán năng lượng...
+                    Predicting energy...
                 </div>
             `;
             fetch('/api/predict-energy', {
@@ -843,12 +1213,12 @@
             .then(r => r.json())
             .then(data => {
                 if (!data.success) {
-                    document.getElementById('predict_output').innerHTML = `<span style="color: var(--danger);">Lỗi: ${escapeHtml(data.error || 'Không thể dự đoán')}</span>`;
+                    document.getElementById('predict_output').innerHTML = `<span style="color: var(--danger);">Error: ${escapeHtml(data.error || 'Unable to predict')}</span>`;
                     return;
                 }
                 const pred = data.predictions && data.predictions[0];
                 if (!pred) {
-                    document.getElementById('predict_output').innerHTML = '<span style="color: var(--danger);">Không có kết quả trả về.</span>';
+                    document.getElementById('predict_output').innerHTML = '<span style="color: var(--danger);">No result returned.</span>';
                     return;
                 }
                 document.getElementById('predict_output').innerHTML = `
@@ -861,18 +1231,18 @@
                 `;
             })
             .catch(err => {
-                document.getElementById('predict_output').innerHTML = `<span style="color: var(--danger);">Lỗi kết nối: ${escapeHtml(err)}</span>`;
+                document.getElementById('predict_output').innerHTML = `<span style="color: var(--danger);">Connection error: ${escapeHtml(err)}</span>`;
             });
         }
 
         function prefillPredictFromSelection() {
             if (!selectedModel) {
-                showAlert('error', 'Chưa chọn model để điền thông số');
+                showAlert('error', 'No model selected to prefill parameters.');
                 return;
             }
             const m = getModelByName(selectedModel);
             if (!m) {
-                showAlert('error', 'Không tìm thấy thông tin model đã chọn');
+                showAlert('error', 'Selected model details not found.');
                 return;
             }
             document.getElementById('pred_params_m').value = m.params_m || '';
@@ -880,7 +1250,26 @@
             document.getElementById('pred_size_mb').value = m.size_mb || '';
             document.getElementById('pred_latency').value = m.latency_s || '';
             document.getElementById('pred_throughput').value = m.throughput || '';
-            showAlert('info', 'Đã điền thông số sẵn có, bổ sung GMACs nếu thiếu.');
+            showAlert('info', 'Prefilled available parameters. Add GMACs if missing.');
+        }
+
+        function loadBalenaFleets() {
+            fetch('/api/balena/fleets')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.fleets) {
+                        const select = document.getElementById('balena_app_filter');
+                        if (!select) return;
+                        select.innerHTML = '<option value="">All fleets</option>';
+                        data.fleets.forEach(fleet => {
+                            const opt = document.createElement('option');
+                            opt.value = fleet.slug || fleet.name;
+                            opt.textContent = fleet.name || fleet.slug;
+                            select.appendChild(opt);
+                        });
+                    }
+                })
+                .catch(err => console.error('Failed to load Balena fleets:', err));
         }
 
         function loadBalenaDevices(showNotification = false) {
@@ -902,13 +1291,13 @@
                         balenaDevices = data.devices || [];
                         renderBalenaDevices(balenaDevices);
                         if (showNotification) {
-                            showAlert('success', 'Đã làm mới danh sách thiết bị Balena');
+                            showAlert('success', 'Balena device list refreshed.');
                         }
                     } else {
-                        showBalenaDevicesMessage(data.error || 'Không thể tải thiết bị Balena', 'error');
+                        showBalenaDevicesMessage(data.error || 'Unable to load Balena devices.', 'error');
                     }
                 })
-                .catch(err => showBalenaDevicesMessage('Không thể kết nối Balena: ' + err, 'error'));
+                .catch(err => showBalenaDevicesMessage('Unable to connect to Balena: ' + err, 'error'));
         }
 
         function showBalenaLoading() {
@@ -917,7 +1306,7 @@
             list.innerHTML = `
                 <div class="loading-state">
                     <div class="spinner"></div>
-                    Đang tải danh sách thiết bị Balena Cloud...
+                    Loading Balena Cloud devices...
                 </div>
             `;
         }
@@ -931,7 +1320,23 @@
                 list.innerHTML = '';
                 return;
             }
-            if (message) message.textContent = `Tìm thấy ${devices.length} thiết bị`;
+            if (message) message.textContent = `Found ${devices.length} device(s)`;
+            
+            // Populate monitoring device selector
+            const selector = document.getElementById('monitor_device_selector');
+            if (selector) {
+                const currentValue = selector.value;
+                selector.innerHTML = '<option value="">Select a device</option>';
+                devices.forEach(dev => {
+                    if (dev.endpoint) {
+                        const opt = document.createElement('option');
+                        opt.value = dev.endpoint;
+                        opt.textContent = `${dev.name || 'Device'} (${dev.endpoint}) ${dev.is_online ? '🟢' : '🔴'}`;
+                        selector.appendChild(opt);
+                    }
+                });
+                if (currentValue) selector.value = currentValue;
+            }
             list.innerHTML = devices.map(dev => {
                 const statusBadge = dev.is_online
                     ? '<span class="badge ok" data-badge="status">ONLINE</span>'
@@ -982,10 +1387,10 @@
                         const btns = document.querySelectorAll(`.mini-btn[data-endpoint="${encodeURIComponent(endpoint)}"]`);
                         btns.forEach(btn => btn.outerHTML = `<span class="badge ok">Connected</span>`);
                     } else {
-                        showBalenaDevicesMessage(data.error || 'Kết nối thất bại', 'error');
+                        showBalenaDevicesMessage(data.error || 'Connection failed', 'error');
                     }
                 })
-                .catch(err => showBalenaDevicesMessage('Không thể kết nối: ' + err, 'error'));
+                .catch(err => showBalenaDevicesMessage('Unable to connect: ' + err, 'error'));
         }
 
         function startStatusPolling() {
@@ -995,8 +1400,29 @@
                 if (!bbbIp) return;
                 fetch(`/api/status?bbb_ip=${bbbIp}`)
                     .then(r => r.json())
-                    .then(data => { if (data.success) updateDeviceStatus(data.status); })
-                    .catch(() => {});
+                    .then(data => { 
+                        if (data.success) {
+                            updateDeviceStatus(data.status);
+                        } else {
+                            // Handle device offline/error gracefully
+                            const deviceStatus = document.getElementById('device_status');
+                            if (data.device_offline || data.device_timeout) {
+                                deviceStatus.querySelector('.status-value').innerHTML = 
+                                    `<span class="dot error"></span>Offline`;
+                            } else {
+                                deviceStatus.querySelector('.status-value').innerHTML = 
+                                    `<span class="dot error"></span>Connection error`;
+                            }
+                        }
+                    })
+                    .catch(() => {
+                        // Network error - show device as offline
+                        const deviceStatus = document.getElementById('device_status');
+                        if (deviceStatus) {
+                            deviceStatus.querySelector('.status-value').innerHTML = 
+                                `<span class="dot error"></span>Unavailable`;
+                        }
+                    });
             }, 5000);
         }
 
@@ -1009,33 +1435,25 @@
             if (status && status.model_name) {
                 modelStatus.querySelector('.status-value').textContent = status.model_name;
             } else {
-                modelStatus.querySelector('.status-value').textContent = 'Chưa có model';
+                modelStatus.querySelector('.status-value').textContent = 'No model';
             }
             renderEnergyMetrics(status ? status.energy_metrics : null);
         }
 
         function displayStats(stats) {
-            const card = document.getElementById('stats_card');
             const mainTotal = document.getElementById('stat_total_main');
             const main50 = document.getElementById('stat_50_main');
             const main100 = document.getElementById('stat_100_main');
+            if (!mainTotal || !main50 || !main100) return;
             if (!stats) {
-                card.style.display = 'block';
-                document.getElementById('stat_total').textContent = '—';
-                document.getElementById('stat_50').textContent = '—';
-                document.getElementById('stat_100').textContent = '—';
                 mainTotal.textContent = '—';
                 main50.textContent = '—';
                 main100.textContent = '—';
                 return;
             }
-            card.style.display = 'block';
-            document.getElementById('stat_total').textContent = stats.total_models || 0;
-            document.getElementById('stat_50').textContent = stats.models_under_50mwh || 0;
-            document.getElementById('stat_100').textContent = stats.models_under_100mwh || 0;
-            mainTotal.textContent = stats.total_models || 0;
-            main50.textContent = stats.models_under_50mwh || 0;
-            main100.textContent = stats.models_under_100mwh || 0;
+            mainTotal.textContent = stats.total_models ?? 0;
+            main50.textContent = stats.models_under_50mwh ?? 0;
+            main100.textContent = stats.models_under_100mwh ?? 0;
         }
 
         function renderEnergyMetrics(metrics) {
@@ -1045,161 +1463,41 @@
             const badge = document.getElementById('energy_status_badge');
             const historyEl = document.getElementById('energy_history_list');
             if (!metrics) {
-                budgetEl.textContent = 'N/a';
-                latestEl.textContent = 'N/a';
-                avgEl.textContent = 'N/a';
-                badge.textContent = 'Chưa có';
+                budgetEl.textContent = 'N/A';
+                latestEl.textContent = 'N/A';
+                avgEl.textContent = 'N/A';
+                badge.textContent = 'No data';
                 badge.className = 'badge';
-                historyEl.innerHTML = '<li><span>Chưa có dữ liệu</span><span></span></li>';
+                historyEl.innerHTML = '<li><span>No samples yet</span><span></span></li>';
                 return;
             }
             const budget = metrics.budget_mwh;
             const latest = metrics.latest_mwh;
             const average = metrics.avg_mwh;
             const history = Array.isArray(metrics.history) ? metrics.history.slice(-6).reverse() : [];
-            budgetEl.textContent = budget != null ? formatMetric(budget, 2) : 'N/a';
-            latestEl.textContent = latest != null ? formatMetric(latest, 2) : 'N/a';
-            avgEl.textContent = average != null ? formatMetric(average, 2) : 'N/a';
+            budgetEl.textContent = budget != null ? formatMetric(budget, 2) : 'N/A';
+            latestEl.textContent = latest != null ? formatMetric(latest, 2) : 'N/A';
+            avgEl.textContent = average != null ? formatMetric(average, 2) : 'N/A';
             const state = metrics.status === 'over_budget' ? 'over' : 'ok';
-            badge.textContent = state === 'over' ? 'Vượt ngưỡng' : 'Ổn định';
+            badge.textContent = state === 'over' ? 'Over budget' : 'OK';
             badge.className = `badge ${state === 'over' ? 'over' : 'ok'}`;
             if (!history.length) {
-                historyEl.innerHTML = '<li><span>Chưa có dữ liệu</span><span></span></li>';
+                historyEl.innerHTML = '<li><span>No samples yet</span><span></span></li>';
             } else {
                 historyEl.innerHTML = history.map(item => `
                     <li><span>${formatTimestamp(item.timestamp)}</span><span>${formatMetric(item.energy_mwh, 2)} mWh</span></li>
                 `).join('');
             }
-
-            if (history.length) {
-                monitoringData.timeseries = history.slice(0, 6).map(item => ({
-                    label: formatTimestamp(item.timestamp),
-                    energy: item.energy_mwh,
-                    latency: item.latency_s || item.latency_avg_s || 0.12,
-                    throughput: item.throughput || item.throughput_iter_per_s || 0
-                })).reverse();
-            }
-            monitoringData.status = {
-                budgetUsed: budget ? Math.min(150, Math.round((latest / budget) * 100)) : (metrics.status === 'over_budget' ? 120 : 42),
-                avgLatency: metrics.latency_avg_s || metrics.latency_s || 0.12,
-                uptime: metrics.uptime_pct ? `${formatMetric(metrics.uptime_pct, 1)}%` : '99.0%',
-                thermal: metrics.thermal_c || 54,
-                memory: metrics.memory_used_pct || 68,
-                successRate: metrics.success_rate || 98
-            };
-            const activeMonitorTab = document.querySelector('#monitor_tabs .monitor-tab.active');
-            if (activeMonitorTab) {
-                renderMonitoringTab(activeMonitorTab.dataset.tab);
-            }
         }
 
         function renderMonitoringTab(tab) {
-
             const container = document.getElementById('monitor_content');
             if (!container) return;
-            if (tab === 'timeseries') {
-                const series = monitoringData.timeseries || [];
-                const maxEnergy = Math.max(...series.map(s => s.energy || 0), 1);
-                container.innerHTML = `
-                    <div class="monitor-row">
-                        <div class="monitor-card">
-                            <h4>Line / Area</h4>
-                            <small>Năng lượng theo thời gian (mWh)</small>
-                            <div class="metric-list">
-                                ${series.map(item => renderMetricLine(item.label, item.energy, maxEnergy, 'mWh')).join('')}
-                            </div>
-                        </div>
-                        <div class="monitor-card">
-                            <h4>Multi-axis</h4>
-                            <small>Energy vs latency & throughput</small>
-                            <div class="metric-list">
-                                ${series.map(item => {
-                                    const barWidth = Math.min(100, Math.max(12, Math.round((item.latency || 0.01) / 0.25 * 100)));
-                                    return `
-                                        <div class="metric-line">
-                                            <span class="label">${escapeHtml(item.label)}</span>
-                                            <div class="bar" style="width:${barWidth}%; background: linear-gradient(90deg, #8b5cf6, #22d3ee);"></div>
-                                            <span class="value">${formatMetric(item.latency, 3)} s • ${formatMetric(item.throughput, 0)} it/s</span>
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                        </div>
-                    </div>
-                `;
-                return;
-            }
 
-            if (tab === 'status') {
-                const stat = monitoringData.status || {};
-                container.innerHTML = `
-                    <div class="monitor-row">
-                        <div class="monitor-card">
-                            <h4>Gauge</h4>
-                            <small>Ngân sách đã dùng</small>
-                            <div class="metric-line">
-                                <span class="label">Budget used</span>
-                                <div class="bar" style="width:${Math.min(100, stat.budgetUsed || 0)}%;"></div>
-                                <span class="value">${formatMetric(stat.budgetUsed, 0)}%</span>
-                            </div>
-                            <div class="metric-line">
-                                <span class="label">Uptime</span>
-                                <div class="bar" style="width:${parsePercent(stat.uptime)}%; background: linear-gradient(90deg, #34d399, #10b981);"></div>
-                                <span class="value">${escapeHtml(stat.uptime || '--')}</span>
-                            </div>
-                        </div>
-                        <div class="monitor-card">
-                            <h4>Status / Health</h4>
-                            <div class="monitor-row" style="grid-template-columns: repeat(auto-fit, minmax(160px,1fr));">
-                                ${renderKpi('Latency avg', `${formatMetric(stat.avgLatency, 3)} s`)}
-                                ${renderKpi('Memory used', `${formatMetric(stat.memory, 0)} %`)}
-                                ${renderKpi('Thermal', `${formatMetric(stat.thermal, 0)} °C`)}
-                                ${renderKpi('Success rate', `${formatMetric(stat.successRate, 0)} %`)}
-                            </div>
-                        </div>
-                    </div>
-                `;
-                return;
-            }
+            const safeTab = tab || 'overview';
+            activeMonitorTab = safeTab;
 
-            if (tab === 'distribution') {
-                const dist = monitoringData.distribution || {};
-                const buckets = dist.buckets || [];
-                const maxBucket = Math.max(...buckets.map(b => b.value || 0), 1);
-                container.innerHTML = `
-                    <div class="monitor-row">
-                        <div class="monitor-card">
-                            <h4>Histogram</h4>
-                            <small>Phân bố tiêu thụ năng lượng</small>
-                            <div class="metric-list">
-                                ${buckets.map(bucket => renderMetricLine(bucket.label, bucket.value, maxBucket, 'lần ghi nhận')).join('')}
-                            </div>
-                        </div>
-                        <div class="monitor-card">
-                            <h4>Box summary</h4>
-                            <small>Min / P25 / P50 / P75 / Max</small>
-                            <div class="metric-list">
-                                ${['min','p25','p50','p75','max'].map(key => {
-                                    const v = dist.box ? dist.box[key] : null;
-                                    const base = dist.box && dist.box.max ? dist.box.max : 1;
-                                    const width = Math.min(100, Math.max(10, Math.round(((v || 0) / base) * 100)));
-                                    return `
-                                        <div class="metric-line">
-                                            <span class="label">${key.toUpperCase()}</span>
-                                            <div class="bar" style="width:${width}%;"></div>
-                                            <span class="value">${formatMetric(v, 2)} mWh</span>
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                        </div>
-                    </div>
-                `;
-                return;
-            }
-
-            if (tab === 'advanced') {
-                // Load real data from API for Pareto analysis
+            if (safeTab === 'models') {
                 fetch('/api/models/all')
                     .then(res => res.json())
                     .then(data => {
@@ -1210,13 +1508,206 @@
                         }
                     })
                     .catch(err => {
-                        console.error('Failed to load Pareto data:', err);
+                        console.error('Failed to load model analytics:', err);
                         renderParetoPlaceholder();
                     });
                 return;
             }
 
-            container.innerHTML = '<div class="monitor-card">Chưa có dữ liệu giám sát.</div>';
+            const hasHistory = Array.isArray(deviceMetricsHistory) && deviceMetricsHistory.length > 1;
+            if (!hasHistory) {
+                container.innerHTML = '<div class="monitor-card">No device metrics yet. Open Monitoring and wait for samples.</div>';
+                return;
+            }
+
+            if (safeTab === 'overview') {
+                const latest = deviceMetricsHistory[deviceMetricsHistory.length - 1];
+                const cpu = latest.cpuPercent;
+                const mem = latest.memUsedPercent;
+                const disk = latest.diskUsedPercent;
+                const temp = latest.temperatureC;
+
+                container.innerHTML = `
+                    <div class="gauge-row">
+                        ${renderGaugeCard('CPU usage', cpu, 0, 100, '%')}
+                        ${renderGaugeCard('Memory used', mem, 0, 100, '%')}
+                        ${renderGaugeCard('Disk used', disk, 0, 100, '%')}
+                        ${renderGaugeCard('Temperature', temp, 0, 90, '°C')}
+                    </div>
+                    <div class="chart-grid" style="margin-top: 14px;">
+                        <div class="chart-card">
+                            <div class="chart-title">
+                                <h4>Memory</h4>
+                                <small>Used vs free</small>
+                            </div>
+                            ${renderUsedFreeBar(latest.memory)}
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title">
+                                <h4>Storage</h4>
+                                <small>Used vs free</small>
+                            </div>
+                            ${renderUsedFreeBar(latest.storage)}
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            if (safeTab === 'trends') {
+                container.innerHTML = `
+                    <div class="chart-grid">
+                        <div class="chart-card">
+                            <div class="chart-title"><h4>CPU</h4><small>Last samples</small></div>
+                            <svg class="chart-svg" id="trend_cpu" viewBox="0 0 600 180" preserveAspectRatio="none"></svg>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title"><h4>Temperature</h4><small>Last samples</small></div>
+                            <svg class="chart-svg" id="trend_temp" viewBox="0 0 600 180" preserveAspectRatio="none"></svg>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title"><h4>Memory</h4><small>Used %</small></div>
+                            <svg class="chart-svg" id="trend_mem" viewBox="0 0 600 180" preserveAspectRatio="none"></svg>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title"><h4>Storage</h4><small>Used %</small></div>
+                            <svg class="chart-svg" id="trend_disk" viewBox="0 0 600 180" preserveAspectRatio="none"></svg>
+                        </div>
+                    </div>
+                `;
+                drawLineChart(document.getElementById('trend_cpu'), deviceMetricsHistory.map(p => p.cpuPercent), 0, 100);
+                drawLineChart(document.getElementById('trend_temp'), deviceMetricsHistory.map(p => p.temperatureC), 0, 90);
+                drawLineChart(document.getElementById('trend_mem'), deviceMetricsHistory.map(p => p.memUsedPercent), 0, 100);
+                drawLineChart(document.getElementById('trend_disk'), deviceMetricsHistory.map(p => p.diskUsedPercent), 0, 100);
+                return;
+            }
+
+            if (safeTab === 'distribution') {
+                container.innerHTML = `
+                    <div class="chart-grid">
+                        <div class="chart-card">
+                            <div class="chart-title"><h4>CPU distribution</h4><small>Histogram</small></div>
+                            <svg class="chart-svg" id="hist_cpu" viewBox="0 0 600 180" preserveAspectRatio="none"></svg>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title"><h4>Temperature distribution</h4><small>Histogram</small></div>
+                            <svg class="chart-svg" id="hist_temp" viewBox="0 0 600 180" preserveAspectRatio="none"></svg>
+                        </div>
+                    </div>
+                `;
+                drawHistogram(document.getElementById('hist_cpu'), deviceMetricsHistory.map(p => p.cpuPercent), 0, 100);
+                drawHistogram(document.getElementById('hist_temp'), deviceMetricsHistory.map(p => p.temperatureC), 0, 90);
+                return;
+            }
+
+            container.innerHTML = '<div class="monitor-card">Select a tab to view charts.</div>';
+        }
+
+        function renderGaugeCard(title, value, min, max, unit) {
+            const v = (typeof value === 'number') ? value : null;
+            const pct = v == null ? 0 : Math.max(0, Math.min(1, (v - min) / ((max - min) || 1)));
+            const display = v == null ? 'N/A' : `${formatMetric(v, unit === '%' ? 0 : 1)}${unit}`;
+            const stroke = v == null ? 'rgba(148,163,184,0.4)' : 'var(--accent)';
+            const dash = Math.round(pct * 283);
+
+            return `
+                <div class="gauge-card">
+                    <div class="gauge-head"><h5>${escapeHtml(title)}</h5><strong>${escapeHtml(display)}</strong></div>
+                    <svg class="gauge-svg" viewBox="0 0 200 120">
+                        <path d="M20 110 A80 80 0 0 1 180 110" fill="none" stroke="rgba(148,163,184,0.18)" stroke-width="12" />
+                        <path d="M20 110 A80 80 0 0 1 180 110" fill="none" stroke="${stroke}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${dash} 283" />
+                    </svg>
+                </div>
+            `;
+        }
+
+        function renderUsedFreeBar(resource) {
+            if (!resource || typeof resource.total_bytes !== 'number' || typeof resource.used_bytes !== 'number') {
+                return '<div class="muted">N/A</div>';
+            }
+            const total = resource.total_bytes;
+            const used = resource.used_bytes;
+            const free = Math.max(0, total - used);
+            const usedPct = total ? Math.max(0, Math.min(100, (used / total) * 100)) : 0;
+            const freePct = 100 - usedPct;
+            const usedGB = used / (1024 * 1024 * 1024);
+            const totalGB = total / (1024 * 1024 * 1024);
+            return `
+                <div class="stacked-bar" aria-label="Used vs free">
+                    <div class="stacked-seg stacked-used" style="width:${usedPct.toFixed(2)}%"></div>
+                    <div class="stacked-seg stacked-free" style="width:${freePct.toFixed(2)}%"></div>
+                </div>
+                <div class="inline-stats" style="margin-top: 10px;">
+                    <span>Used<strong>${formatMetric(usedGB, 2)} GB</strong></span>
+                    <span>Free<strong>${formatMetric(free / (1024 * 1024 * 1024), 2)} GB</strong></span>
+                    <span>Total<strong>${formatMetric(totalGB, 2)} GB</strong></span>
+                </div>
+            `;
+        }
+
+        function drawLineChart(svgEl, values, minY, maxY) {
+            if (!svgEl) return;
+            const series = (Array.isArray(values) ? values : []).filter(v => typeof v === 'number');
+            const v = series.slice(-80);
+            if (v.length < 2) { svgEl.innerHTML = ''; return; }
+
+            const width = 600;
+            const height = 180;
+            const padX = 10;
+            const padY = 12;
+            const min = (typeof minY === 'number') ? minY : Math.min(...v);
+            const max = (typeof maxY === 'number') ? maxY : Math.max(...v);
+            const span = (max - min) || 1;
+
+            const pts = v.map((val, i) => {
+                const x = padX + (i / (v.length - 1)) * (width - padX * 2);
+                const y = (height - padY) - ((val - min) / span) * (height - padY * 2);
+                return `${x.toFixed(1)},${y.toFixed(1)}`;
+            }).join(' ');
+
+            const area = `M ${padX},${height - padY} L ${pts.replace(/\s+/g, ' L ')} L ${width - padX},${height - padY} Z`;
+
+            svgEl.innerHTML = `
+                <defs>
+                    <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="rgba(34,211,238,0.25)" />
+                        <stop offset="100%" stop-color="rgba(34,211,238,0)" />
+                    </linearGradient>
+                </defs>
+                <path d="${area}" fill="url(#areaFill)" />
+                <polyline fill="none" stroke="var(--accent)" stroke-width="2" points="${pts}" />
+            `;
+        }
+
+        function drawHistogram(svgEl, values, minX, maxX) {
+            if (!svgEl) return;
+            const raw = (Array.isArray(values) ? values : []).filter(v => typeof v === 'number');
+            const v = raw.slice(-200);
+            if (v.length < 3) { svgEl.innerHTML = ''; return; }
+
+            const width = 600;
+            const height = 180;
+            const bins = 12;
+            const min = (typeof minX === 'number') ? minX : Math.min(...v);
+            const max = (typeof maxX === 'number') ? maxX : Math.max(...v);
+            const span = (max - min) || 1;
+            const counts = new Array(bins).fill(0);
+            for (const val of v) {
+                const idx = Math.max(0, Math.min(bins - 1, Math.floor(((val - min) / span) * bins)));
+                counts[idx] += 1;
+            }
+            const maxCount = Math.max(...counts, 1);
+
+            const gap = 6;
+            const barW = (width - gap * (bins + 1)) / bins;
+            let bars = '';
+            for (let i = 0; i < bins; i++) {
+                const barH = (counts[i] / maxCount) * (height - 24);
+                const x = gap + i * (barW + gap);
+                const y = height - 12 - barH;
+                bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="6" fill="rgba(34,211,238,0.55)" />`;
+            }
+            svgEl.innerHTML = bars;
         }
 
         function renderParetoAnalysis(models) {
@@ -1268,8 +1759,8 @@
             container.innerHTML = `
                 <div class="monitor-row">
                     <div class="monitor-card">
-                        <h4>⚡ Energy vs Latency (Pareto Frontier)</h4>
-                        <small>${paretoFrontier.length} models trên Pareto frontier • Tối ưu cả năng lượng và tốc độ</small>
+                        <h4>Energy vs Latency (Pareto frontier)</h4>
+                        <small>${paretoFrontier.length} models on the Pareto frontier (energy + latency)</small>
                         <div class="metric-list" style="max-height: 400px; overflow-y: auto;">
                             ${topEfficient.map((model, idx) => {
                                 const isParetoOptimal = paretoFrontier.some(p => p.model === model.model);
@@ -1279,7 +1770,6 @@
                                     <div class="metric-line" style="position: relative; margin-bottom: 12px;">
                                         <span class="label" style="font-size: 12px; font-weight: ${isParetoOptimal ? '700' : '400'};">
                                             ${idx + 1}. ${escapeHtml(model.model)}
-                                            ${isParetoOptimal ? '<span style="color: #22d3ee;">★</span>' : ''}
                                         </span>
                                         <div style="display: flex; flex-direction: column; gap: 2px; flex: 1;">
                                             <div style="display: flex; align-items: center; gap: 8px;">
@@ -1298,12 +1788,12 @@
                             }).join('')}
                         </div>
                         <div style="margin-top: 12px; padding: 8px; background: rgba(34,211,238,0.1); border-radius: 8px; font-size: 11px; color: var(--muted);">
-                            ★ Pareto optimal: Không có model nào tốt hơn cả năng lượng VÀ latency
+                            Pareto optimal means no other model dominates both energy and latency.
                         </div>
                     </div>
                     <div class="monitor-card">
-                        <h4>📦 Energy vs Size Trade-off</h4>
-                        <small>Top 15 models nhẹ nhất • Phù hợp thiết bị RAM hạn chế</small>
+                        <h4>Energy vs Size trade-off</h4>
+                        <small>Top 15 smallest models (memory-constrained devices)</small>
                         <div class="metric-list" style="max-height: 400px; overflow-y: auto;">
                             ${topCompact.map((model, idx) => {
                                 const energyWidth = Math.min(100, Math.round((model.energy_avg_mwh / maxEnergy) * 100));
@@ -1333,8 +1823,8 @@
                 </div>
                 <div class="monitor-row" style="margin-top: 16px;">
                     <div class="monitor-card">
-                        <h4>🚀 Performance per Watt (Efficiency)</h4>
-                        <small>Top 10 models hiệu quả nhất • Throughput / Energy</small>
+                        <h4>Efficiency (throughput per energy)</h4>
+                        <small>Top 10 models by throughput / energy</small>
                         <div class="metric-list">
                             ${topEfficiencyModels.map((model, idx) => {
                                 const effWidth = Math.min(100, Math.round((model.efficiency / maxEff) * 100));
@@ -1349,8 +1839,8 @@
                         </div>
                     </div>
                     <div class="monitor-card">
-                        <h4>📊 Summary Statistics</h4>
-                        <small>Tổng quan benchmark 126 models</small>
+                        <h4>Summary statistics</h4>
+                        <small>Benchmark overview</small>
                         <div class="metric-list">
                             ${[
                                 { label: 'Total Models', value: models.length, unit: '' },
@@ -1374,35 +1864,7 @@
         function renderParetoPlaceholder() {
             const container = document.getElementById('monitor_content');
             if (!container) return;
-            const adv = monitoringData.advanced || {};
-                const tradeoff = adv.tradeoff || [];
-                const heatmap = adv.heatmap || [];
-                const maxEnergy = Math.max(...tradeoff.map(t => t.energy || 0), 1);
-                const maxHeat = Math.max(...heatmap.map(h => h.energy || 0), 1);
-                container.innerHTML = `
-                    <div class="monitor-row">
-                        <div class="monitor-card">
-                            <h4>Pareto / Scatter</h4>
-                            <small>Trade-off năng lượng vs latency</small>
-                            <div class="metric-list">
-                                ${tradeoff.map(item => `
-                                    <div class="metric-line">
-                                        <span class="label">${escapeHtml(item.model)}</span>
-                                        <div class="bar" style="width:${Math.min(100, Math.round((item.energy || 0) / maxEnergy * 100))}%; background: linear-gradient(90deg, #22d3ee, #34d399);"></div>
-                                        <span class="value">${formatMetric(item.energy, 2)} mWh • ${formatMetric(item.latency, 3)} s</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                        <div class="monitor-card">
-                            <h4>Heatmap slot</h4>
-                            <small>Tiêu thụ theo khung giờ</small>
-                            <div class="metric-list">
-                                ${heatmap.map(item => renderMetricLine(item.slot, item.energy, maxHeat, 'mWh')).join('')}
-                            </div>
-                        </div>
-                    </div>
-                `;
+            container.innerHTML = '<div class="monitor-card">Model analytics are unavailable.</div>';
         }
 
         function renderMetricLine(label, value, maxValue, unit = '') {
@@ -1435,17 +1897,17 @@
         function renderSelectionPreview() {
             const preview = document.getElementById('selection_preview');
             if (!preview) return;
-            if (!selectedModel) { preview.textContent = 'Hãy chọn một model để xem dữ liệu và kiểm tra ngưỡng năng lượng.'; return; }
+            if (!selectedModel) { preview.textContent = 'Select a model to preview metrics and check the energy budget.'; return; }
             const model = getModelByName(selectedModel);
-            if (!model) { preview.textContent = 'Không tìm thấy thông tin model trong tập dữ liệu.'; return; }
+            if (!model) { preview.textContent = 'Model details not found in the dataset.'; return; }
             const parsedBudget = DEFAULT_BUDGET_MWH;
             const energy = Number(model.energy_mwh);
             const exceeding = !Number.isNaN(energy) && energy > parsedBudget;
             preview.innerHTML = `
                 <div><strong>${escapeHtml(model.name)}</strong></div>
-                <div>Năng lượng: <strong>${formatMetric(model.energy_mwh, 2)} mWh</strong> ${exceeding ? '<span class="risk">Vượt ngưỡng!</span>' : ''}</div>
-                <div>Ngưỡng hiện tại: <strong>${formatMetric(parsedBudget, 2)} mWh</strong></div>
-                <div>Kích thước: <strong>${formatMetric(model.size_mb, 2)} MB</strong> • Độ trễ: <strong>${formatMetric(model.latency_s, 3)} s</strong></div>
+                <div>Energy: <strong>${formatMetric(model.energy_mwh, 2)} mWh</strong> ${exceeding ? '<span class="risk">Over budget</span>' : ''}</div>
+                <div>Budget: <strong>${formatMetric(parsedBudget, 2)} mWh</strong></div>
+                <div>Size: <strong>${formatMetric(model.size_mb, 2)} MB</strong> • Latency: <strong>${formatMetric(model.latency_s, 3)} s</strong></div>
             `;
         }
 
@@ -1464,7 +1926,7 @@
             document.getElementById('model_list').innerHTML = `
                 <div class="loading-state">
                     <div class="spinner"></div>
-                    Đang tải dữ liệu từ controller...
+                    Loading data from controller...
                 </div>
             `;
         }
@@ -1541,9 +2003,10 @@
         }
 
         function setFilterActive(filter) {
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.filter === filter);
-            });
+            const select = document.getElementById('filter_select');
+            if (select) {
+                select.value = filter;
+            }
         }
 
         function formatTimestamp(value) {
