@@ -4,6 +4,15 @@ from datetime import datetime
 from flask import Flask, request, jsonify
 import requests
 
+# For system metrics
+try:
+    import psutil
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
+    
+import shutil
+
 app = Flask(__name__)
 
 # Persistent storage on BBB
