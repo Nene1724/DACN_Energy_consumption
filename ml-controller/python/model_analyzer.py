@@ -5,9 +5,32 @@ from typing import Optional
 
 
 class ModelAnalyzer:
-    def __init__(self, csv_path, predictor_service: Optional[object] = None, model_store_dir: str = None):
-        """Load và phân tích benchmark data"""
-        self.df = pd.read_csv(csv_path)
+    def __init__(self, csv_path, predictor_service: Optional[object] = None, model_store_dir: str = None, rpi5_csv_path: str = None):
+        """
+        Load và phân tích benchmark data
+        
+        Args:
+            csv_path: Path to Jetson CSV
+            predictor_service: Energy prediction service
+            model_store_dir: Directory containing model files
+            rpi5_csv_path: Path to Raspberry Pi 5 CSV (optional)
+        """
+        # Load Jetson data
+        self.df_jetson = pd.read_csv(csv_path)
+        self.df_jetson['device'] = 'jetson_nano_2gb'
+        
+        # Load RPi5 data if available
+        if rpi5_csv_path and os.path.exists(rpi5_csv_path):
+            self.df_rpi5 = pd.read_csv(rpi5_csv_path)
+            self.df_rpi5['device'] = 'raspberry_pi5'
+            # Combine both datasets
+            self.df = pd.concat([self.df_jetson, self.df_rpi5], ignore_index=True)
+            print(f"✅ Loaded {len(self.df_jetson)} Jetson models + {len(self.df_rpi5)} RPi5 models")
+        else:
+            self.df = self.df_jetson.copy()
+            self.df_rpi5 = None
+            print(f"✅ Loaded {len(self.df_jetson)} Jetson models only")
+        
         self.df = self.df.sort_values('energy_avg_mwh')
         self.predictor_service = predictor_service
         self.model_store_dir = model_store_dir or os.path.join(os.path.dirname(os.path.dirname(__file__)), 'model_store')
@@ -38,14 +61,16 @@ class ModelAnalyzer:
         models = []
         for _, row in self.df.iterrows():
             model_name = row['model']
+            # Use .get() with default values and handle NaN
             models.append({
                 'name': model_name,
-                'params_m': round(row['params_m'], 2),
-                'size_mb': round(row['size_mb'], 2),
-                'energy_mwh': round(row['energy_avg_mwh'], 2),
-                'latency_s': round(row['latency_avg_s'], 4),
-                'throughput': round(row['throughput_iter_per_s'], 2),
-                'input_resolution': row['input_resolution_actual'],
+                'params_m': round(float(row.get('params_m', 0)), 2) if pd.notna(row.get('params_m')) else 0,
+                'size_mb': round(float(row.get('size_mb', 0)), 2) if pd.notna(row.get('size_mb')) else 0,
+                'energy_mwh': round(float(row.get('energy_avg_mwh', 0)), 2) if pd.notna(row.get('energy_avg_mwh')) else 0,
+                'latency_s': round(float(row.get('latency_avg_s', 0)), 4) if pd.notna(row.get('latency_avg_s')) else 0,
+                'throughput': round(float(row.get('throughput_iter_per_s', 0)), 2) if pd.notna(row.get('throughput_iter_per_s')) else 0,
+                'input_resolution': str(row.get('input_resolution_actual', '')) if pd.notna(row.get('input_resolution_actual')) else '',
+                'device': str(row.get('device', 'unknown')) if pd.notna(row.get('device')) else 'unknown',
                 'downloaded': self._check_model_downloaded(model_name)
             })
         return models
@@ -77,12 +102,12 @@ class ModelAnalyzer:
             for _, row in filtered.head(10).iterrows():
                 recommendations.append({
                     'name': row['model'],
-                    'params_m': round(row['params_m'], 2),
-                    'size_mb': round(row['size_mb'], 2),
-                    'energy_mwh': round(row['energy_avg_mwh'], 2),
-                    'latency_s': round(row['latency_avg_s'], 4),
-                    'throughput': round(row['throughput_iter_per_s'], 2),
-                    'input_resolution': row['input_resolution_actual'],
+                    'params_m': round(float(row.get('params_m', 0)), 2) if pd.notna(row.get('params_m')) else 0,
+                    'size_mb': round(float(row.get('size_mb', 0)), 2) if pd.notna(row.get('size_mb')) else 0,
+                    'energy_mwh': round(float(row.get('energy_avg_mwh', 0)), 2) if pd.notna(row.get('energy_avg_mwh')) else 0,
+                    'latency_s': round(float(row.get('latency_avg_s', 0)), 4) if pd.notna(row.get('latency_avg_s')) else 0,
+                    'throughput': round(float(row.get('throughput_iter_per_s', 0)), 2) if pd.notna(row.get('throughput_iter_per_s')) else 0,
+                    'input_resolution': str(row.get('input_resolution_actual', '')) if pd.notna(row.get('input_resolution_actual')) else '',
                     'recommended': True,
                     'reason': self._get_recommendation_reason(row)
                 })
@@ -124,16 +149,16 @@ class ModelAnalyzer:
         row = row.iloc[0]
         return {
             'name': row['model'],
-            'params_m': round(row['params_m'], 2),
-            'gflops': round(row['gflops'], 2),
-            'size_mb': round(row['size_mb'], 2),
-            'energy_avg_mwh': round(row['energy_avg_mwh'], 2),
-            'energy_std_mwh': round(row['energy_std_mwh'], 2),
-            'latency_avg_s': round(row['latency_avg_s'], 4),
-            'latency_std_s': round(row['latency_std_s'], 6),
-            'throughput_iter_per_s': round(row['throughput_iter_per_s'], 2),
-            'input_resolution': row['input_resolution_actual'],
-            'input_size': row['input_size']
+            'params_m': round(float(row.get('params_m', 0)), 2) if pd.notna(row.get('params_m')) else 0,
+            'gflops': round(float(row.get('gflops', 0)), 2) if pd.notna(row.get('gflops')) else 0,
+            'size_mb': round(float(row.get('size_mb', 0)), 2) if pd.notna(row.get('size_mb')) else 0,
+            'energy_avg_mwh': round(float(row.get('energy_avg_mwh', 0)), 2) if pd.notna(row.get('energy_avg_mwh')) else 0,
+            'energy_std_mwh': round(float(row.get('energy_std_mwh', 0)), 2) if pd.notna(row.get('energy_std_mwh')) else 0,
+            'latency_avg_s': round(float(row.get('latency_avg_s', 0)), 4) if pd.notna(row.get('latency_avg_s')) else 0,
+            'latency_std_s': round(float(row.get('latency_std_s', 0)), 6) if pd.notna(row.get('latency_std_s')) else 0,
+            'throughput_iter_per_s': round(float(row.get('throughput_iter_per_s', 0)), 2) if pd.notna(row.get('throughput_iter_per_s')) else 0,
+            'input_resolution': str(row.get('input_resolution_actual', '')) if pd.notna(row.get('input_resolution_actual')) else '',
+            'input_size': str(row.get('input_size', '')) if pd.notna(row.get('input_size')) else ''
         }
 
     def predict_energy(self, metadata: dict):

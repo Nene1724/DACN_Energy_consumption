@@ -115,27 +115,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-                else:
-                    skip_count += 1
-        else:
-            fail_count += 1
-    
-    print("\n" + "=" * 70)
-    print("📈 SUMMARY")
-    print("=" * 70)
-    print(f"✅ Downloaded: {success_count}")
-    print(f"⏭️  Skipped: {skip_count} (already exist)")
-    print(f"❌ Failed: {fail_count}")
-    print("=" * 70)
-    
-    # List all .pth files
-    pth_files = list(Path(__file__).parent.glob("*.pth"))
-    print(f"\n📦 Total .pth files: {len(pth_files)}")
-    for f in sorted(pth_files):
-        size_mb = f.stat().st_size / (1024 * 1024)
-        print(f"  - {f.name} ({size_mb:.1f} MB)")
-    
-    print("\n✨ Done! Models ready for deployment.")
-
-if __name__ == "__main__":
-    main()

@@ -158,6 +158,17 @@ class LogManager:
             "deployed_models": list(deployed_models),
             "last_updated": data["metadata"].get("last_updated")
         }
+
+    def get_latest_success(self, device_ip: Optional[str] = None) -> Optional[Dict]:
+        """Trả về log deploy thành công mới nhất, có thể lọc theo device_ip"""
+        data = self._read_logs()
+        for log in reversed(data.get("logs", [])):
+            if log.get("type") != "success":
+                continue
+            if device_ip and log.get("metadata", {}).get("device_ip") != device_ip:
+                continue
+            return log
+        return None
     
     def clear_logs(self):
         """Xóa toàn bộ logs (giữ lại metadata)"""

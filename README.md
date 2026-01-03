@@ -1,6 +1,8 @@
 # Hệ Thống Triển Khai Mô Hình ML Tiết Kiệm Năng Lượng cho Thiết Bị IoT
 
-Dự án đồ án chuyên ngành: Hệ thống quản lý và triển khai mô hình Machine Learning lên thiết bị IoT (Jetson Nano Dev Kit 2GB) với giám sát năng lượng tiêu thụ theo thời gian thực.
+Dự án đồ án chuyên ngành: Hệ thống quản lý và triển khai mô hình Machine Learning lên thiết bị IoT với giám sát **telemetry thực** theo thời gian thực.
+
+Lưu ý quan trọng: nếu không có phần cứng/nguồn đo công suất (power sensor / INA219 / powercap…) hoặc pipeline telemetry năng lượng từ thiết bị, hệ thống **không thể** hiển thị “mWh tiêu thụ” một cách chính xác. Trong trường hợp đó, dashboard sẽ hiển thị các metrics **thực** sẵn có từ hệ điều hành như CPU/RAM/Temperature/Storage.
 
 ## Tổng Quan
 
@@ -8,7 +10,7 @@ Hệ thống bao gồm 2 thành phần chính:
 
 1. **ML Controller (Server quản lý)**: Flask web server chạy trên máy tính chủ, cung cấp dashboard web để quản lý models, dự đoán năng lượng, và triển khai models lên thiết bị IoT.
 
-2. **BBB ML Agent (Agent trên thiết bị)**: Service chạy trên thiết bị IoT (Jetson Nano), nhận models từ controller, thực thi inference, và báo cáo năng lượng tiêu thụ.
+2. **BBB ML Agent (Agent trên thiết bị)**: Service chạy trên thiết bị IoT, nhận models từ controller, thực thi inference, và báo cáo telemetry **thực** (CPU/RAM/Temperature/Storage). Nếu có tích hợp nguồn đo năng lượng bên ngoài, agent có thể nhận telemetry năng lượng qua API.
 
 ## Tính Năng Chính
 
@@ -16,7 +18,7 @@ Hệ thống bao gồm 2 thành phần chính:
 - Đề xuất top 10 models phù hợp nhất dựa trên ngân sách năng lượng, kích thước, và latency
 - Triển khai models lên thiết bị IoT qua HTTP API
 - Tự động download model artifacts từ timm (PyTorch Image Models) khi cần
-- Giám sát năng lượng tiêu thụ real-time với biểu đồ và metrics
+- Giám sát telemetry thiết bị real-time (CPU/RAM/Temperature/Storage) với biểu đồ và metrics
 - Tích hợp Balena Cloud để quản lý fleet thiết bị IoT
 - Dashboard web đầy đủ với 2 chế độ: Deployment và Monitoring
 
@@ -37,6 +39,9 @@ Hệ thống bao gồm 2 thành phần chính:
 - Kết nối mạng LAN/WiFi với máy chủ
 - 100MB storage trống (để lưu model artifacts)
 
+### (Tuỳ chọn) Nguồn đo năng lượng
+- Nếu cần số liệu năng lượng (mWh/mW) **thực**, phải có phần cứng/nguồn đo hoặc cơ chế telemetry (ví dụ INA219/INA226, powercap trên nền tảng hỗ trợ, hoặc một service đọc cảm biến và POST về agent).
+
 ## Cấu Trúc Thư Mục
 
 ```
@@ -49,7 +54,8 @@ DACN/
 │   │   └── download_models.py        # Tool download model artifacts
 │   │
 │   ├── data/                         # Dữ liệu benchmark
-│   │   └── 126_benchmark_final.csv   # Dataset 126 models đã benchmark
+│   │   └── 124_models_benchmark_jetson.csv   # Dataset 124 models benchmark trên Jetson Nano
+│   │   └── 27_models_benchmark_rpi5.csv      # Dataset 27 models benchmark trên Raspberry Pi 5
 │   │
 │   ├── artifacts/                    # Model ML đã train
 │   │   ├── energy_predictor.pkl      # Gradient Boosting model
@@ -148,7 +154,7 @@ ls ml-controller/artifacts/
 
 # Kiểm tra dataset benchmark
 ls ml-controller/data/
-# Phải có: 126_benchmark_final.csv
+# Phải có: 124_models_benchmark_jetson.csv, 27_models_benchmark_rpi5.csv
 
 # Kiểm tra model store (có thể trống ban đầu, sẽ download khi cần)
 ls ml-controller/model_store/
@@ -177,7 +183,7 @@ Truy cập: **http://localhost:5000** trên trình duyệt
 
 Dashboard **IoT ML Energy Manager** sẽ hiển thị với 2 tab:
 - **Deployment**: Quản lý và deploy models
-- **Monitoring**: Giám sát năng lượng real-time
+- **Monitoring**: Giám sát telemetry thiết bị real-time (CPU/RAM/Temperature/Storage)
 
 ### 3. Workflow Triển Khai Model
 
@@ -429,7 +435,7 @@ Xem chi tiết trong notebook: `ml-controller/notebooks/energy_prediction_model.
 
 ## Dataset Benchmark
 
-File: `ml-controller/data/126_benchmark_final.csv`
+File: `ml-controller/data/124_models_benchmark_jetson.csv`
 
 **Columns:**
 - `model`: Tên model (timm architecture name)
@@ -639,12 +645,12 @@ app.run(host='0.0.0.0', port=5001)
 
 **Triệu chứng:**
 ```
-FileNotFoundError: 126_benchmark_final.csv
+FileNotFoundError: 124_models_benchmark_jetson.csv
 ```
 
 **Giải pháp:**
 
-Đảm bảo file CSV tồn tại tại: `ml-controller/data/126_benchmark_final.csv`
+Đảm bảo file CSV tồn tại tại: `ml-controller/data/124_models_benchmark_jetson.csv`
 
 Nếu thiếu, copy từ backup hoặc tạo lại bằng notebook benchmark.
 
@@ -652,7 +658,8 @@ Nếu thiếu, copy từ backup hoặc tạo lại bằng notebook benchmark.
 
 - **[USER_GUIDE.md](USER_GUIDE.md)**: Hướng dẫn sử dụng dashboard web chi tiết từng bước
 - **Notebook Training**: `ml-controller/notebooks/energy_prediction_model.ipynb` - Chi tiết quá trình train model predictor
-- **Dataset**: `ml-controller/data/126_benchmark_final.csv` - Dữ liệu benchmark đầy đủ
+- **Dataset**: `ml-controller/data/124_models_benchmark_jetson.csv` - Dữ liệu benchmark Jetson Nano
+- **Dataset**: `ml-controller/data/27_models_benchmark_rpi5.csv` - Dữ liệu benchmark Raspberry Pi 5
 
 ## Kiến Trúc Hệ Thống
 

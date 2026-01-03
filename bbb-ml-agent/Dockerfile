@@ -1,13 +1,16 @@
-FROM balenalib/%%BALENA_MACHINE_NAME%%-python:3.10-bullseye-run
+FROM balenalib/beaglebone-black-debian-python:3.9-bullseye-run
 
 RUN apt-get update && apt-get install -y \
     ca-certificates \
+    python3-numpy \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
 
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+
+RUN pip install --no-cache-dir --no-deps tflite-runtime==2.13.0 && \
+    pip install --no-cache-dir flask==3.0.0 requests==2.32.3
 
 COPY . .
 

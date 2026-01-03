@@ -1,0 +1,58 @@
+{
+  "training_date": "2026-01-02T16:49:47.185805",
+  "approach": "device_specific_models",
+  "random_seed": 42,
+  "jetson_model": {
+    "model_type": "ExtraTreesRegressor",
+    "model_name": "Extra Trees",
+    "n_samples_train": 198,
+    "n_samples_test": 50,
+    "features": [
+      "params_m",
+      "gflops",
+      "gmacs",
+      "size_mb",
+      "latency_avg_s",
+      "throughput_iter_per_s",
+      "params_per_gflop",
+      "gflops_per_mb",
+      "computational_density"
+    ],
+    "metrics": {
+      "test_mape": 21.538491611039984,
+      "test_r2": 0.965301910675286,
+      "test_mae": 78.11424842913337,
+      "cv_mae": 115.61966271788947
+    },
+    "device_type": "jetson_nano_2gb"
+  },
+  "rpi5_model": {
+    "model_type": "GradientBoostingRegressor",
+    "model_name": "Gradient Boosting",
+    "n_samples_train": 27,
+    "n_samples_test": 27,
+    "features": [
+      "params_m",
+      "gflops",
+      "gmacs",
+      "size_mb",
+      "latency_avg_s",
+      "throughput_iter_per_s",
+      "params_per_gflop",
+      "gflops_per_mb",
+      "computational_density"
+    ],
+    "metrics": {
+      "loo_mape": 14.213306731863472,
+      "loo_r2": 0.9505454251281688,
+      "loo_mae": 3.4969828390623094
+    },
+    "device_type": "raspberry_pi_5"
+  },
+  "deployment_guide": {
+    "routing_logic": "Use device_type to select model: 'jetson_nano' \u2192 jetson_model, 'raspberry_pi5' \u2192 rpi5_model",
+    "feature_engineering": "Compute 9 features from base metrics (params, gflops, gmacs, size, latency, throughput)",
+    "scaling": "Apply device-specific scaler before prediction",
+    "fallback": "For unknown devices, use unified model or return error"
+  }
+}

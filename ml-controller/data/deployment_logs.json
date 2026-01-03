@@ -1,8 +1,163 @@
 {
-  "logs": [],
+  "logs": [
+    {
+      "timestamp": "2025-12-14T04:27:26.273183Z",
+      "type": "success",
+      "message": "Deploy thành công model 'mobilenetv3_small_075' lên thiết bị 192.168.137.10",
+      "metadata": {
+        "model_name": "mobilenetv3_small_075",
+        "device_ip": "192.168.137.10",
+        "energy_mwh": 4.82,
+        "energy_budget_mwh": 100.0,
+        "artifact": "mobilenetv3_small_075.pth"
+      }
+    },
+    {
+      "timestamp": "2025-12-14T06:34:44.152295Z",
+      "type": "success",
+      "message": "Deploy thành công model 'mobilenetv3_small_075' lên thiết bị 192.168.137.207",
+      "metadata": {
+        "model_name": "mobilenetv3_small_075",
+        "device_ip": "192.168.137.207",
+        "energy_mwh": 4.82,
+        "energy_budget_mwh": 80.0,
+        "artifact": "mobilenetv3_small_075.pth"
+      }
+    },
+    {
+      "timestamp": "2025-12-14T07:08:25.029513Z",
+      "type": "success",
+      "message": "Deploy thành công model 'ghostnet_100' lên thiết bị 192.168.137.10",
+      "metadata": {
+        "model_name": "ghostnet_100",
+        "device_ip": "192.168.137.10",
+        "energy_mwh": 20.21,
+        "energy_budget_mwh": 80.0,
+        "artifact": "ghostnet_100.pth"
+      }
+    },
+    {
+      "timestamp": "2025-12-19T06:32:24.137261Z",
+      "type": "success",
+      "message": "Deploy thành công model 'mobilenetv2_050' lên thiết bị 192.168.1.34",
+      "metadata": {
+        "model_name": "mobilenetv2_050",
+        "device_ip": "192.168.1.34",
+        "energy_mwh": 9.49,
+        "energy_budget_mwh": 80.0,
+        "artifact": "mobilenetv2_050.tflite"
+      }
+    },
+    {
+      "timestamp": "2026-01-02T16:28:59.088348Z",
+      "type": "info",
+      "message": "Model URL: http://192.168.137.1:5000/models/mobilenetv3_small_050.pth",
+      "metadata": {
+        "pc_ip": "192.168.137.1",
+        "bbb_ip": "192.168.137.165",
+        "artifact": "mobilenetv3_small_050.pth"
+      }
+    },
+    {
+      "timestamp": "2026-01-02T16:28:59.140070Z",
+      "type": "error",
+      "message": "Lỗi kết nối BBB: 400 Client Error: BAD REQUEST for url: http://192.168.137.165:8000/deploy",
+      "metadata": {
+        "model_name": "mobilenetv3_small_050",
+        "device_ip": "192.168.137.165",
+        "error_type": "connection_error"
+      }
+    },
+    {
+      "timestamp": "2026-01-02T16:29:42.045925Z",
+      "type": "info",
+      "message": "Model URL: http://192.168.137.1:5000/models/mobilenetv3_small_050.pth",
+      "metadata": {
+        "pc_ip": "192.168.137.1",
+        "bbb_ip": "192.168.137.165",
+        "artifact": "mobilenetv3_small_050.pth"
+      }
+    },
+    {
+      "timestamp": "2026-01-02T16:29:42.098138Z",
+      "type": "error",
+      "message": "Lỗi kết nối BBB: 400 Client Error: BAD REQUEST for url: http://192.168.137.165:8000/deploy",
+      "metadata": {
+        "model_name": "mobilenetv3_small_050",
+        "device_ip": "192.168.137.165",
+        "error_type": "connection_error"
+      }
+    },
+    {
+      "timestamp": "2026-01-02T16:32:54.411028Z",
+      "type": "info",
+      "message": "Model URL: http://192.168.137.1:5000/models/mobilenetv2_050.tflite",
+      "metadata": {
+        "pc_ip": "192.168.137.1",
+        "bbb_ip": "192.168.137.165",
+        "artifact": "mobilenetv2_050.tflite"
+      }
+    },
+    {
+      "timestamp": "2026-01-02T16:32:54.753388Z",
+      "type": "success",
+      "message": "Deploy thành công model 'mobilenetv2_050' lên thiết bị 192.168.137.165",
+      "metadata": {
+        "model_name": "mobilenetv2_050",
+        "device_ip": "192.168.137.165",
+        "energy_mwh": 9.49,
+        "energy_budget_mwh": 100.0,
+        "artifact": "mobilenetv2_050.tflite"
+      }
+    },
+    {
+      "timestamp": "2026-01-02T16:37:50.005810Z",
+      "type": "info",
+      "message": "Model URL: http://192.168.137.1:5000/models/mobilenetv2_050.tflite",
+      "metadata": {
+        "pc_ip": "192.168.137.1",
+        "bbb_ip": "192.168.137.165",
+        "artifact": "mobilenetv2_050.tflite"
+      }
+    },
+    {
+      "timestamp": "2026-01-02T16:37:50.330454Z",
+      "type": "success",
+      "message": "Deploy thành công model 'mobilenetv2_050' lên thiết bị 192.168.137.165",
+      "metadata": {
+        "model_name": "mobilenetv2_050",
+        "device_ip": "192.168.137.165",
+        "energy_mwh": 9.49,
+        "energy_budget_mwh": 100.0,
+        "artifact": "mobilenetv2_050.tflite"
+      }
+    },
+    {
+      "timestamp": "2026-01-02T17:23:44.764055Z",
+      "type": "info",
+      "message": "Model URL: http://192.168.137.1:5000/models/mobilenetv2_050.tflite",
+      "metadata": {
+        "pc_ip": "192.168.137.1",
+        "bbb_ip": "192.168.137.165",
+        "artifact": "mobilenetv2_050.tflite"
+      }
+    },
+    {
+      "timestamp": "2026-01-02T17:23:45.174568Z",
+      "type": "success",
+      "message": "Deploy thành công model 'mobilenetv2_050' lên thiết bị 192.168.137.165",
+      "metadata": {
+        "model_name": "mobilenetv2_050",
+        "device_ip": "192.168.137.165",
+        "energy_mwh": 9.49,
+        "energy_budget_mwh": 100.0,
+        "artifact": "mobilenetv2_050.tflite"
+      }
+    }
+  ],
   "metadata": {
     "created_at": "2025-12-13T00:00:00Z",
-    "last_updated": "2025-12-13T00:00:00Z",
-    "total_deployments": 0
+    "last_updated": "2026-01-02T17:23:45.174568Z",
+    "total_deployments": 7
   }
 }

@@ -348,7 +348,7 @@ export BALENA_API_TOKEN=your_token_here
 
 **Giải pháp:**
 1. Kiểm tra server đang chạy: http://localhost:5000
-2. Check file CSV tồn tại: `ml-controller/data/126_benchmark_final.csv`
+2. Check file CSV tồn tại: `ml-controller/data/124_models_benchmark_jetson.csv`
 3. Restart server: Ctrl+C rồi `python app.py`
 
 ---
@@ -449,7 +449,8 @@ curl -X POST http://localhost:5000/api/deploy \
 
 - **README.md**: Tổng quan project và API documentation
 - **requirements.txt**: Danh sách dependencies
-- **126_benchmark_final.csv**: Dataset benchmark đầy đủ
+- **124_models_benchmark_jetson.csv**: Dataset benchmark Jetson Nano (124 models)
+- **27_models_benchmark_rpi5.csv**: Dataset benchmark Raspberry Pi 5 (27 models)
 - **energy_prediction_model.ipynb**: Chi tiết training model
 
 ---

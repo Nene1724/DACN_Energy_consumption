@@ -9,11 +9,13 @@ services:
       - "8000:8000"
     volumes:
       - 'model-data:/data'
+      - '/sys:/sys:ro'
     environment:
       - PYTHONUNBUFFERED=1
     labels:
       io.balena.features.balena-api: '1'
       io.balena.features.supervisor-api: '1'
+      io.balena.features.sysfs: '1'
 
 volumes:
   model-data:

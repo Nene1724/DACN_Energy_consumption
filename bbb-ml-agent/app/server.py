@@ -6,15 +6,39 @@ import requests
 
 import shutil
 import time
+import glob
+import math
+import traceback
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
+try:
+    import tflite_runtime.interpreter as tflite
+    TFLITE_AVAILABLE = True
+except ImportError:
+    tflite = None
+    TFLITE_AVAILABLE = False
+
+try:
+    import onnxruntime as ort
+    ONNX_AVAILABLE = True
+except ImportError:
+    ort = None
+    ONNX_AVAILABLE = False
 
 app = Flask(__name__)
 
-# Persistent storage on BBB
-MODEL_DIR = "/data/models"
+# Persistent storage on BBB (allow override for local testing on Windows)
+MODEL_DIR = os.getenv("MODEL_DIR_OVERRIDE", "/data/models")
 os.makedirs(MODEL_DIR, exist_ok=True)
-CURRENT_MODEL_PATH = os.path.join(MODEL_DIR, "current_model.bin")
+CURRENT_MODEL_PATH = os.path.join(MODEL_DIR, "current_model.tflite")  # Use .tflite extension
 STATE_FILE_PATH = os.path.join(MODEL_DIR, "agent_state.json")
 ENERGY_HISTORY_LIMIT = 40
+
+# Used only for simulated fallback telemetry when the OS doesn't expose temp sensors.
+_SIM_TEMP_START_TS = time.time()
 
 
 def _create_energy_metrics(budget=None):
@@ -22,7 +46,7 @@ def _create_energy_metrics(budget=None):
         "budget_mwh": budget,
         "latest_mwh": None,
         "avg_mwh": None,
-        "status": "unknown",
+        "status": "no_data",
         "history": []
     }
 
@@ -36,6 +60,25 @@ STATE = {
     "inference_active": False,
     "energy_metrics": _create_energy_metrics()
 }
+
+# In-memory runtime cache (TFLite)
+LOADED_INTERPRETER = None
+LOADED_MODEL_NAME = None
+LOADED_INPUT_SIZE = None
+LOADED_AT = None
+MODEL_LOCK = threading.RLock()
+
+
+def _unload_loaded_model(reason: str = ""):
+    """Drop the in-memory model cache to avoid mixing weights across deploys."""
+    global LOADED_INTERPRETER, LOADED_MODEL_NAME, LOADED_INPUT_SIZE, LOADED_AT
+    with MODEL_LOCK:
+        if LOADED_INTERPRETER is not None:
+            log(f"Unloading cached model{': ' + reason if reason else ''}")
+        LOADED_INTERPRETER = None
+        LOADED_MODEL_NAME = None
+        LOADED_INPUT_SIZE = None
+        LOADED_AT = None
 
 
 def reset_energy_metrics(budget=None):
@@ -234,32 +277,272 @@ def _storage_for_path(path="/"):
 
 
 def _temperature_c():
-    """Try multiple thermal zones to find CPU temperature."""
-    thermal_paths = [
-        "/sys/class/thermal/thermal_zone0/temp",
-        "/sys/class/thermal/thermal_zone1/temp",
-        "/sys/class/thermal/thermal_zone2/temp",
-        "/sys/devices/virtual/thermal/thermal_zone0/temp",
-    ]
-    
-    for path in thermal_paths:
-        raw = _read_text(path)
-        if raw:
-            try:
-                v = float(raw)
-                # BBB returns temp in millidegrees, but some systems return degrees
-                return round(v / 1000.0, 1) if v > 200 else round(v, 1)
-            except Exception:
-                continue
-    
-    # If no thermal zone found, return None
+    """Best-effort temperature (°C) from sysfs.
+
+    Works across many embedded Linux targets without external dependencies.
+    Returns None if no readable sensor is present in the container.
+    """
+
+    def to_celsius(raw_value: str):
+        if raw_value is None:
+            return None
+        try:
+            v = float(str(raw_value).strip())
+        except Exception:
+            return None
+
+        # Most sysfs temps are in milli-degrees C.
+        if v > 1000:
+            v = v / 1000.0
+        elif v > 200:
+            # defensive: some boards report 42000 without crossing 1000 check due to parsing quirks
+            v = v / 1000.0
+
+        # Sanity range for CPU/SOC temp.
+        if v < -20 or v > 150:
+            return None
+        return round(v, 1)
+
+    # 1) Prefer thermal zones that look like CPU/SOC.
+    zone_dirs = []
+    for pattern in (
+        "/sys/class/thermal/thermal_zone*",
+        "/sys/devices/virtual/thermal/thermal_zone*",
+    ):
+        zone_dirs.extend(glob.glob(pattern))
+    zone_dirs = sorted(set(zone_dirs))
+    preferred_candidates = []
+    fallback_candidates = []
+    for zone in zone_dirs:
+        zone_type = _read_text(os.path.join(zone, "type")) or ""
+        temp_path = os.path.join(zone, "temp")
+        if not os.path.exists(temp_path):
+            continue
+        if any(k in zone_type.lower() for k in ("cpu", "soc", "x86_pkg_temp", "processor", "core")):
+            preferred_candidates.append(temp_path)
+        else:
+            fallback_candidates.append(temp_path)
+
+    for path in preferred_candidates + fallback_candidates:
+        t = to_celsius(_read_text(path))
+        if t is not None:
+            return t
+
+    # 2) Fallback: hwmon temp inputs (common on many boards).
+    hwmon_paths = []
+    for pattern in (
+        "/sys/class/hwmon/hwmon*/temp*_input",
+        "/sys/devices/virtual/hwmon/hwmon*/temp*_input",
+        "/sys/devices/platform/*/hwmon/hwmon*/temp*_input",
+        # BBB and many embedded kernels expose hwmon deeper under platform devices (e.g. ocp/*/bandgap/*/hwmon/hwmon0/temp1_input)
+        "/sys/devices/platform/**/hwmon/hwmon*/temp*_input",
+        "/sys/bus/i2c/devices/*/hwmon/hwmon*/temp*_input",
+    ):
+        if "**" in pattern:
+            hwmon_paths.extend(glob.glob(pattern, recursive=True))
+        else:
+            hwmon_paths.extend(glob.glob(pattern))
+    hwmon_paths = sorted(set(hwmon_paths))
+    for path in hwmon_paths:
+        t = to_celsius(_read_text(path))
+        if t is not None:
+            return t
+
+    # 3) Fallback: IIO temperature channels (some kernels expose die temp here).
+    iio_paths = []
+    for pattern in (
+        "/sys/bus/iio/devices/iio:device*/in_temp*_input",
+        "/sys/bus/iio/devices/iio:device*/in_temp_input",
+        "/sys/devices/platform/**/iio:device*/in_temp*_input",
+        "/sys/devices/platform/**/iio:device*/in_temp_input",
+    ):
+        if "**" in pattern:
+            iio_paths.extend(glob.glob(pattern, recursive=True))
+        else:
+            iio_paths.extend(glob.glob(pattern))
+    iio_paths = sorted(set(iio_paths))
+    for path in iio_paths:
+        t = to_celsius(_read_text(path))
+        if t is not None:
+            return t
+
     return None
+
+
+def _simulated_temperature_c(now_ts=None):
+    """Generate a smooth, continuously varying temperature (°C).
+
+    This is a fallback used only when no real temperature sensor is visible.
+    """
+    t = float(now_ts if now_ts is not None else time.time()) - float(_SIM_TEMP_START_TS)
+
+    # Smooth periodic variation + a secondary wobble.
+    base = 52.0
+    primary_period_s = 120.0
+    secondary_period_s = 23.0
+    v = (
+        base
+        + 6.5 * math.sin((2.0 * math.pi * t) / primary_period_s)
+        + 1.2 * math.sin((2.0 * math.pi * t) / secondary_period_s)
+    )
+
+    # Clamp to a reasonable range.
+    v = max(35.0, min(80.0, v))
+    return round(v, 1)
+
+
+def _temperature_debug_info(limit=30):
+    """Return discoverability info for temperature sensors (for troubleshooting)."""
+
+    def safe_listdir(path, max_items=80):
+        try:
+            items = os.listdir(path)
+            items = sorted(items)
+            if len(items) > max_items:
+                items = items[:max_items] + [f"... (+{len(items) - max_items} more)"]
+            return {"exists": True, "items": items}
+        except FileNotFoundError:
+            return {"exists": False, "items": []}
+        except Exception as e:
+            return {"exists": True, "items": [], "error": str(e)}
+
+    def filtered_mounts():
+        mounts_raw = _read_text("/proc/mounts")
+        if not mounts_raw:
+            return []
+        results = []
+        for line in mounts_raw.splitlines():
+            parts = line.split()
+            if len(parts) < 3:
+                continue
+            src, mnt, fstype = parts[0], parts[1], parts[2]
+            if mnt in ("/sys", "/proc") or mnt.startswith("/sys/"):
+                results.append({"source": src, "mountpoint": mnt, "type": fstype})
+        return results
+
+    info = {
+        "fs": {
+            "sys_exists": os.path.exists("/sys"),
+            "proc_exists": os.path.exists("/proc"),
+            "mounts": filtered_mounts(),
+            "dir_sys": safe_listdir("/sys"),
+            "dir_sys_class": safe_listdir("/sys/class"),
+            "dir_sys_class_thermal": safe_listdir("/sys/class/thermal"),
+            "dir_sys_class_hwmon": safe_listdir("/sys/class/hwmon"),
+        },
+        "thermal_zone_paths": [],
+        "hwmon_paths": [],
+        "iio_temp_paths": [],
+        "readable_samples": [],
+        "errors": [],
+    }
+
+    # Thermal zones
+    zone_dirs = []
+    for pattern in (
+        "/sys/class/thermal/thermal_zone*",
+        "/sys/devices/virtual/thermal/thermal_zone*",
+    ):
+        zone_dirs.extend(glob.glob(pattern))
+    zone_dirs = sorted(set(zone_dirs))
+    for zone in zone_dirs[:limit]:
+        zone_type = _read_text(os.path.join(zone, "type"))
+        temp_path = os.path.join(zone, "temp")
+        info["thermal_zone_paths"].append({
+            "zone": zone,
+            "type": zone_type,
+            "temp_path": temp_path,
+            "exists": os.path.exists(temp_path),
+            "readable": os.access(temp_path, os.R_OK) if os.path.exists(temp_path) else False,
+        })
+
+    # HWMON
+    hwmon_paths = []
+    for pattern in (
+        "/sys/class/hwmon/hwmon*/temp*_input",
+        "/sys/devices/virtual/hwmon/hwmon*/temp*_input",
+        "/sys/devices/platform/*/hwmon/hwmon*/temp*_input",
+        "/sys/devices/platform/**/hwmon/hwmon*/temp*_input",
+        "/sys/bus/i2c/devices/*/hwmon/hwmon*/temp*_input",
+    ):
+        if "**" in pattern:
+            hwmon_paths.extend(glob.glob(pattern, recursive=True))
+        else:
+            hwmon_paths.extend(glob.glob(pattern))
+    hwmon_paths = sorted(set(hwmon_paths))
+    for p in hwmon_paths[:limit]:
+        info["hwmon_paths"].append({
+            "path": p,
+            "exists": os.path.exists(p),
+            "readable": os.access(p, os.R_OK) if os.path.exists(p) else False,
+        })
+
+    # Try to read a few samples
+    candidates = []
+    for z in info["thermal_zone_paths"]:
+        if z.get("exists"):
+            candidates.append(z.get("temp_path"))
+    for h in info["hwmon_paths"]:
+        if h.get("exists"):
+            candidates.append(h.get("path"))
+
+    # IIO temperature inputs
+    iio_paths = []
+    for pattern in (
+        "/sys/bus/iio/devices/iio:device*/in_temp*_input",
+        "/sys/bus/iio/devices/iio:device*/in_temp_input",
+        "/sys/devices/platform/**/iio:device*/in_temp*_input",
+        "/sys/devices/platform/**/iio:device*/in_temp_input",
+    ):
+        if "**" in pattern:
+            iio_paths.extend(glob.glob(pattern, recursive=True))
+        else:
+            iio_paths.extend(glob.glob(pattern))
+    iio_paths = sorted(set(iio_paths))
+    for p in iio_paths[:limit]:
+        info["iio_temp_paths"].append({
+            "path": p,
+            "exists": os.path.exists(p),
+            "readable": os.access(p, os.R_OK) if os.path.exists(p) else False,
+        })
+    for p in iio_paths:
+        if os.path.exists(p):
+            candidates.append(p)
+
+    for p in candidates[:10]:
+        try:
+            raw = _read_text(p)
+            info["readable_samples"].append({"path": p, "raw": raw})
+        except Exception as e:
+            info["errors"].append({"path": p, "error": str(e)})
+
+    return info
+
+
+@app.route("/metrics/debug", methods=["GET"])
+def metrics_debug():
+    """Debug endpoint: show what temperature sensors are visible to the container."""
+    real_temp = _temperature_c()
+    temp = real_temp if real_temp is not None else _simulated_temperature_c()
+    source = "sysfs" if real_temp is not None else "simulated"
+    return jsonify({
+        "success": True,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "temperature_c": temp,
+        "temperature_source": source,
+        "temperature_debug": _temperature_debug_info(),
+    })
 
 
 @app.route("/status", methods=["GET"])
 def status():
-    """Return current agent status"""
-    return jsonify(STATE)
+    """Return current agent status with runtime capabilities"""
+    response = dict(STATE)
+    response["runtime_capabilities"] = {
+        "tflite_available": TFLITE_AVAILABLE,
+        "numpy_available": np is not None
+    }
+    return jsonify(response)
 
 
 @app.route("/metrics", methods=["GET"])
@@ -268,7 +551,9 @@ def metrics():
     cpu = _cpu_percent_from_proc()
     mem = _memory_from_proc()
     storage = _storage_for_path("/")
-    temp = _temperature_c()
+    real_temp = _temperature_c()
+    temp = real_temp if real_temp is not None else _simulated_temperature_c()
+    temp_source = "sysfs" if real_temp is not None else "simulated"
 
     return jsonify({
         "success": True,
@@ -277,6 +562,7 @@ def metrics():
         "memory": mem,
         "storage": storage,
         "temperature_c": temp,
+        "temperature_source": temp_source,
         "agent": {
             "status": STATE.get("status"),
             "model_name": STATE.get("model_name"),
@@ -311,7 +597,18 @@ def deploy():
     if not model_name or not model_url:
         return jsonify({"error": "model_name and model_url are required"}), 400
 
+    # Check supported model formats
+    model_ext = model_url.lower().split('.')[-1]
+    if model_ext not in ['tflite', 'onnx']:
+        return jsonify({"error": "This device only supports .tflite and .onnx artifacts"}), 400
+    
+    if model_ext == 'onnx' and not ONNX_AVAILABLE:
+        return jsonify({"error": "ONNX Runtime not installed on this device"}), 500
+
     try:
+        # Always drop any cached model before swapping artifacts on disk.
+        _unload_loaded_model("deploy")
+
         # Stop old model if running
         if STATE.get("status") == "running" or STATE.get("inference_active"):
             log(f"Stopping current model before deployment")
@@ -377,8 +674,12 @@ def deploy():
 @app.route("/start", methods=["POST"])
 def start_inference():
     """Manually start model inference"""
-    if STATE["status"] != "ready":
+    # Allow retrying start after a previous error as long as a model exists.
+    if STATE.get("status") not in ("ready", "error"):
         return jsonify({"error": "Model not ready"}), 400
+
+    if not STATE.get("model_name") or not os.path.exists(CURRENT_MODEL_PATH):
+        return jsonify({"error": "No deployed model artifact found"}), 400
     
     threading.Thread(target=start_model_inference, daemon=True).start()
     return jsonify({"message": "Starting inference..."})
@@ -398,18 +699,125 @@ def stop_inference():
 @app.route("/predict", methods=["POST"])
 def predict():
     """
-    Inference endpoint (placeholder)
-    In real implementation, load model and run inference
+    Inference endpoint: runs a forward pass using TFLite (cached after /deploy or /start).
     """
-    if STATE["status"] != "running":
+    if STATE.get("status") not in ("running", "ready"):
         return jsonify({"error": "Model not running"}), 400
-    
-    # Placeholder: Real implementation would process input and return prediction
-    return jsonify({
-        "model": STATE["model_name"],
-        "status": "inference_placeholder",
-        "message": "Implement actual inference logic here"
-    })
+
+    _ensure_numpy()
+
+    try:
+        with MODEL_LOCK:
+            if LOADED_INTERPRETER is None or LOADED_INPUT_SIZE is None:
+                return jsonify({"error": "Model not loaded in memory"}), 400
+            interpreter = LOADED_INTERPRETER
+            input_size = LOADED_INPUT_SIZE
+
+        c, h, w = input_size
+        input_details = interpreter.get_input_details()[0]
+        dtype = input_details["dtype"]
+        shape = input_details["shape"]
+
+        try:
+            if len(shape) == 4 and shape[1] == h and shape[2] == w:
+                dummy_input = np.random.rand(*shape).astype(dtype)
+            else:
+                dummy_input = np.random.rand(1, h, w, c).astype(dtype)
+        except Exception:
+            dummy_input = np.random.rand(1, h, w, c).astype(np.float32)
+
+        interpreter.set_tensor(input_details["index"], dummy_input)
+        interpreter.invoke()
+        output_details = interpreter.get_output_details()[0]
+        output = interpreter.get_tensor(output_details["index"])
+
+        flat = output.flatten()
+        sample = flat[:5].tolist() if flat.size else []
+        summary = {
+            "dtype": str(output.dtype),
+            "shape": list(output.shape),
+            "sample": [float(x) for x in sample],
+        }
+
+        return jsonify({
+            "success": True,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "model": STATE.get("model_name"),
+            "runtime": "tflite",
+            "input_size": [c, h, w],
+            "summary": summary,
+        })
+    except Exception as exc:
+        err_msg = f"Inference error: {exc}"
+        log(err_msg)
+        traceback.print_exc()
+        _unload_loaded_model("predict failed")
+        set_state(status="error", error=str(exc), inference_active=False)
+        return jsonify({"error": f"Inference error: {exc}"}), 500
+
+
+def _parse_input_size(raw):
+    """
+    Parse input_size from metadata (e.g., "3x224x224" or [3,224,224])
+    Returns (channels, height, width)
+    """
+    if not raw:
+        return (3, 224, 224)
+    if isinstance(raw, (list, tuple)):
+        vals = [int(x) for x in raw if isinstance(x, (int, float, str)) and str(x).strip().lstrip("-").isdigit()]
+        if len(vals) == 4:
+            # NCHW -> CHW
+            return int(vals[1]), int(vals[2]), int(vals[3])
+        if len(vals) >= 3:
+            return int(vals[0]), int(vals[1]), int(vals[2])
+    if isinstance(raw, dict):
+        # common forms
+        c = raw.get("channels") or raw.get("c") or 3
+        h = raw.get("height") or raw.get("h") or raw.get("size") or 224
+        w = raw.get("width") or raw.get("w") or raw.get("size") or 224
+        try:
+            return int(c), int(h), int(w)
+        except Exception:
+            return (3, 224, 224)
+    if isinstance(raw, str):
+        parts = raw.lower().replace("x", " ").replace(",", " ").split()
+        nums = [int(p) for p in parts if p.isdigit()]
+        if len(nums) >= 3:
+            return nums[0], nums[1], nums[2]
+    return (3, 224, 224)
+
+
+def _ensure_numpy():
+    if np is None:
+        raise RuntimeError("numpy is required but not available on this device")
+
+
+def _load_tflite_model(model_path, input_size):
+    """Load a .tflite model and run a warmup inference."""
+    if not TFLITE_AVAILABLE:
+        raise RuntimeError("tflite_runtime is not available on this device")
+    _ensure_numpy()
+
+    interpreter = tflite.Interpreter(model_path=model_path, num_threads=1)
+    interpreter.allocate_tensors()
+    input_details = interpreter.get_input_details()[0]
+    c, h, w = input_size
+
+    # Build dummy input with correct dtype/shape
+    dtype = input_details["dtype"]
+    shape = input_details["shape"]
+    try:
+        # If model expects NHWC
+        if len(shape) == 4 and shape[1] == h and shape[2] == w:
+            dummy = np.random.rand(*shape).astype(dtype)
+        else:
+            dummy = np.random.rand(1, h, w, c).astype(dtype)
+    except Exception:
+        dummy = np.random.rand(1, h, w, c).astype(np.float32)
+
+    interpreter.set_tensor(input_details["index"], dummy)
+    interpreter.invoke()  # warmup
+    return interpreter, input_details
 
 
 @app.route("/telemetry", methods=["POST"])
@@ -461,33 +869,46 @@ def start_model_inference():
     """
     Start model inference (runs in background thread)
     
-    In real implementation:
-    1. Load model from CURRENT_MODEL_PATH
-    2. Initialize inference engine (PyTorch, ONNX, TFLite, etc.)
-    3. Set status to "running"
-    4. Keep model loaded for predictions
+    Loads TFLite model from CURRENT_MODEL_PATH and runs warmup forward.
+    Keeps interpreter in memory for /predict.
     """
     try:
+        global LOADED_INTERPRETER, LOADED_MODEL_NAME, LOADED_INPUT_SIZE, LOADED_AT
+
         log("Starting model inference...")
+        model_name = STATE.get("model_name")
+        model_info = STATE.get("model_info") or {}
+        if not model_name:
+            raise RuntimeError("No model_name present in state")
+        if not os.path.exists(CURRENT_MODEL_PATH):
+            raise FileNotFoundError(f"Model file not found: {CURRENT_MODEL_PATH}")
+
+        if not CURRENT_MODEL_PATH.endswith(".tflite"):
+            raise RuntimeError("Only .tflite models are supported on this device")
+
+        input_size = _parse_input_size(model_info.get("input_size"))
+        with MODEL_LOCK:
+            # Ensure any previous cache is dropped before loading.
+            _unload_loaded_model("start")
+            interpreter, _ = _load_tflite_model(CURRENT_MODEL_PATH, input_size)
+            LOADED_INTERPRETER = interpreter
+            LOADED_MODEL_NAME = model_name
+            LOADED_INPUT_SIZE = input_size
+            LOADED_AT = datetime.utcnow().isoformat() + "Z"
+
         set_state(status="running", inference_active=True, error=None)
-        
-        # Placeholder for actual model loading
-        # Example:
-        # import torch
-        # model = torch.load(CURRENT_MODEL_PATH)
-        # model.eval()
-        
-        log(f"Model '{STATE['model_name']}' is now running")
+
+        log(f"Model '{STATE['model_name']}' is now running (runtime: tflite)")
         log(f"Estimated energy draw: {STATE['model_info'].get('energy_avg_mwh', 'N/A')} mWh")
         budget = STATE.get("energy_metrics", {}).get("budget_mwh")
         if budget is not None:
             log(f"Energy budget assigned: {budget} mWh")
-        
-        # In real app, keep model loaded and wait for inference requests
-        # For now, just mark as running
-        
+
     except Exception as e:
-        log(f"Error starting inference: {str(e)}")
+        err_msg = f"Error starting inference: {e}"
+        log(err_msg)
+        traceback.print_exc()
+        _unload_loaded_model("start failed")
         set_state(status="error", error=str(e), inference_active=False)
 
 

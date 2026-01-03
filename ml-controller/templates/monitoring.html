@@ -1,0 +1,39 @@
+<!-- Monitoring View -->
+<div id="monitoring_view" class="hidden">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h3>Monitoring</h3>
+                <p class="muted" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <span>Target device:</span>
+                    <select id="monitor_device_selector" class="filter-select" style="min-width: 260px;">
+                        <option value="">Select a device</option>
+                    </select>
+                    <span style="color: var(--muted); font-size: 12px;">• Last update: <span id="monitor_last_update">—</span></span>
+                </p>
+            </div>
+            <div class="panel-actions">
+                <button class="btn ghost" id="monitor_refresh_btn" type="button">Refresh</button>
+            </div>
+        </div>
+
+        <div class="service-status" id="service_status" style="margin-bottom: 16px;">
+            <span class="dot idle" id="service_dot"></span>
+            <div style="flex: 1;">
+                <div class="service-name">ml-agent</div>
+                <div class="service-info">Agent: <span id="service_state">unknown</span></div>
+            </div>
+            <span class="badge" id="service_badge">Unknown</span>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h3>Charts</h3>
+                <p class="muted">Real-time device metrics</p>
+            </div>
+        </div>
+        <div class="monitor-content" id="monitor_content"></div>
+    </div>
+</div>

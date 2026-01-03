@@ -1,0 +1,5 @@
+flask==3.0.0
+requests==2.32.3
+numpy>=1.21.2,<2.0
+tflite-runtime==2.13.0
+onnxruntime==1.16.3

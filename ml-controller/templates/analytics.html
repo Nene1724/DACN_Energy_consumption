@@ -1,0 +1,24 @@
+<!-- Model Analytics View -->
+<div id="analytics_view" class="hidden">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h3>Model Analytics</h3>
+                <p class="muted">Pareto frontier analysis, efficiency rankings, and comprehensive benchmark insights</p>
+            </div>
+            <div class="panel-actions">
+                <button class="btn ghost" id="analytics_refresh_btn">Refresh Analytics</button>
+            </div>
+        </div>
+
+        <div id="analytics_alert_container" class="alert" style="display:none;"></div>
+
+        <div id="analytics_content" class="analytics-grid">
+            <div class="monitor-card" style="grid-column: 1 / -1; text-align: center; padding: 40px 20px;">
+                <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></div>
+                <p style="color: var(--muted); font-size: 15px; margin-bottom: 12px;">Click <strong>Refresh Analytics</strong> to analyze model benchmarks</p>
+                <p style="color: var(--muted); font-size: 13px;">This will calculate Pareto frontiers, efficiency rankings, and statistical insights</p>
+            </div>
+        </div>
+    </div>
+</div>
