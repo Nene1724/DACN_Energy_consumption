@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         :root {
             --bg: #f5f7fb;
@@ -109,6 +110,7 @@
         .filter-select { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: #ffffff; color: var(--text); font-weight: 600; min-width: 190px; }
         .library-filter-bar { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin: 4px 0 10px; }
         .model-list { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; max-height: 550px; overflow-y: auto; padding-right: 4px; }
+        .model-grid { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; max-height: 550px; overflow-y: auto; padding-right: 4px; }
         .model-item { border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #ffffff; cursor: pointer; transition: border 0.2s, transform 0.2s; }
         .model-item:hover { border-color: var(--accent); transform: translateY(-2px); }
         .model-item.selected { border-color: var(--accent-strong); box-shadow: 0 0 0 1px var(--accent-strong); }
@@ -170,6 +172,28 @@
         .metric-line span.label { min-width:120px; color:var(--text); font-weight:600; }
         .metric-line .value { color:var(--muted); min-width:80px; text-align:right; }
         .pill-sm { padding:4px 8px; border-radius:999px; font-size:11px; border:1px solid var(--border); color:var(--text); background: rgba(34,211,238,0.08); }
+        .log-list { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; padding: 4px; }
+        .log-entry { border: 1px solid var(--border); border-radius: 8px; padding: 8px; background: #ffffff; }
+        .log-entry.ok { border-left: 3px solid var(--success); }
+        .log-entry.error { border-left: 3px solid var(--danger); }
+        .log-entry.info { border-left: 3px solid var(--accent); }
+        .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .log-time { font-size: 11px; color: var(--muted); font-family: monospace; }
+        .log-type { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 3px; }
+        .log-type.ok { background: rgba(52,211,153,0.16); color: var(--success); }
+        .log-type.error { background: rgba(244,63,94,0.16); color: var(--danger); }
+        .log-type.info { background: rgba(59,130,246,0.16); color: var(--accent); }
+        .log-message { font-size: 13px; color: var(--text); }
+        .device-log-entry { padding: 6px 10px; border-bottom: 1px solid var(--border); font-family: 'Courier New', monospace; font-size: 12px; display: flex; gap: 12px; }
+        .device-log-entry:hover { background: rgba(59, 130, 246, 0.05); }
+        .device-log-entry.log-error { background: rgba(244, 63, 94, 0.08); border-left: 3px solid var(--danger); }
+        .device-log-entry.log-system { color: var(--muted); }
+        .device-log-time { color: var(--muted); min-width: 120px; flex-shrink: 0; }
+        .device-log-message { color: var(--text); word-break: break-word; }
+        .logs-container { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+        .logs-header { padding: 12px; background: var(--panel-alt); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .logs-viewport { max-height: 400px; overflow-y: auto; background: #fafafa; }
+        .logs-content { min-height: 100px; }
         .view-tabs { 
             display: flex; 
             gap: 0; 
@@ -211,11 +235,26 @@
         .metric-label { color: var(--muted); font-size: 13px; margin-top: 6px; }
         .sparkline { width: 100%; height: 44px; margin-top: 10px; display:block; }
         .chart-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; }
-        .chart-card { border:1px solid var(--border); border-radius:14px; padding:14px; background: linear-gradient(180deg, #ffffff, #eef3ff); }
+        .chart-card { border:1px solid var(--border); border-radius:14px; padding:14px; background: linear-gradient(180deg, #ffffff, #eef3ff); position: relative; }
         .chart-title { display:flex; justify-content:space-between; align-items:flex-end; gap:10px; margin-bottom:10px; }
         .chart-title h4 { margin:0; font-size:16px; color:var(--text); }
         .chart-title small { color:var(--muted); }
         .chart-svg { width:100%; height:170px; display:block; border-radius:12px; background:#f8fafc; border:1px solid var(--border); }
+        .chart-container { width:100%; height:250px; position: relative; }
+        .chart-controls { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+        .time-range-select { padding: 6px 12px; border: 1px solid var(--border); background: white; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; color: var(--text); }
+        .time-range-select:hover { border-color: var(--accent); }
+        .time-range-select:focus { outline: none; border-color: var(--accent); }
+        .export-btn { padding: 6px 16px; border: none; background: var(--success); color: white; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
+        .export-btn:hover { background: #15803d; box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3); }
+        .chart-type-selector { display: flex; gap: 4px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: white; }
+        .chart-type-btn { padding: 6px 12px; border: none; background: transparent; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+        .chart-type-btn:hover { background: var(--panel-alt); }
+        .chart-type-btn.active { background: var(--accent); color: white; }
+        .gauge-stat { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: white; min-height: 180px; }
+        .gauge-stat-value { font-size: 48px; font-weight: 700; margin: 8px 0; }
+        .gauge-stat-label { font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        .gauge-stat-unit { font-size: 24px; color: var(--muted); margin-left: 4px; }
         .gauge-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:12px; }
         .gauge-card { border:1px solid var(--border); border-radius:14px; padding:14px; background:#ffffff; display:flex; flex-direction:column; gap:10px; }
         .gauge-head { display:flex; justify-content:space-between; gap:12px; align-items:center; }
@@ -248,6 +287,25 @@
             .predict-grid { grid-template-columns: 1fr; }
             .status-row { grid-template-columns: 1fr; }
         }
+        
+        /* Progress bar styles */
+        .progress-bar-container { width: 100%; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; position: relative; margin-top: 8px; }
+        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); transition: width 0.3s ease; border-radius: 4px; }
+        
+        /* Multi-select device list */
+        #deploy_device_selector option { padding: 8px; }
+        #deploy_device_selector option:checked { background: rgba(16, 185, 129, 0.2) !important; color: #059669; font-weight: 600; }
+        
+        /* Deploy button styles */
+        .mini-btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
+        .mini-btn.primary:hover { background: #059669; border-color: #059669; }
+        .mini-btn.primary:disabled { background: var(--border); border-color: var(--border); color: var(--muted); cursor: not-allowed; }
+        
+        /* Telemetry grid */
+        .telemetry-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; }
+        .metric-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #ffffff; }
+        .metric-card h4 { font-size: 12px; color: var(--muted); margin: 0 0 8px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+        .metric-value { font-size: 24px; font-weight: 700; color: var(--text); margin: 0; }
     </style>
 </head>
 <body>
@@ -263,6 +321,9 @@
             <button class="view-tab" data-view="analytics">Model Analytics</button>
         </div>
 
+        <!-- Hidden field to store current device endpoint/IP for polling -->
+        <input type="hidden" id="bbb_ip" value="">
+
         {% include 'deployment.html' %}
         {% include 'monitoring.html' %}
         {% include 'analytics.html' %}
@@ -274,6 +335,11 @@
         let currentFilter = 'all';
         let statusInterval = null;
         let balenaDevices = [];
+        let balenaFleets = [];
+        let balenaDevicesLoaded = false;
+        let balenaFleetsLoaded = false;
+        let devicesLoadPromise = null;
+        let fleetsLoadPromise = null;
         const MAX_METRIC_POINTS = 120;
         let deviceMetricsHistory = [];
         let lastDeviceMetrics = null;
@@ -306,15 +372,21 @@
             'default': 100
         };
 
+        // Monitoring chart globals
+        let monitoringCharts = {};
+        let selectedTimeRange = '5m'; // Default 5 minutes
+        let chartViewMode = 'gauges'; // 'gauges', 'trends', 'distribution'
+        let chartsInitialized = false;
+
         function setActiveView(view) {
-            console.log('🔄 Switching to view:', view);
+            console.log('Switching to view:', view);
             
             const deploymentView = document.getElementById('deployment_view');
             const monitoringView = document.getElementById('monitoring_view');
             const analyticsView = document.getElementById('analytics_view');
             const viewTabs = document.getElementById('view_tabs');
 
-            console.log('📍 Found elements:', {
+            console.log('Found elements:', {
                 deploymentView: !!deploymentView,
                 monitoringView: !!monitoringView,
                 analyticsView: !!analyticsView,
@@ -331,10 +403,20 @@
             if (monitoringView) monitoringView.classList.toggle('hidden', view !== 'monitoring');
             if (analyticsView) analyticsView.classList.toggle('hidden', view !== 'analytics');
 
-            if (view === 'monitoring') {
+            if (view === 'deployment') {
+                console.log('Deployment view activated');
+                loadDeploymentLogs();
+                
+                // Ensure fleets and devices are populated
+                if (balenaFleetsLoaded) {
+                    populateFleetSelector();
+                }
+                if (balenaDevicesLoaded) {
+                    populateDeviceSelectors(balenaDevices);
+                }
+            } else if (view === 'monitoring') {
                 startMetricsPolling();
                 renderMonitoringTab('trends');
-                loadBalenaDevices(); // Load devices for selector
             } else {
                 stopMetricsPolling();
             }
@@ -343,7 +425,7 @@
                 loadModelAnalytics();
             }
             
-            console.log('✅ View switched to:', view);
+            console.log('View switched to:', view);
         }
 
         function initViewRouting() {
@@ -360,12 +442,12 @@
             
             // Setup tab click handlers
             const tabs = document.querySelectorAll('.view-tab');
-            console.log('🔧 Setting up tab click handlers for', tabs.length, 'tabs');
+            console.log('Setting up tab click handlers for', tabs.length, 'tabs');
             tabs.forEach(tab => {
                 console.log('  - Tab:', tab.dataset.view, tab.textContent.trim());
                 tab.addEventListener('click', () => {
                     const view = tab.dataset.view;
-                    console.log('👆 Tab clicked:', view);
+                    console.log('Tab clicked:', view);
                     if (view) {
                         setActiveView(view);
                         window.history.pushState({}, '', `/${view}`);
@@ -394,40 +476,47 @@
                 });
             }
 
-            document.getElementById('model_list').addEventListener('click', (evt) => {
-                const downloadBtn = evt.target.closest('[data-download]');
-                if (downloadBtn) {
-                    evt.stopPropagation();
-                    const modelName = decodeURIComponent(downloadBtn.dataset.download);
-                    handleDownload(modelName, downloadBtn);
-                    return;
-                }
-                const item = evt.target.closest('.model-item');
-                if (!item) return;
-                selectModel(decodeURIComponent(item.dataset.model));
-            });
-
-            const balenaList = document.getElementById('balena_device_list');
-            if (balenaList) {
-                balenaList.addEventListener('click', (evt) => {
-                    const button = evt.target.closest('[data-endpoint]');
-                    if (!button) return;
-                    evt.preventDefault();
-                    const endpoint = button.dataset.endpoint ? decodeURIComponent(button.dataset.endpoint) : '';
-                    const name = button.dataset.name ? decodeURIComponent(button.dataset.name) : '';
-                    useBalenaEndpoint(endpoint, name);
+            const modelGrid = document.getElementById('model_grid');
+            if (modelGrid) {
+                modelGrid.addEventListener('click', (evt) => {
+                    // Handle deploy button click
+                    const deployBtn = evt.target.closest('[data-deploy]');
+                    if (deployBtn) {
+                        evt.stopPropagation();
+                        const modelName = decodeURIComponent(deployBtn.dataset.deploy);
+                        deployModelToDevices(modelName);
+                        return;
+                    }
+                    
+                    // Handle download button click
+                    const downloadBtn = evt.target.closest('[data-download]');
+                    if (downloadBtn) {
+                        evt.stopPropagation();
+                        const modelName = decodeURIComponent(downloadBtn.dataset.download);
+                        handleDownload(modelName, downloadBtn);
+                        return;
+                    }
+                    
+                    // Handle model item selection
+                    const item = evt.target.closest('.model-item');
+                    if (!item) return;
+                    selectModel(decodeURIComponent(item.dataset.model));
                 });
             }
 
             const balenaRefreshBtn = document.getElementById('balena_refresh_btn');
             if (balenaRefreshBtn) {
-                balenaRefreshBtn.addEventListener('click', () => loadBalenaDevices(true));
+                balenaRefreshBtn.addEventListener('click', () => {
+                    balenaDevicesLoaded = false; // Clear cache
+                    loadBalenaDevices(true, true); // Force reload
+                });
             }
 
             const balenaAppFilter = document.getElementById('balena_app_filter');
             if (balenaAppFilter) {
                 balenaAppFilter.addEventListener('change', () => {
-                    loadBalenaDevices();
+                    balenaDevicesLoaded = false; // Clear cache when filter changes
+                    loadBalenaDevices(false, true);
                 });
             }
 
@@ -447,13 +536,44 @@
                 analyticsRefreshBtn.addEventListener('click', () => loadModelAnalytics());
             }
 
+            const logsRefreshBtn = document.getElementById('logs_refresh_btn');
+            if (logsRefreshBtn) {
+                logsRefreshBtn.addEventListener('click', () => loadDeploymentLogs());
+            }
+
+            const deviceLogsSelector = document.getElementById('device_logs_selector');
+            if (deviceLogsSelector) {
+                deviceLogsSelector.addEventListener('change', (e) => {
+                    const deviceUuid = e.target.value;
+                    if (deviceUuid) {
+                        loadDeviceLogs(deviceUuid);
+                    } else {
+                        clearDeviceLogs();
+                    }
+                });
+            }
+
+            const logsRefreshBtnStandalone = document.getElementById('logs_refresh_btn_standalone');
+            if (logsRefreshBtnStandalone) {
+                logsRefreshBtnStandalone.addEventListener('click', () => {
+                    const selector = document.getElementById('device_logs_selector');
+                    const deviceUuid = selector ? selector.value : '';
+                    if (deviceUuid) {
+                        loadDeviceLogs(deviceUuid);
+                    }
+                });
+            }
+
             loadInitialData();
             startStatusPolling();
             renderSelectionPreview();
             updateFilterCount(0);
             renderEnergyMetrics(null);
-            loadBalenaFleets();
-            loadBalenaDevices();
+            
+            // Load Balena data once on page load (parallel)
+            Promise.all([loadBalenaFleets(), loadBalenaDevices()]).then(() => {
+                console.log('Balena data loaded');
+            }).catch(err => console.error('Failed to load Balena data:', err));
         });
 
         async function loadInitialData() {
@@ -497,7 +617,8 @@
                 setFilterActive('all');
                 filterModels('all');
                 renderSelectionPreview();
-                    document.getElementById('deploy_btn').disabled = true;
+                    const deployBtn = document.getElementById('deploy_btn');
+                    if (deployBtn) deployBtn.disabled = true;
                     updateFilterCount(allModels.length || 0);
                     showAlert('info', 'Loaded full model list.');
                 } else {
@@ -559,7 +680,8 @@
             }
             updateFilterCount(filtered.length);
             displayModels(filtered);
-            document.getElementById('deploy_btn').disabled = !selectedModel;
+            const deployBtn = document.getElementById('deploy_btn');
+            if (deployBtn) deployBtn.disabled = !selectedModel;
             renderSelectionPreview();
         }
 
@@ -571,7 +693,8 @@
         }
 
         function displayModels(models) {
-            const container = document.getElementById('model_list');
+            const container = document.getElementById('model_grid');
+            if (!container) return;
             if (!models || models.length === 0) {
                 container.innerHTML = '<div class="loading-state">No models match the current filter.</div>';
                 return;
@@ -586,13 +709,15 @@
                 const badge = model.recommended ? '<span class="pill">Recommended</span>' : '';
                 const downloadStatus = model.downloaded ? '<span class="status-pill ok">Downloaded</span>' : '<span class="status-pill warn">Not downloaded</span>';
                 const downloadBtn = model.downloaded ? '' : `<button class="mini-btn" data-download="${encodedName}">Download</button>`;
+                const deployBtn = model.downloaded ? `<button class="mini-btn primary" data-deploy="${encodedName}">Deploy</button>` : '';
                 return `
                     <div class="model-item ${selectedClass} ${recommendedClass}" data-model="${encodedName}">
                         <div class="model-head">
                             <div class="model-name">${escapedName}${badge}</div>
-                            <div class="model-actions">
+                            <div class="model-actions" style="display: flex; gap: 8px; align-items: center;">
                                 ${downloadStatus}
                                 ${downloadBtn}
+                                ${deployBtn}
                             </div>
                         </div>
                         <div class="model-meta">
@@ -643,7 +768,8 @@
             if (energyBudget !== null) {
                 showDeploymentLog(`Energy budget: ${energyBudget} mWh`, 'info');
             }
-            document.getElementById('deploy_btn').disabled = true;
+            const deployBtn = document.getElementById('deploy_btn');
+            if (deployBtn) deployBtn.disabled = true;
             fetch('/api/deploy', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -656,7 +782,8 @@
             })
             .then(r => r.json())
             .then(data => {
-                document.getElementById('deploy_btn').disabled = false;
+                const deployBtn = document.getElementById('deploy_btn');
+                if (deployBtn) deployBtn.disabled = false;
                 if (data.success) {
                     showAlert('success', 'Deployment completed.');
                     showDeploymentLog(`Deployment completed: ${selectedModel} (${data.model_info.energy_avg_mwh} mWh)`, 'success');
@@ -677,7 +804,8 @@
                 }
             })
             .catch(err => {
-                document.getElementById('deploy_btn').disabled = false;
+                const deployBtn = document.getElementById('deploy_btn');
+                if (deployBtn) deployBtn.disabled = false;
                 const errMsg = String(err);
                 showAlert('error', 'Unable to connect: ' + errMsg);
                 showDeploymentLog('Unable to connect to controller or device.', 'error');
@@ -858,29 +986,67 @@
             showAlert('info', 'Prefilled available parameters. Add GMACs if missing.');
         }
 
+        function populateFleetSelector() {
+            const select = document.getElementById('balena_app_filter');
+            if (!select) {
+                console.warn('Fleet selector not found');
+                return;
+            }
+            
+            select.innerHTML = '<option value="">All fleets</option>';
+            balenaFleets.forEach(fleet => {
+                const opt = document.createElement('option');
+                opt.value = fleet.slug || fleet.name;
+                opt.textContent = fleet.name || fleet.slug;
+                select.appendChild(opt);
+            });
+            console.log('✅ Fleet selector populated with', select.options.length, 'options');
+        }
+
         function loadBalenaFleets() {
-            fetch('/api/balena/fleets')
+            // Return cached promise if already loading
+            if (fleetsLoadPromise) return fleetsLoadPromise;
+            
+            // Return immediately if already loaded
+            if (balenaFleetsLoaded) return Promise.resolve(balenaFleets);
+            
+            fleetsLoadPromise = fetch('/api/balena/fleets')
                 .then(r => r.json())
                 .then(data => {
                     if (data.success && data.fleets) {
-                        const select = document.getElementById('balena_app_filter');
-                        if (!select) return;
-                        select.innerHTML = '<option value="">All fleets</option>';
-                        data.fleets.forEach(fleet => {
-                            const opt = document.createElement('option');
-                            opt.value = fleet.slug || fleet.name;
-                            opt.textContent = fleet.name || fleet.slug;
-                            select.appendChild(opt);
-                        });
+                        balenaFleets = data.fleets;
+                        balenaFleetsLoaded = true;
+                        
+                        console.log('✅ Loaded', balenaFleets.length, 'fleets:', balenaFleets.map(f => f.name));
+                        
+                        populateFleetSelector();
                     }
+                    fleetsLoadPromise = null;
+                    return balenaFleets;
                 })
-                .catch(err => console.error('Failed to load Balena fleets:', err));
+                .catch(err => {
+                    console.error('Failed to load Balena fleets:', err);
+                    fleetsLoadPromise = null;
+                    throw err;
+                });
+            
+            return fleetsLoadPromise;
         }
 
-        function loadBalenaDevices(showNotification = false) {
-            const list = document.getElementById('balena_device_list');
-            if (!list) return;
-            showBalenaLoading();
+        function loadBalenaDevices(showNotification = false, forceReload = false) {
+            // Return cached promise if already loading
+            if (devicesLoadPromise && !forceReload) return devicesLoadPromise;
+            
+            // Return cached data if already loaded and not forcing reload
+            if (balenaDevicesLoaded && !forceReload) {
+                if (showNotification) {
+                    showAlert('info', `Using cached ${balenaDevices.length} device(s)`);
+                }
+                return Promise.resolve(balenaDevices);
+            }
+            
+            console.log('Loading Balena devices...');
+            
             const params = new URLSearchParams();
             const appFilter = document.getElementById('balena_app_filter');
             const appValue = appFilter && appFilter.value ? appFilter.value.trim() : '';
@@ -889,94 +1055,94 @@
             if (onlineToggle && onlineToggle.checked) params.set('online_only', 'true');
             const query = params.toString();
             const url = query ? `/api/balena/devices?${query}` : '/api/balena/devices';
-            fetch(url)
+            
+            devicesLoadPromise = fetch(url)
                 .then(r => r.json())
                 .then(data => {
                     if (data.success) {
                         balenaDevices = data.devices || [];
-                        renderBalenaDevices(balenaDevices);
+                        balenaDevicesLoaded = true;
+                        console.log('Loaded', balenaDevices.length, 'devices');
+                        populateDeviceSelectors(balenaDevices);
                         if (showNotification) {
-                            showAlert('success', 'Balena device list refreshed.');
+                            showAlert('success', `Loaded ${balenaDevices.length} device(s)`);
                         }
                     } else {
-                        showBalenaDevicesMessage(data.error || 'Unable to load Balena devices.', 'error');
+                        showAlert('error', data.error || 'Unable to load Balena devices.');
                     }
+                    devicesLoadPromise = null;
+                    return balenaDevices;
                 })
-                .catch(err => showBalenaDevicesMessage('Unable to connect to Balena: ' + err, 'error'));
+                .catch(err => {
+                    console.error('Failed to load devices:', err);
+                    showAlert('error', 'Unable to connect to Balena: ' + err);
+                    devicesLoadPromise = null;
+                    throw err;
+                });
+            
+            return devicesLoadPromise;
         }
 
-        function showBalenaLoading() {
-            const list = document.getElementById('balena_device_list');
-            if (!list) return;
-            list.innerHTML = `
-                <div class="loading-state">
-                    <div class="spinner"></div>
-                    Loading Balena Cloud devices...
-                </div>
-            `;
-        }
-
-        function renderBalenaDevices(devices) {
-            const message = document.getElementById('balena_devices_message');
-            const list = document.getElementById('balena_device_list');
-            if (!list) return;
-            if (!devices.length) {
-                if (message) message.textContent = '';
-                list.innerHTML = '';
-                return;
+        function populateDeviceSelectors(devices) {
+            // Populate deployment device selector (multi-select)
+            const deploySelector = document.getElementById('deploy_device_selector');
+            if (deploySelector) {
+                const currentValues = Array.from(deploySelector.selectedOptions).map(opt => opt.value);
+                deploySelector.innerHTML = '';
+                devices.forEach(dev => {
+                    if (dev.endpoint || dev.uuid) {
+                        const opt = document.createElement('option');
+                        opt.value = dev.uuid || dev.endpoint;
+                        const status = dev.is_online ? '🟢' : '⚫';
+                        const name = dev.device_name || dev.name || 'Unnamed';
+                        const ip = dev.endpoint ? `(${dev.endpoint.split('/')[0]})` : '';
+                        opt.textContent = `${status} ${name} ${ip}`;
+                        opt.dataset.device = JSON.stringify(dev);
+                        deploySelector.appendChild(opt);
+                    }
+                });
+                // Restore previous selection
+                currentValues.forEach(val => {
+                    const option = deploySelector.querySelector(`option[value="${val}"]`);
+                    if (option) option.selected = true;
+                });
+                updateSelectedDevicesCount();
+                console.log('Populated deploy_device_selector with', devices.length, 'devices');
             }
-            if (message) message.textContent = `Found ${devices.length} device(s)`;
             
             // Populate monitoring device selector
-            const selector = document.getElementById('monitor_device_selector');
-            if (selector) {
-                const currentValue = selector.value;
-                selector.innerHTML = '<option value="">Select a device</option>';
+            const monitorSelector = document.getElementById('monitor_device_selector');
+            if (monitorSelector) {
+                const currentValue = monitorSelector.value;
+                monitorSelector.innerHTML = '<option value="">Select a device</option>';
                 devices.forEach(dev => {
                     if (dev.endpoint) {
                         const opt = document.createElement('option');
                         opt.value = dev.endpoint;
                         opt.textContent = `${dev.name || 'Device'} (${dev.endpoint}) ${dev.is_online ? '🟢' : '🔴'}`;
-                        selector.appendChild(opt);
+                        monitorSelector.appendChild(opt);
                     }
                 });
-                if (currentValue) selector.value = currentValue;
+                if (currentValue) monitorSelector.value = currentValue;
+                console.log('Populated monitor_device_selector with', devices.length, 'devices');
             }
-            list.innerHTML = devices.map(dev => {
-                const statusBadge = dev.is_online
-                    ? '<span class="badge ok" data-badge="status">ONLINE</span>'
-                    : '<span class="badge over" data-badge="status">OFFLINE</span>';
-                const endpoint = dev.endpoint ? encodeURIComponent(dev.endpoint) : '';
-                const name = dev.name ? encodeURIComponent(dev.name) : '';
-                const deviceType = dev.app && dev.app.name ? dev.app.name : (dev.app && dev.app.slug ? dev.app.slug : 'N/A');
-                return `
-                    <div class="balena-item ${dev.is_online ? 'online' : 'offline'}">
-                        <div class="balena-head">
-                            <div>
-                                <h4>${escapeHtml(dev.name || 'Device')}</h4>
-                                ${statusBadge}
-                            </div>
-                            <div class="balena-actions">
-                                ${dev.webconsole_url ? `<a class="mini-btn" href="${escapeHtml(dev.webconsole_url)}" target="_blank">Webconsole</a>` : ''}
-                                ${dev.endpoint ? `<button class="mini-btn" data-endpoint="${endpoint}" data-name="${name}">Connect</button>` : ''}
-                            </div>
-                        </div>
-                        <div class="balena-meta">
-                            <span>UUID: ${escapeHtml(dev.uuid || '--')}</span>
-                            <span>IP: ${escapeHtml(dev.ip_address || dev.vpn_address || '--')}</span>
-                            <span>OS: ${escapeHtml(dev.os_version || '--')}</span>
-                            <span>Type: ${escapeHtml(deviceType)}</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function showBalenaDevicesMessage(message, type = 'info') {
-            const messageEl = document.getElementById('balena_devices_message');
-            if (messageEl) {
-                messageEl.textContent = message;
-                messageEl.className = type === 'error' ? 'muted error' : (type === 'success' ? 'muted success' : 'muted');
+            
+            // Populate device logs selector
+            const logsSelector = document.getElementById('device_logs_selector');
+            if (logsSelector) {
+                const currentValue = logsSelector.value;
+                logsSelector.innerHTML = '<option value="">Choose a device...</option>';
+                devices.forEach(dev => {
+                    if (dev.uuid) {
+                        const opt = document.createElement('option');
+                        opt.value = dev.uuid;
+                        opt.dataset.endpoint = dev.endpoint || '';
+                        opt.textContent = `${dev.name || 'Device'} (${dev.endpoint || 'N/A'}) ${dev.is_online ? '🟢' : '🔴'}`;
+                        logsSelector.appendChild(opt);
+                    }
+                });
+                if (currentValue) logsSelector.value = currentValue;
+                console.log('Populated device_logs_selector with', devices.length, 'devices');
             }
         }
 
@@ -1046,9 +1212,9 @@
         }
 
         function displayStats(stats) {
-            const mainTotal = document.getElementById('stat_total_main');
-            const main50 = document.getElementById('stat_50_main');
-            const main100 = document.getElementById('stat_100_main');
+            const mainTotal = document.getElementById('stat_total');
+            const main50 = document.getElementById('stat_50');
+            const main100 = document.getElementById('stat_100');
             if (!mainTotal || !main50 || !main100) return;
             if (!stats) {
                 mainTotal.textContent = '—';
@@ -1067,6 +1233,12 @@
             const avgEl = document.getElementById('energy_avg_value');
             const badge = document.getElementById('energy_status_badge');
             const historyEl = document.getElementById('energy_history_list');
+            
+            if (!budgetEl || !latestEl || !avgEl || !badge || !historyEl) {
+                console.warn('Energy metrics elements not found - skipping render');
+                return;
+            }
+            
             if (!metrics) {
                 budgetEl.textContent = 'N/A';
                 latestEl.textContent = 'N/A';
@@ -1096,13 +1268,113 @@
         }
 
         function startMetricsPolling() {
-            // Start polling device metrics (to be implemented)
-            console.log('📊 Started metrics polling');
+            console.log('Started metrics polling');
+            
+            // Clear existing interval
+            if (metricsPollInterval) {
+                clearInterval(metricsPollInterval);
+            }
+            
+            // Fetch immediately
+            fetchDeviceMetrics();
+            
+            // Then poll every 5 seconds
+            metricsPollInterval = setInterval(() => {
+                fetchDeviceMetrics();
+            }, 5000);
         }
 
         function stopMetricsPolling() {
-            // Stop polling device metrics
-            console.log('⏸️ Stopped metrics polling');
+            console.log('Stopped metrics polling');
+            
+            if (metricsPollInterval) {
+                clearInterval(metricsPollInterval);
+                metricsPollInterval = null;
+            }
+        }
+
+        function fetchDeviceMetrics() {
+            const bbbIp = document.getElementById('bbb_ip')?.value || 
+                         document.getElementById('monitor_device_selector')?.value;
+            
+            if (!bbbIp) {
+                const container = document.getElementById('monitor_content');
+                if (container && !container.querySelector('.monitor-card')) {
+                    container.innerHTML = '<div class="monitor-card">Please select a device from the dropdown above to view real-time metrics.</div>';
+                }
+                return;
+            }
+
+            console.log('Fetching metrics for device:', bbbIp);
+            
+            // Use the correct endpoint: /api/device/metrics
+            fetch(`/api/device/metrics?bbb_ip=${encodeURIComponent(bbbIp)}`)
+                .then(res => res.json())
+                .then(data => {
+                    console.log('API response:', data);
+                    
+                    if (data.success) {
+                        updateDeviceMetrics(data);
+                    } else {
+                        console.warn('Failed to fetch device metrics:', data.error || 'No metrics data');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error fetching device metrics:', err);
+                });
+        }
+
+        function updateDeviceMetrics(data) {
+            const lastUpdate = document.getElementById('monitor_last_update');
+            if (lastUpdate) {
+                lastUpdate.textContent = new Date().toLocaleTimeString();
+            }
+            
+            // Update service status from agent info
+            const serviceDot = document.getElementById('service_dot');
+            const serviceState = document.getElementById('service_state');
+            const serviceBadge = document.getElementById('service_badge');
+            
+            const agentStatus = data.agent?.status || 'unknown';
+            
+            if (serviceDot) {
+                serviceDot.className = `dot ${agentStatus === 'ready' || agentStatus === 'running' ? 'ready' : 'idle'}`;
+            }
+            if (serviceState) serviceState.textContent = agentStatus;
+            if (serviceBadge) {
+                serviceBadge.textContent = agentStatus.toUpperCase();
+                serviceBadge.className = `badge ${agentStatus === 'ready' || agentStatus === 'running' ? 'ok' : ''}`;
+            }
+            
+            // Extract metrics from response (structure: cpu.percent, memory.used_percent, etc)
+            const metrics = {
+                timestamp: Date.now(),
+                cpuPercent: parseFloat(data.cpu?.percent || 0),
+                temperatureC: parseFloat(data.temperature_c || 0),
+                memUsedPercent: parseFloat(data.memory?.used_percent || 0),
+                diskUsedPercent: parseFloat(data.storage?.used_percent || 0)
+            };
+            
+            console.log('Received metrics:', metrics);
+            
+            // Only add to history if we have at least one valid metric
+            if (metrics.cpuPercent > 0 || metrics.temperatureC > 0 || metrics.memUsedPercent > 0 || metrics.diskUsedPercent > 0) {
+                deviceMetricsHistory.push(metrics);
+                
+                // Keep only last 120 points
+                if (deviceMetricsHistory.length > MAX_METRIC_POINTS) {
+                    deviceMetricsHistory.shift();
+                }
+                
+                lastDeviceMetrics = metrics;
+                
+                // Re-render charts if we have enough data - keep current view mode
+                if (deviceMetricsHistory.length > 1) {
+                    renderMonitoringTab(chartViewMode);
+                }
+            } else {
+                console.warn('No valid metrics in response. Raw data:', data);
+            }
         }
 
         function refreshDeviceMetrics(options = {}) {
@@ -1116,7 +1388,7 @@
                 return;
             }
 
-            console.log('🔄 Refreshing metrics for device:', bbbIp);
+            console.log('Refreshing metrics for device:', bbbIp);
             
             // Update service status
             const serviceDot = document.getElementById('service_dot');
@@ -1131,22 +1403,12 @@
                 serviceBadge.className = 'badge';
             }
             
-            // Fetch device metrics
-            fetch(`/api/status?bbb_ip=${encodeURIComponent(bbbIp)}`)
+            // Fetch device metrics from correct endpoint
+            fetch(`/api/device/metrics?bbb_ip=${encodeURIComponent(bbbIp)}`)
                 .then(res => res.json())
                 .then(data => {
-                    if (data.success && data.status) {
-                        const status = data.status.status || 'unknown';
-                        
-                        if (serviceDot) {
-                            serviceDot.className = `dot ${status === 'ready' || status === 'running' ? 'ready' : 'idle'}`;
-                        }
-                        if (serviceState) serviceState.textContent = status;
-                        if (serviceBadge) {
-                            serviceBadge.textContent = status.toUpperCase();
-                            serviceBadge.className = `badge ${status === 'ready' || status === 'running' ? 'ok' : ''}`;
-                        }
-                        if (lastUpdate) lastUpdate.textContent = new Date().toLocaleTimeString();
+                    if (data.success && data.metrics) {
+                        updateDeviceMetrics(data);
                         
                         if (!options.silent) {
                             showAlert('success', 'Device metrics refreshed');
@@ -1181,62 +1443,181 @@
             const container = document.getElementById('monitor_content');
             if (!container) return;
 
-            const safeTab = tab || 'trends';
-            activeMonitorTab = safeTab;
+            const safeTab = tab || chartViewMode;
+            const switchingMode = safeTab !== chartViewMode;
+            chartViewMode = safeTab;
 
             const hasHistory = Array.isArray(deviceMetricsHistory) && deviceMetricsHistory.length > 1;
             if (!hasHistory) {
-                container.innerHTML = '<div class="monitor-card">No device metrics yet. Open Monitoring and wait for samples.</div>';
+                container.innerHTML = '<div class="monitor-card">No device metrics yet. Select a device to start monitoring.</div>';
+                chartsInitialized = false;
+                return;
+            }
+
+            // If just updating data (not switching modes), only update existing charts
+            if (chartsInitialized && !switchingMode) {
+                updateMonitoringCharts();
+                return;
+            }
+
+            // Render controls (time range, export, chart type selector)
+            const controlsHtml = `
+                <div class="chart-controls">
+                    <div class="chart-type-selector">
+                        <button class="chart-type-btn ${chartViewMode === 'gauges' ? 'active' : ''}" onclick="switchChartMode('gauges')">Overview</button>
+                        <button class="chart-type-btn ${chartViewMode === 'trends' ? 'active' : ''}" onclick="switchChartMode('trends')">Trends</button>
+                        <button class="chart-type-btn ${chartViewMode === 'distribution' ? 'active' : ''}" onclick="switchChartMode('distribution')">Distribution</button>
+                    </div>
+                    <select class="time-range-select" onchange="setTimeRange(this.value)" value="${selectedTimeRange}">
+                        <option value="5m" ${selectedTimeRange === '5m' ? 'selected' : ''}>Last 5 minutes</option>
+                        <option value="15m" ${selectedTimeRange === '15m' ? 'selected' : ''}>Last 15 minutes</option>
+                        <option value="1h" ${selectedTimeRange === '1h' ? 'selected' : ''}>Last 1 hour</option>
+                        <option value="6h" ${selectedTimeRange === '6h' ? 'selected' : ''}>Last 6 hours</option>
+                        <option value="24h" ${selectedTimeRange === '24h' ? 'selected' : ''}>Last 24 hours</option>
+                    </select>
+                    <button class="export-btn" onclick="exportMetricsCSV()">
+                        Export CSV
+                    </button>
+                </div>
+            `;
+
+            if (safeTab === 'gauges') {
+                const latest = deviceMetricsHistory[deviceMetricsHistory.length - 1];
+                container.innerHTML = controlsHtml + `
+                    <div class="chart-grid">
+                        <div class="chart-card">
+                            <div class="chart-title"><h4>CPU Usage</h4></div>
+                            <div class="chart-container"><canvas id="gauge_cpu"></canvas></div>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title"><h4>Temperature</h4></div>
+                            <div class="chart-container"><canvas id="gauge_temp"></canvas></div>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title"><h4>Memory Used</h4></div>
+                            <div class="chart-container"><canvas id="gauge_mem"></canvas></div>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title"><h4>Storage Used</h4></div>
+                            <div class="chart-container"><canvas id="gauge_disk"></canvas></div>
+                        </div>
+                    </div>
+                `;
+                
+                // Destroy old charts
+                Object.values(monitoringCharts).forEach(chart => chart.destroy());
+                monitoringCharts = {};
+                
+                // Create gauge charts
+                createGaugeChart('gauge_cpu', 'CPU Usage', latest.cpuPercent, '%', 0, 100);
+                createGaugeChart('gauge_temp', 'Temperature', latest.temperatureC, '°C', 0, 90);
+                createGaugeChart('gauge_mem', 'Memory Used', latest.memUsedPercent, '%', 0, 100);
+                createGaugeChart('gauge_disk', 'Storage Used', latest.diskUsedPercent, '%', 0, 100);
+                chartsInitialized = true;
                 return;
             }
 
             if (safeTab === 'trends') {
-                container.innerHTML = `
+                container.innerHTML = controlsHtml + `
                     <div class="chart-grid">
                         <div class="chart-card">
-                            <div class="chart-title"><h4>CPU</h4><small>Last samples</small></div>
-                            <svg class="chart-svg" id="trend_cpu" viewBox="0 0 600 180" preserveAspectRatio="none"></svg>
+                            <div class="chart-title"><h4>CPU Usage</h4><small>Percentage</small></div>
+                            <div class="chart-container"><canvas id="trend_cpu"></canvas></div>
                         </div>
                         <div class="chart-card">
-                            <div class="chart-title"><h4>Temperature</h4><small>Last samples</small></div>
-                            <svg class="chart-svg" id="trend_temp" viewBox="0 0 600 180" preserveAspectRatio="none"></svg>
+                            <div class="chart-title"><h4>Temperature</h4><small>Celsius</small></div>
+                            <div class="chart-container"><canvas id="trend_temp"></canvas></div>
                         </div>
                         <div class="chart-card">
-                            <div class="chart-title"><h4>Memory</h4><small>Used %</small></div>
-                            <svg class="chart-svg" id="trend_mem" viewBox="0 0 600 180" preserveAspectRatio="none"></svg>
+                            <div class="chart-title"><h4>Memory Usage</h4><small>Percentage</small></div>
+                            <div class="chart-container"><canvas id="trend_mem"></canvas></div>
                         </div>
                         <div class="chart-card">
-                            <div class="chart-title"><h4>Storage</h4><small>Used %</small></div>
-                            <svg class="chart-svg" id="trend_disk" viewBox="0 0 600 180" preserveAspectRatio="none"></svg>
+                            <div class="chart-title"><h4>Storage Usage</h4><small>Percentage</small></div>
+                            <div class="chart-container"><canvas id="trend_disk"></canvas></div>
                         </div>
                     </div>
                 `;
-                drawLineChart(document.getElementById('trend_cpu'), deviceMetricsHistory.map(p => p.cpuPercent), 0, 100);
-                drawLineChart(document.getElementById('trend_temp'), deviceMetricsHistory.map(p => p.temperatureC), 0, 90);
-                drawLineChart(document.getElementById('trend_mem'), deviceMetricsHistory.map(p => p.memUsedPercent), 0, 100);
-                drawLineChart(document.getElementById('trend_disk'), deviceMetricsHistory.map(p => p.diskUsedPercent), 0, 100);
+                
+                // Destroy old charts
+                Object.values(monitoringCharts).forEach(chart => chart.destroy());
+                monitoringCharts = {};
+                
+                // Create new Chart.js charts
+                const filteredData = getFilteredMetrics();
+                createLineChart('trend_cpu', 'CPU Usage (%)', filteredData.map(m => m.cpuPercent), filteredData.map(m => m.timestamp), 0, 100, '#3b82f6');
+                createLineChart('trend_temp', 'Temperature (°C)', filteredData.map(m => m.temperatureC), filteredData.map(m => m.timestamp), 0, 90, '#f59e0b');
+                createLineChart('trend_mem', 'Memory Usage (%)', filteredData.map(m => m.memUsedPercent), filteredData.map(m => m.timestamp), 0, 100, '#10b981');
+                createLineChart('trend_disk', 'Storage Usage (%)', filteredData.map(m => m.diskUsedPercent), filteredData.map(m => m.timestamp), 0, 100, '#8b5cf6');
+                chartsInitialized = true;
                 return;
             }
 
             if (safeTab === 'distribution') {
-                container.innerHTML = `
+                container.innerHTML = controlsHtml + `
                     <div class="chart-grid">
                         <div class="chart-card">
-                            <div class="chart-title"><h4>CPU distribution</h4><small>Histogram</small></div>
-                            <svg class="chart-svg" id="hist_cpu" viewBox="0 0 600 180" preserveAspectRatio="none"></svg>
+                            <div class="chart-title"><h4>CPU Distribution</h4><small>Histogram</small></div>
+                            <div class="chart-container"><canvas id="hist_cpu"></canvas></div>
                         </div>
                         <div class="chart-card">
-                            <div class="chart-title"><h4>Temperature distribution</h4><small>Histogram</small></div>
-                            <svg class="chart-svg" id="hist_temp" viewBox="0 0 600 180" preserveAspectRatio="none"></svg>
+                            <div class="chart-title"><h4>Temperature Distribution</h4><small>Histogram</small></div>
+                            <div class="chart-container"><canvas id="hist_temp"></canvas></div>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title"><h4>Memory Distribution</h4><small>Histogram</small></div>
+                            <div class="chart-container"><canvas id="hist_mem"></canvas></div>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title"><h4>Storage Distribution</h4><small>Histogram</small></div>
+                            <div class="chart-container"><canvas id="hist_disk"></canvas></div>
                         </div>
                     </div>
                 `;
-                drawHistogram(document.getElementById('hist_cpu'), deviceMetricsHistory.map(p => p.cpuPercent), 0, 100);
-                drawHistogram(document.getElementById('hist_temp'), deviceMetricsHistory.map(p => p.temperatureC), 0, 90);
+                
+                // Destroy old charts
+                Object.values(monitoringCharts).forEach(chart => chart.destroy());
+                monitoringCharts = {};
+                
+                // Create histograms
+                const filteredData = getFilteredMetrics();
+                createHistogram('hist_cpu', 'CPU Usage (%)', filteredData.map(m => m.cpuPercent), '#3b82f6');
+                createHistogram('hist_temp', 'Temperature (°C)', filteredData.map(m => m.temperatureC), '#f59e0b');
+                createHistogram('hist_mem', 'Memory Usage (%)', filteredData.map(m => m.memUsedPercent), '#10b981');
+                createHistogram('hist_disk', 'Storage Usage (%)', filteredData.map(m => m.diskUsedPercent), '#8b5cf6');
+                chartsInitialized = true;
                 return;
             }
 
-            container.innerHTML = '<div class="monitor-card">Select a tab to view charts.</div>';
+            container.innerHTML = '<div class="monitor-card">Select a chart mode to view metrics.</div>';
+        }
+
+        function updateMonitoringCharts() {
+            if (!chartsInitialized || Object.keys(monitoringCharts).length === 0) return;
+
+            const filteredData = getFilteredMetrics();
+            const latest = deviceMetricsHistory[deviceMetricsHistory.length - 1];
+
+            if (chartViewMode === 'gauges') {
+                // Update gauge charts with smooth animation
+                updateGaugeChart('gauge_cpu', latest.cpuPercent, '%', 0, 100);
+                updateGaugeChart('gauge_temp', latest.temperatureC, '°C', 0, 90);
+                updateGaugeChart('gauge_mem', latest.memUsedPercent, '%', 0, 100);
+                updateGaugeChart('gauge_disk', latest.diskUsedPercent, '%', 0, 100);
+            } else if (chartViewMode === 'trends') {
+                // Update line charts
+                const labels = filteredData.map(m => new Date(m.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+                updateLineChart('trend_cpu', filteredData.map(m => m.cpuPercent), labels);
+                updateLineChart('trend_temp', filteredData.map(m => m.temperatureC), labels);
+                updateLineChart('trend_mem', filteredData.map(m => m.memUsedPercent), labels);
+                updateLineChart('trend_disk', filteredData.map(m => m.diskUsedPercent), labels);
+            } else if (chartViewMode === 'distribution') {
+                // Update histograms
+                updateHistogram('hist_cpu', filteredData.map(m => m.cpuPercent));
+                updateHistogram('hist_temp', filteredData.map(m => m.temperatureC));
+                updateHistogram('hist_mem', filteredData.map(m => m.memUsedPercent));
+                updateHistogram('hist_disk', filteredData.map(m => m.diskUsedPercent));
+            }
         }
 
         function renderGaugeCard(title, value, min, max, unit) {
@@ -1346,6 +1727,402 @@
             svgEl.innerHTML = bars;
         }
 
+        // New Chart.js functions for Grafana-style monitoring
+        function getFilteredMetrics() {
+            const now = Date.now();
+            const ranges = {
+                '5m': 5 * 60 * 1000,
+                '15m': 15 * 60 * 1000,
+                '1h': 60 * 60 * 1000,
+                '6h': 6 * 60 * 60 * 1000,
+                '24h': 24 * 60 * 60 * 1000
+            };
+            const rangeMs = ranges[selectedTimeRange] || ranges['5m'];
+            return deviceMetricsHistory.filter(m => (now - m.timestamp) <= rangeMs);
+        }
+
+        function setTimeRange(range) {
+            selectedTimeRange = range;
+            chartsInitialized = false; // Force re-render with new time range
+            renderMonitoringTab(chartViewMode);
+        }
+
+        function switchChartMode(mode) {
+            chartsInitialized = false; // Force re-render when switching modes
+            renderMonitoringTab(mode);
+        }
+
+        function createLineChart(canvasId, label, data, timestamps, minY, maxY, color) {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return;
+
+            const labels = timestamps.map(t => new Date(t).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        borderColor: color,
+                        backgroundColor: color + '20',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        pointHoverBackgroundColor: color,
+                        pointHoverBorderColor: '#fff',
+                        pointHoverBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 300
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            borderColor: color,
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return label + ': ' + context.parsed.y.toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                maxRotation: 0,
+                                maxTicksLimit: 8,
+                                color: '#5b6b80',
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        y: {
+                            min: minY,
+                            max: maxY,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#5b6b80',
+                                font: {
+                                    size: 11
+                                },
+                                callback: function(value) {
+                                    return value.toFixed(0);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            monitoringCharts[canvasId] = chart;
+        }
+
+        function createHistogram(canvasId, label, values, color) {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return;
+
+            // Create histogram bins
+            const bins = 15;
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            const range = max - min || 1;
+            const binSize = range / bins;
+            
+            const binCounts = new Array(bins).fill(0);
+            const binLabels = [];
+            
+            for (let i = 0; i < bins; i++) {
+                const binStart = min + i * binSize;
+                const binEnd = binStart + binSize;
+                binLabels.push(binStart.toFixed(1) + '-' + binEnd.toFixed(1));
+                
+                for (const val of values) {
+                    if (val >= binStart && (i === bins - 1 ? val <= binEnd : val < binEnd)) {
+                        binCounts[i]++;
+                    }
+                }
+            }
+
+            const chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: binLabels,
+                    datasets: [{
+                        label: 'Frequency',
+                        data: binCounts,
+                        backgroundColor: color + '80',
+                        borderColor: color,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            borderColor: color,
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Count: ' + context.parsed.y;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false,
+                                drawBorder: false
+                            },
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45,
+                                color: '#5b6b80',
+                                font: {
+                                    size: 10
+                                }
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)',
+                                drawBorder: false
+                            },
+                            ticks: {
+                                color: '#5b6b80',
+                                font: {
+                                    size: 11
+                                },
+                                callback: function(value) {
+                                    return Math.floor(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            monitoringCharts[canvasId] = chart;
+        }
+
+        function createGaugeChart(canvasId, label, value, unit, minValue, maxValue) {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return;
+
+            // Calculate percentage and color based on value
+            const percentage = ((value - minValue) / (maxValue - minValue)) * 100;
+            const remaining = 100 - percentage;
+            
+            // Color gradient based on percentage (green -> yellow -> red)
+            let color;
+            if (percentage < 50) {
+                color = '#10b981'; // Green
+            } else if (percentage < 75) {
+                color = '#f59e0b'; // Yellow/Orange
+            } else {
+                color = '#dc2626'; // Red
+            }
+
+            const chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [percentage, remaining],
+                        backgroundColor: [color, '#2d3748'],
+                        borderWidth: 0,
+                        circumference: 270,
+                        rotation: 225
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    animation: {
+                        duration: 300,
+                        easing: 'easeInOutQuart'
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: false
+                        },
+                        gaugeText: {
+                            value: value,
+                            unit: unit,
+                            color: color,
+                            label: label
+                        }
+                    }
+                },
+                plugins: [{
+                    id: 'gaugeText',
+                    afterDraw: (chart) => {
+                        const ctx = chart.ctx;
+                        const centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
+                        const centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2 + 20;
+
+                        // Get current values from chart options or use initial values
+                        const pluginOpts = chart.options.plugins.gaugeText || {};
+                        const currentValue = pluginOpts.value !== undefined ? pluginOpts.value : value;
+                        const currentUnit = pluginOpts.unit || unit;
+                        const currentColor = pluginOpts.color || color;
+                        const currentLabel = pluginOpts.label || label;
+
+                        ctx.save();
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        
+                        // Draw value
+                        ctx.font = 'bold 42px Plus Jakarta Sans';
+                        ctx.fillStyle = currentColor;
+                        ctx.fillText(currentValue.toFixed(1) + currentUnit, centerX, centerY);
+                        
+                        // Draw label
+                        ctx.font = '14px Plus Jakarta Sans';
+                        ctx.fillStyle = '#718096';
+                        ctx.fillText(currentLabel, centerX, centerY - 50);
+                        
+                        ctx.restore();
+                    }
+                }]
+            });
+
+            monitoringCharts[canvasId] = chart;
+        }
+
+        function updateGaugeChart(canvasId, value, unit, minValue, maxValue) {
+            const chart = monitoringCharts[canvasId];
+            if (!chart) return;
+
+            const percentage = ((value - minValue) / (maxValue - minValue)) * 100;
+            const remaining = 100 - percentage;
+            
+            // Update color based on new value
+            let color;
+            if (percentage < 50) {
+                color = '#10b981';
+            } else if (percentage < 75) {
+                color = '#f59e0b';
+            } else {
+                color = '#dc2626';
+            }
+
+            // Update chart data
+            chart.data.datasets[0].data = [percentage, remaining];
+            chart.data.datasets[0].backgroundColor = [color, '#2d3748'];
+            
+            // Update the custom plugin's values
+            const currentLabel = chart.options.plugins.gaugeText?.label || '';
+            chart.options.plugins.gaugeText = { value, unit, color, label: currentLabel };
+            
+            chart.update('none'); // Update without animation for smooth refresh
+        }
+
+        function updateLineChart(canvasId, data, labels) {
+            const chart = monitoringCharts[canvasId];
+            if (!chart) return;
+
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = data;
+            chart.update('none'); // No animation for smooth updates
+        }
+
+        function updateHistogram(canvasId, values) {
+            const chart = monitoringCharts[canvasId];
+            if (!chart) return;
+
+            // Recalculate histogram bins
+            const bins = 15;
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            const range = max - min || 1;
+            const binSize = range / bins;
+            
+            const binCounts = new Array(bins).fill(0);
+            
+            for (const val of values) {
+                const binIndex = Math.min(bins - 1, Math.floor((val - min) / binSize));
+                binCounts[binIndex]++;
+            }
+
+            chart.data.datasets[0].data = binCounts;
+            chart.update('none');
+        }
+
+        function exportMetricsCSV() {
+            if (!deviceMetricsHistory || deviceMetricsHistory.length === 0) {
+                alert('No metrics data to export');
+                return;
+            }
+
+            const filteredData = getFilteredMetrics();
+            
+            // CSV header
+            let csv = 'Timestamp,CPU %,Temperature °C,Memory %,Storage %\n';
+            
+            // CSV rows
+            filteredData.forEach(m => {
+                const timestamp = new Date(m.timestamp).toISOString();
+                csv += `${timestamp},${m.cpuPercent},${m.temperatureC},${m.memUsedPercent},${m.diskUsedPercent}\n`;
+            });
+
+            // Download
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            const deviceIp = document.getElementById('monitor_device_selector')?.value || 'device';
+            const filename = `metrics_${deviceIp}_${selectedTimeRange}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
         function renderParetoPlaceholder() {
             const container = document.getElementById('monitor_content');
             if (!container) return;
@@ -1408,7 +2185,9 @@
         }
 
         function showLoading() {
-            document.getElementById('model_list').innerHTML = `
+            const container = document.getElementById('model_grid');
+            if (!container) return;
+            container.innerHTML = `
                 <div class="loading-state">
                     <div class="spinner"></div>
                     Loading data from controller...
@@ -1417,60 +2196,138 @@
         }
 
         function loadDeploymentLogs() {
+            const container = document.getElementById('logs_container');
+            if (!container) {
+                console.error('logs_container element not found');
+                return;
+            }
+            
+            container.innerHTML = '<div class="loading-state"><div class="spinner"></div>Loading logs...</div>';
+            
             fetch('/api/logs?limit=50')
+                .then(res => {
+                    console.log('Logs API response status:', res.status);
+                    if (!res.ok) {
+                        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    console.log('Logs data received:', data);
+                    
+                    if (data.success && data.logs && data.logs.length > 0) {
+                        // Logs từ API đã được reverse (mới nhất lên đầu)
+                        const logs = data.logs;
+                        
+                        container.innerHTML = logs.map(logEntry => {
+                            const timestamp = new Date(logEntry.timestamp);
+                            const timeString = timestamp.toLocaleString('vi-VN', {
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                            
+                            const typeClass = logEntry.type === 'success' ? 'ok' : 
+                                            logEntry.type === 'error' ? 'error' : 'info';
+                            
+                            // Show full message
+                            const fullMessage = logEntry.message || 'No message';
+                            
+                            return `
+                                <div class="log-entry ${typeClass}">
+                                    <div class="log-header">
+                                        <span class="log-time">${escapeHtml(timeString)}</span>
+                                        <span class="log-type ${typeClass}">${escapeHtml(logEntry.type || 'info').toUpperCase()}</span>
+                                    </div>
+                                    <div class="log-message">${escapeHtml(fullMessage)}</div>
+                                </div>
+                            `;
+                        }).join('');
+                    } else if (data.success) {
+                        container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--muted);">No deployment logs found.</div>';
+                    } else {
+                        throw new Error(data.error || 'Unknown error');
+                    }
+                })
+                .catch(err => {
+                    console.error('Failed to load deployment logs:', err);
+                    container.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--danger);">Failed to load logs: ${escapeHtml(err.message)}</div>`;
+                });
+        }
+
+        function loadDeviceLogs(deviceUuid) {
+            const statusEl = document.getElementById('logs_status_panel');
+            const contentEl = document.getElementById('logs_content_panel');
+            
+            if (!contentEl) return;
+            
+            if (statusEl) statusEl.textContent = 'Loading logs...';
+            contentEl.innerHTML = '<div class="loading-state"><div class="spinner"></div>Loading device logs...</div>';
+            
+            const count = 200; // Number of logs to fetch
+            
+            fetch(`/api/balena/devices/${deviceUuid}/logs?count=${count}`)
                 .then(res => res.json())
                 .then(data => {
-                    if (data.success && data.logs && data.logs.length > 0) {
-                        const placeholder = document.getElementById('deployment_log_placeholder');
-                        if (placeholder) placeholder.style.display = 'none';
+                    if (data.success && data.logs) {
+                        const logs = data.logs;
+                        if (statusEl) statusEl.textContent = `${logs.length} logs loaded`;
                         
-                        const log = document.getElementById('deployment_log');
-                        if (!log) {
-                            console.warn('deployment_log element not found');
+                        if (logs.length === 0) {
+                            contentEl.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--muted);">No logs found for this device.</div>';
                             return;
                         }
-                        log.innerHTML = ''; // Clear existing
                         
-                        // Logs đã được reverse ở backend (mới nhất lên đầu)
-                        // Reverse lại để hiển thị cũ nhất lên đầu
-                        const sortedLogs = [...data.logs].reverse();
-                        
-                        sortedLogs.forEach(logEntry => {
-                            const entry = document.createElement('li');
-                            entry.className = `timeline-entry ${logEntry.type || 'info'}`;
-                            
-                            const timestamp = new Date(logEntry.timestamp);
-                            const timeString = timestamp.toLocaleTimeString('vi-VN', {
+                        // Render logs
+                        contentEl.innerHTML = logs.map(log => {
+                            const timestamp = new Date(log.timestamp);
+                            const timeString = timestamp.toLocaleString('vi-VN', {
+                                month: '2-digit',
+                                day: '2-digit',
                                 hour: '2-digit',
                                 minute: '2-digit',
                                 second: '2-digit'
                             });
                             
-                            entry.innerHTML = `
-                                <span class="timeline-dot"></span>
-                                <div>
-                                    <p class="timeline-time">${timeString}</p>
-                                    <p class="timeline-text">${escapeHtml(logEntry.message)}</p>
+                            const logClass = log.isError ? 'log-error' : log.isSystem ? 'log-system' : 'log-normal';
+                            
+                            return `
+                                <div class="device-log-entry ${logClass}">
+                                    <span class="device-log-time">${escapeHtml(timeString)}</span>
+                                    <span class="device-log-message">${escapeHtml(log.message)}</span>
                                 </div>
                             `;
-                            log.appendChild(entry);
-                        });
+                        }).join('');
                         
-                        // Scroll to bottom
-                        const wrapper = document.getElementById('deployment_log_wrapper');
-                        if (wrapper) {
-                            wrapper.scrollTop = wrapper.scrollHeight;
+                        // Auto-scroll to bottom if checkbox is checked
+                        const autoscroll = document.getElementById('logs_autoscroll_panel');
+                        if (autoscroll && autoscroll.checked) {
+                            const viewport = document.getElementById('logs_viewport_panel');
+                            if (viewport) {
+                                viewport.scrollTop = viewport.scrollHeight;
+                            }
                         }
-                        
-                        // Update stats nếu cần
-                        if (data.stats) {
-                            console.log('Deployment Stats:', data.stats);
-                        }
+                    } else {
+                        if (statusEl) statusEl.textContent = 'Failed to load logs';
+                        contentEl.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--danger);">${data.error || 'Failed to load logs'}</div>`;
                     }
                 })
                 .catch(err => {
-                    console.error('Failed to load deployment logs:', err);
+                    console.error('Error loading device logs:', err);
+                    if (statusEl) statusEl.textContent = 'Error loading logs';
+                    contentEl.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--danger);">Error loading logs. Check console for details.</div>';
                 });
+        }
+
+        function clearDeviceLogs() {
+            const statusEl = document.getElementById('logs_status_panel');
+            const contentEl = document.getElementById('logs_content_panel');
+            
+            if (statusEl) statusEl.textContent = 'Select a device to load logs';
+            if (contentEl) {
+                contentEl.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--muted);">Select a device to load logs.</div>';
+            }
         }
 
         function showDeploymentLog(message, level = 'info') {
@@ -1770,6 +2627,181 @@
                     renderParetoPlaceholder('Unable to connect to the server. Please check your connection and try again.');
                 });
         }
+
+        // ============================================================================
+        // MULTI-DEVICE DEPLOYMENT
+        // ============================================================================
+        
+        let selectedModelForDeploy = null;
+        let deploymentInProgress = false;
+        
+        function updateSelectedDevicesCount() {
+            const deploySelector = document.getElementById('deploy_device_selector');
+            const countEl = document.getElementById('selected_devices_count');
+            if (deploySelector && countEl) {
+                const count = deploySelector.selectedOptions.length;
+                countEl.textContent = count;
+            }
+        }
+        
+        function getSelectedDevices() {
+            const deploySelector = document.getElementById('deploy_device_selector');
+            if (!deploySelector) return [];
+            
+            return Array.from(deploySelector.selectedOptions).map(opt => {
+                try {
+                    return JSON.parse(opt.dataset.device);
+                } catch {
+                    return { uuid: opt.value, endpoint: opt.value };
+                }
+            });
+        }
+        
+        function updateDeploymentStatus(status, message, progress = null) {
+            const statusDot = document.getElementById('deployment_status_dot');
+            const statusText = document.getElementById('deployment_status_text');
+            const progressBar = document.getElementById('deployment_progress');
+            const progressFill = document.getElementById('deployment_progress_bar');
+            const progressText = document.getElementById('deployment_progress_text');
+            
+            if (statusDot) {
+                statusDot.className = 'dot';
+                if (status === 'idle') statusDot.classList.add('idle');
+                else if (status === 'deploying') statusDot.classList.add('loading');
+                else if (status === 'success') statusDot.classList.add('online');
+                else if (status === 'error') statusDot.classList.add('offline');
+            }
+            
+            if (statusText) statusText.textContent = message;
+            
+            if (progress !== null && progressBar && progressFill && progressText) {
+                progressBar.style.display = 'block';
+                progressFill.style.width = `${progress}%`;
+                progressText.textContent = `${Math.round(progress)}% complete`;
+            } else if (progressBar) {
+                progressBar.style.display = 'none';
+            }
+        }
+        
+        async function deployModelToDevices(modelName) {
+            const selectedDevices = getSelectedDevices();
+            
+            if (!modelName) {
+                showAlert('error', 'Please select a model to deploy');
+                return;
+            }
+            
+            if (selectedDevices.length === 0) {
+                showAlert('error', 'Please select at least one device');
+                return;
+            }
+            
+            if (deploymentInProgress) {
+                showAlert('warning', 'Deployment already in progress');
+                return;
+            }
+            
+            deploymentInProgress = true;
+            selectedModelForDeploy = modelName;
+            
+            const totalDevices = selectedDevices.length;
+            let completedCount = 0;
+            let successCount = 0;
+            let failedDevices = [];
+            
+            updateDeploymentStatus('deploying', `Deploying to ${totalDevices} device(s)...`, 0);
+            
+            try {
+                // Deploy to each device sequentially
+                for (const device of selectedDevices) {
+                    try {
+                        console.log(`Deploying ${modelName} to device:`, device);
+                        
+                        const response = await fetch('/api/balena/deploy', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                model_name: modelName,
+                                device_uuid: device.uuid,
+                                device_endpoint: device.endpoint,
+                                fleet: device.fleet_slug || device.slug
+                            })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            successCount++;
+                            console.log(`✅ Deployed to ${device.device_name || device.uuid}`);
+                        } else {
+                            failedDevices.push({ device: device.device_name || device.uuid, error: result.error });
+                            console.error(`❌ Failed to deploy to ${device.device_name}:`, result.error);
+                        }
+                        
+                    } catch (err) {
+                        failedDevices.push({ device: device.device_name || device.uuid, error: err.message });
+                        console.error(`❌ Exception deploying to ${device.device_name}:`, err);
+                    }
+                    
+                    completedCount++;
+                    const progress = (completedCount / totalDevices) * 100;
+                    updateDeploymentStatus('deploying', `Deploying... (${completedCount}/${totalDevices})`, progress);
+                }
+                
+                // Update final status
+                if (successCount === totalDevices) {
+                    updateDeploymentStatus('success', `Successfully deployed to all ${totalDevices} device(s)`, 100);
+                    updateCurrentModel(modelName);
+                    showAlert('success', `Model "${modelName}" deployed to ${successCount} device(s)`);
+                    loadDeploymentLogs(); // Refresh logs
+                } else if (successCount > 0) {
+                    updateDeploymentStatus('success', `Deployed to ${successCount}/${totalDevices} device(s)`, 100);
+                    updateCurrentModel(modelName);
+                    const failedList = failedDevices.map(f => `${f.device}: ${f.error}`).join('; ');
+                    showAlert('warning', `Partial success: ${successCount} succeeded, ${failedDevices.length} failed. ${failedList}`);
+                    loadDeploymentLogs();
+                } else {
+                    updateDeploymentStatus('error', 'All deployments failed', 100);
+                    const failedList = failedDevices.map(f => `${f.device}: ${f.error}`).join('; ');
+                    showAlert('error', `Deployment failed for all devices. ${failedList}`);
+                }
+                
+            } catch (err) {
+                console.error('Deployment error:', err);
+                updateDeploymentStatus('error', 'Deployment error', 0);
+                showAlert('error', `Deployment error: ${err.message}`);
+            } finally {
+                deploymentInProgress = false;
+                
+                // Auto-clear progress after 5 seconds
+                setTimeout(() => {
+                    const progressBar = document.getElementById('deployment_progress');
+                    if (progressBar) progressBar.style.display = 'none';
+                }, 5000);
+            }
+        }
+        
+        function updateCurrentModel(modelName) {
+            const modelNameEl = document.getElementById('current_model_name');
+            const deployTimeEl = document.getElementById('model_deployment_time');
+            
+            if (modelNameEl) {
+                modelNameEl.textContent = modelName || 'No model';
+            }
+            
+            if (deployTimeEl) {
+                const now = new Date();
+                deployTimeEl.textContent = `Deployed at ${now.toLocaleTimeString()}`;
+            }
+        }
+        
+        // Add event listener for device selection change
+        document.addEventListener('DOMContentLoaded', () => {
+            const deploySelector = document.getElementById('deploy_device_selector');
+            if (deploySelector) {
+                deploySelector.addEventListener('change', updateSelectedDevicesCount);
+            }
+        });
 
         // ============================================================================
         // END MODEL ANALYTICS

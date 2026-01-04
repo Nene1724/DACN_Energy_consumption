@@ -22,7 +22,7 @@
                         </select>
                     </div>
                     <label style="display:flex; align-items:center; gap:8px; color: var(--muted); font-size: 13px; margin-top: 6px;">
-                        <input type="checkbox" id="balena_online_only" checked>
+                        <input type="checkbox" id="balena_online_only">
                         Online devices only
                     </label>
                 </div>
@@ -30,10 +30,13 @@
                 <!-- Device selector -->
                 <div class="form-grid">
                     <div class="form-control">
-                        <label for="deploy_device_selector">Select device</label>
-                        <select id="deploy_device_selector" class="filter-select" style="width: 100%;">
-                            <option value="">Choose a device...</option>
+                        <label for="deploy_device_selector">Select devices (Ctrl+Click for multiple)</label>
+                        <select id="deploy_device_selector" class="filter-select" style="width: 100%; min-height: 120px;" multiple>
+                            <option value="" disabled>Choose devices...</option>
                         </select>
+                        <small class="text-muted" style="display: block; margin-top: 4px;">
+                            Selected: <strong id="selected_devices_count">0</strong> device(s)
+                        </small>
                     </div>
                     
                     <!-- Device specifications -->
@@ -60,11 +63,21 @@
                 <div class="status-row" style="margin-top: 12px;">
                     <div class="status-block" id="process_status">
                         <div class="status-title">Status process</div>
-                        <div class="status-value"><span class="dot idle"></span>Not connected</div>
+                        <div class="status-value" id="deployment_status_value">
+                            <span class="dot idle" id="deployment_status_dot"></span>
+                            <span id="deployment_status_text">Not connected</span>
+                        </div>
+                        <div id="deployment_progress" class="progress-bar-container" style="display: none; margin-top: 8px;">
+                            <div class="progress-bar-fill" id="deployment_progress_bar" style="width: 0%;"></div>
+                            <small id="deployment_progress_text" class="text-muted" style="display: block; margin-top: 4px;"></small>
+                        </div>
                     </div>
                     <div class="status-block" id="model_status">
                         <div class="status-title">Current model</div>
-                        <div class="status-value">No model</div>
+                        <div class="status-value" id="current_model_value">
+                            <span id="current_model_name">No model</span>
+                        </div>
+                        <small class="text-muted" id="model_deployment_time" style="display: block; margin-top: 4px;"></small>
                     </div>
                 </div>
                 <div class="status-block" id="rerun_container" style="margin-top:8px; display:none;">
