@@ -2892,12 +2892,155 @@
                 const now = new Date();
                 deployTimeEl.textContent = `Deployed at ${now.toLocaleTimeString()}`;
             }
+            
+            // Refresh device model status
+            setTimeout(() => refreshDeviceModelStatus(), 1000);
+        }
+        
+        // Device Model Status Functions
+        let deviceStatusRefreshInterval = null;
+        
+        async function fetchDeviceModelStatus(device) {
+            try {
+                const response = await fetch(`http://${device.endpoint}:8000/status`, {
+                    method: 'GET',
+                    signal: AbortSignal.timeout(5000)
+                });
+                
+                if (!response.ok) {
+                    return {
+                        device: device,
+                        status: 'offline',
+                        error: `HTTP ${response.status}`
+                    };
+                }
+                
+                const data = await response.json();
+                return {
+                    device: device,
+                    status: data.status || 'unknown',
+                    model_name: data.model_name || 'None',
+                    inference_active: data.inference_active || false,
+                    error: data.error || null,
+                    last_update: data.last_update || null
+                };
+            } catch (err) {
+                return {
+                    device: device,
+                    status: 'offline',
+                    error: err.message
+                };
+            }
+        }
+        
+        async function refreshDeviceModelStatus() {
+            const selectedDevices = getSelectedDevices();
+            
+            if (selectedDevices.length === 0) {
+                // Hide panel if no devices selected
+                const panel = document.getElementById('device_model_status_panel');
+                if (panel) panel.style.display = 'none';
+                return;
+            }
+            
+            // Show panel
+            const panel = document.getElementById('device_model_status_panel');
+            if (panel) panel.style.display = 'block';
+            
+            const statusList = document.getElementById('device_model_status_list');
+            if (!statusList) return;
+            
+            // Show loading
+            statusList.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--muted);"><div class="spinner"></div> Loading device status...</div>';
+            
+            // Fetch status for all selected devices in parallel
+            const statusPromises = selectedDevices.map(dev => fetchDeviceModelStatus(dev));
+            const results = await Promise.all(statusPromises);
+            
+            // Render status cards
+            statusList.innerHTML = results.map(result => {
+                const deviceName = result.device.device_name || result.device.name || 'Unknown Device';
+                const endpoint = result.device.endpoint || 'N/A';
+                
+                let statusBadge, statusIcon, statusColor;
+                
+                if (result.status === 'running') {
+                    statusBadge = '<span class="badge ok">RUNNING</span>';
+                    statusIcon = '🟢';
+                    statusColor = 'var(--success)';
+                } else if (result.status === 'ready') {
+                    statusBadge = '<span class="badge warning">READY</span>';
+                    statusIcon = '🟡';
+                    statusColor = 'var(--warning)';
+                } else if (result.status === 'error') {
+                    statusBadge = '<span class="badge error">ERROR</span>';
+                    statusIcon = '🔴';
+                    statusColor = 'var(--error)';
+                } else if (result.status === 'offline') {
+                    statusBadge = '<span class="badge muted">OFFLINE</span>';
+                    statusIcon = '⚫';
+                    statusColor = 'var(--muted)';
+                } else {
+                    statusBadge = '<span class="badge muted">UNKNOWN</span>';
+                    statusIcon = '❓';
+                    statusColor = 'var(--muted)';
+                }
+                
+                return `
+                    <div style="padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid ${statusColor};">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                            <div>
+                                <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px;">
+                                    ${statusIcon} ${deviceName}
+                                </div>
+                                <div style="font-size: 11px; color: var(--muted); font-family: monospace;">
+                                    ${endpoint}
+                                </div>
+                            </div>
+                            ${statusBadge}
+                        </div>
+                        <div style="display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; font-size: 12px; color: var(--muted);">
+                            <strong style="color: var(--text);">Model:</strong>
+                            <span style="font-weight: 600; color: ${result.model_name !== 'None' ? 'var(--accent)' : 'var(--muted)'};">${result.model_name}</span>
+                            
+                            <strong style="color: var(--text);">Inference:</strong>
+                            <span>${result.inference_active ? '✅ Active' : '⏸️ Paused'}</span>
+                            
+                            ${result.error ? `
+                                <strong style="color: var(--error);">Error:</strong>
+                                <span style="color: var(--error); font-size: 11px; word-break: break-word;">${result.error.substring(0, 100)}${result.error.length > 100 ? '...' : ''}</span>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Auto-refresh device status every 10 seconds when panel is visible
+        function startDeviceStatusAutoRefresh() {
+            stopDeviceStatusAutoRefresh();
+            deviceStatusRefreshInterval = setInterval(() => {
+                const panel = document.getElementById('device_model_status_panel');
+                if (panel && panel.style.display !== 'none') {
+                    refreshDeviceModelStatus();
+                }
+            }, 10000); // Refresh every 10 seconds
+        }
+        
+        function stopDeviceStatusAutoRefresh() {
+            if (deviceStatusRefreshInterval) {
+                clearInterval(deviceStatusRefreshInterval);
+                deviceStatusRefreshInterval = null;
+            }
         }
         
         // Device selection change is handled in populateDeviceSelectors
         document.addEventListener('DOMContentLoaded', () => {
             // Update count on load
             updateSelectedDevicesCount();
+            
+            // Start auto-refresh for device status
+            startDeviceStatusAutoRefresh();
         });
 
         // ============================================================================

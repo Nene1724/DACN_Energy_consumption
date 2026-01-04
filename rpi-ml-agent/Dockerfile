@@ -9,11 +9,11 @@ WORKDIR /usr/src/app
 
 COPY requirements.txt ./
 # Install runtimes: 
-# Use tensorflow-lite instead of tflite-runtime for FULLY_CONNECTED v12 support
-# Install numpy 1.x first, then tensorflow-lite
+# Use tensorflow instead of tflite-runtime for FULLY_CONNECTED v12 support
+# Install numpy 1.x first, then tensorflow
 RUN pip install --no-cache-dir "numpy>=1.21.2,<2.0" && \
     pip install --no-cache-dir flask==3.0.0 requests==2.32.3 && \
-    pip install --no-cache-dir tensorflow-cpu==2.15.0
+    pip install --no-cache-dir tensorflow==2.15.1
 
 COPY . .
 

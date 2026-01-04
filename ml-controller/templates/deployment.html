@@ -88,6 +88,21 @@
                         <small class="text-muted" id="model_deployment_time" style="display: block; margin-top: 6px; font-size: 11px;"></small>
                     </div>
                 </div>
+                
+                <!-- Device Model Status -->
+                <div class="panel" id="device_model_status_panel" style="margin-top: 16px; display: none;">
+                    <div class="panel-header">
+                        <div>
+                            <h3>Device Model Status</h3>
+                            <p class="muted" style="font-size: 12px; margin-top: 4px;">Real-time status of deployed models</p>
+                        </div>
+                        <button class="btn ghost" onclick="refreshDeviceModelStatus()" style="font-size: 12px; padding: 6px 12px;">Refresh</button>
+                    </div>
+                    <div id="device_model_status_list" style="display: flex; flex-direction: column; gap: 12px;">
+                        <!-- Will be populated dynamically -->
+                    </div>
+                </div>
+                
                 <div class="status-block" id="rerun_container" style="margin-top:8px; display:none;">
                     <button class="btn primary full" id="rerun_btn" type="button">Re-run last deployment</button>
                     <p class="muted" id="rerun_caption" style="font-size:12px; margin-top:6px;">—</p>

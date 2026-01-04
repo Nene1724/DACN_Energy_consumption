@@ -130,7 +130,15 @@ def _extract_app_info(app_field):
 
 def _transform_balena_device(raw):
     app_info = _extract_app_info(raw.get("belongs_to__application"))
-    endpoint = raw.get("vpn_address") or raw.get("ip_address")
+    
+    # Balena API returns multiple IPs separated by spaces (IPv4 + IPv6s)
+    # Parse and take first IP only
+    endpoint = raw.get("vpn_address")
+    if not endpoint:
+        ip_address = raw.get("ip_address") or ""
+        ips = [ip.strip() for ip in ip_address.split() if ip.strip()]
+        endpoint = ips[0] if ips else None
+    
     return {
         "id": raw.get("id"),
         "name": raw.get("device_name"),
@@ -1101,9 +1109,12 @@ def deploy_model():
         
         # Construct model URL for device to download
         # Device will download from controller's /models/<filename> endpoint
-        host = request.host  # e.g., "192.168.137.1:5000"
+        # Use server's external IP instead of request.host (which may be 127.0.0.1)
+        import socket
+        controller_ip = socket.gethostbyname(socket.gethostname())
+        controller_port = request.environ.get('SERVER_PORT', '5000')
         model_filename = os.path.basename(model_path)
-        model_url = f"http://{host}/models/{model_filename}"
+        model_url = f"http://{controller_ip}:{controller_port}/models/{model_filename}"
         
         # Get energy budget if specified
         energy_budget = data.get("energy_budget_mwh")
@@ -1118,8 +1129,8 @@ def deploy_model():
         if energy_budget is not None:
             deploy_payload["energy_budget_mwh"] = energy_budget
         
-        # Call device's /deploy endpoint
-        device_url = f"http://{device_endpoint}/deploy"
+        # Call device's /deploy endpoint (ML Agent runs on port 8000)
+        device_url = f"http://{device_endpoint}:8000/deploy"
         print(f"[INFO] Deploying to device: {device_url}")
         
         try:
