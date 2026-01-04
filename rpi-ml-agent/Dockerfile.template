@@ -9,11 +9,11 @@ WORKDIR /usr/src/app
 
 COPY requirements.txt ./
 # Install runtimes: 
-# CRITICAL: tflite-runtime 2.13.0 requires NumPy <2.0
+# CRITICAL: tflite-runtime 2.14.0 supports FULLY_CONNECTED operator v12
 # Install numpy 1.x first, then tflite-runtime with --no-deps to prevent numpy 2.x upgrade
 RUN pip install --no-cache-dir "numpy>=1.21.2,<2.0" && \
     pip install --no-cache-dir flask==3.0.0 requests==2.32.3 && \
-    pip install --no-cache-dir --no-deps tflite-runtime==2.13.0
+    pip install --no-cache-dir --no-deps tflite-runtime==2.14.0
 
 COPY . .
 
