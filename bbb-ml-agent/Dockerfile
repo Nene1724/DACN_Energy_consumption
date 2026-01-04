@@ -9,7 +9,7 @@ WORKDIR /usr/src/app
 
 COPY requirements.txt ./
 
-RUN pip install --no-cache-dir --no-deps tflite-runtime==2.13.0 && \
+RUN pip install --no-cache-dir --no-deps tflite-runtime==2.14.0 && \
     pip install --no-cache-dir flask==3.0.0 requests==2.32.3
 
 COPY . .
