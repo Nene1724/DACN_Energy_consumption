@@ -14,12 +14,21 @@ try:
 except ImportError:
     np = None
 
+# Try TensorFlow Lite first (full TensorFlow package), fallback to tflite_runtime
 try:
-    import tflite_runtime.interpreter as tflite
+    import tensorflow as tf
+    tflite = tf.lite
     TFLITE_AVAILABLE = True
+    print("[INFO] Using TensorFlow Lite from tensorflow package")
 except ImportError:
-    tflite = None
-    TFLITE_AVAILABLE = False
+    try:
+        import tflite_runtime.interpreter as tflite
+        TFLITE_AVAILABLE = True
+        print("[INFO] Using tflite_runtime package")
+    except ImportError:
+        tflite = None
+        TFLITE_AVAILABLE = False
+        print("[WARNING] Neither TensorFlow nor tflite_runtime available")
 
 try:
     import onnxruntime as ort
