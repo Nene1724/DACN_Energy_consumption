@@ -1449,7 +1449,11 @@
                 cpuPercent: parseFloat(data.cpu?.percent || 0),
                 temperatureC: parseFloat(data.temperature_c || 0),
                 memUsedPercent: parseFloat(data.memory?.used_percent || 0),
-                diskUsedPercent: parseFloat(data.storage?.used_percent || 0)
+                memUsedGb: parseFloat(data.memory?.used_mb || 0) / 1024,
+                memTotalGb: parseFloat(data.memory?.total_mb || 0) / 1024,
+                diskUsedPercent: parseFloat(data.storage?.used_percent || 0),
+                diskUsedGb: parseFloat(data.storage?.used_gb || 0),
+                diskTotalGb: parseFloat(data.storage?.total_gb || 0)
             };
             
             console.log('Received metrics:', metrics);
@@ -1626,11 +1630,11 @@
                             <div class="chart-container"><canvas id="trend_temp"></canvas></div>
                         </div>
                         <div class="chart-card">
-                            <div class="chart-title"><h4>Memory Usage</h4><small>Percentage</small></div>
+                            <div class="chart-title"><h4>Memory Usage</h4><small>GB</small></div>
                             <div class="chart-container"><canvas id="trend_mem"></canvas></div>
                         </div>
                         <div class="chart-card">
-                            <div class="chart-title"><h4>Storage Usage</h4><small>Percentage</small></div>
+                            <div class="chart-title"><h4>Storage Usage</h4><small>GB</small></div>
                             <div class="chart-container"><canvas id="trend_disk"></canvas></div>
                         </div>
                     </div>
@@ -1644,8 +1648,10 @@
                 const filteredData = getFilteredMetrics();
                 createLineChart('trend_cpu', 'CPU Usage (%)', filteredData.map(m => m.cpuPercent), filteredData.map(m => m.timestamp), 0, 100, '#3b82f6');
                 createLineChart('trend_temp', 'Temperature (°C)', filteredData.map(m => m.temperatureC), filteredData.map(m => m.timestamp), 0, 90, '#f59e0b');
-                createLineChart('trend_mem', 'Memory Usage (%)', filteredData.map(m => m.memUsedPercent), filteredData.map(m => m.timestamp), 0, 100, '#10b981');
-                createLineChart('trend_disk', 'Storage Usage (%)', filteredData.map(m => m.diskUsedPercent), filteredData.map(m => m.timestamp), 0, 100, '#8b5cf6');
+                const maxMem = Math.max(...filteredData.map(m => m.memTotalGb || 8), 8);
+                createLineChart('trend_mem', 'Memory Usage (GB)', filteredData.map(m => m.memUsedGb), filteredData.map(m => m.timestamp), 0, maxMem, '#10b981');
+                const maxDisk = Math.max(...filteredData.map(m => m.diskTotalGb || 32), 32);
+                createLineChart('trend_disk', 'Storage Usage (GB)', filteredData.map(m => m.diskUsedGb), filteredData.map(m => m.timestamp), 0, maxDisk, '#8b5cf6');
                 chartsInitialized = true;
                 return;
             }
@@ -1706,8 +1712,8 @@
                 const labels = filteredData.map(m => new Date(m.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
                 updateLineChart('trend_cpu', filteredData.map(m => m.cpuPercent), labels);
                 updateLineChart('trend_temp', filteredData.map(m => m.temperatureC), labels);
-                updateLineChart('trend_mem', filteredData.map(m => m.memUsedPercent), labels);
-                updateLineChart('trend_disk', filteredData.map(m => m.diskUsedPercent), labels);
+                updateLineChart('trend_mem', filteredData.map(m => m.memUsedGb), labels);
+                updateLineChart('trend_disk', filteredData.map(m => m.diskUsedGb), labels);
             } else if (chartViewMode === 'distribution') {
                 // Update histograms
                 updateHistogram('hist_cpu', filteredData.map(m => m.cpuPercent));
@@ -2902,28 +2908,30 @@
         
         async function fetchDeviceModelStatus(device) {
             try {
-                const response = await fetch(`http://${device.endpoint}:8000/status`, {
+                // Use backend proxy to avoid CORS
+                const response = await fetch(`/api/device/status/${device.endpoint}`, {
                     method: 'GET',
-                    signal: AbortSignal.timeout(5000)
+                    signal: AbortSignal.timeout(10000)
                 });
                 
-                if (!response.ok) {
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    return {
+                        device: device,
+                        status: result.data.status || 'unknown',
+                        model_name: result.data.model_name || 'None',
+                        inference_active: result.data.inference_active || false,
+                        error: result.data.error || null,
+                        last_update: result.data.last_update || null
+                    };
+                } else {
                     return {
                         device: device,
                         status: 'offline',
-                        error: `HTTP ${response.status}`
+                        error: result.error || 'Unknown error'
                     };
                 }
-                
-                const data = await response.json();
-                return {
-                    device: device,
-                    status: data.status || 'unknown',
-                    model_name: data.model_name || 'None',
-                    inference_active: data.inference_active || false,
-                    error: data.error || null,
-                    last_update: data.last_update || null
-                };
             } catch (err) {
                 return {
                     device: device,
@@ -2934,27 +2942,29 @@
         }
         
         async function refreshDeviceModelStatus() {
-            const selectedDevices = getSelectedDevices();
+            // Get all online devices from balenaDevices array
+            const onlineDevices = balenaDevices.filter(dev => 
+                dev.is_online === true && dev.endpoint
+            );
             
-            if (selectedDevices.length === 0) {
-                // Hide panel if no devices selected
-                const panel = document.getElementById('device_model_status_panel');
-                if (panel) panel.style.display = 'none';
-                return;
-            }
-            
-            // Show panel
             const panel = document.getElementById('device_model_status_panel');
+            const statusList = document.getElementById('device_model_status_list');
+            
+            if (!statusList) return;
+            
+            // Always show panel if we're in deployment view
             if (panel) panel.style.display = 'block';
             
-            const statusList = document.getElementById('device_model_status_list');
-            if (!statusList) return;
+            if (onlineDevices.length === 0) {
+                statusList.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--muted);">No online devices found</div>';
+                return;
+            }
             
             // Show loading
             statusList.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--muted);"><div class="spinner"></div> Loading device status...</div>';
             
-            // Fetch status for all selected devices in parallel
-            const statusPromises = selectedDevices.map(dev => fetchDeviceModelStatus(dev));
+            // Fetch status for all online devices in parallel
+            const statusPromises = onlineDevices.map(dev => fetchDeviceModelStatus(dev));
             const results = await Promise.all(statusPromises);
             
             // Render status cards

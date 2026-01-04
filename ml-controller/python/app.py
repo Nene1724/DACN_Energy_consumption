@@ -258,7 +258,12 @@ def get_all_models():
     """API: Lấy danh sách tất cả models"""
     try:
         models = analyzer.get_all_models()
-        return jsonify({"success": True, "models": models})
+        stats = analyzer.get_energy_stats()
+        return jsonify({
+            "success": True, 
+            "models": models,
+            "stats": stats
+        })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -1310,6 +1315,41 @@ def get_last_deployment():
     if not log_entry:
         return jsonify({"success": False, "error": "No deployment found"}), 404
     return jsonify({"success": True, "log": log_entry})
+
+
+@app.route("/api/device/status/<device_endpoint>", methods=["GET"])
+def get_device_status(device_endpoint):
+    """API: Proxy to get device status (avoids CORS)"""
+    try:
+        device_url = f"http://{device_endpoint}:8000/status"
+        response = requests.get(device_url, timeout=5)
+        
+        if response.status_code == 200:
+            return jsonify({
+                "success": True,
+                "data": response.json()
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": f"HTTP {response.status_code}"
+            }), response.status_code
+            
+    except requests.exceptions.Timeout:
+        return jsonify({
+            "success": False,
+            "error": "Request timeout"
+        }), 504
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            "success": False,
+            "error": "Connection failed"
+        }), 503
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 
 if __name__ == "__main__":

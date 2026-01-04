@@ -469,11 +469,122 @@
           "model_size_bytes": 2160160
         }
       }
+    },
+    {
+      "timestamp": "2026-01-04T16:04:21.841740Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv2_050' to device 192.168.137.49",
+      "metadata": {
+        "model_name": "mobilenetv2_050",
+        "device_uuid": "16ba36e08c14076eeee7ff637d265b24",
+        "device_endpoint": "192.168.137.49",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-04T16:04:22.238934Z",
+      "type": "success",
+      "message": "Deploy thành công model 'mobilenetv2_050' lên thiết bị 192.168.137.49",
+      "metadata": {
+        "model_name": "mobilenetv2_050",
+        "device_uuid": "16ba36e08c14076eeee7ff637d265b24",
+        "device_endpoint": "192.168.137.49",
+        "model_path": "D:\\DACN\\ml-controller\\model_store\\mobilenetv2_050.tflite",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": null,
+          "message": "Deployment successful",
+          "model_info": {
+            "energy_avg_mwh": 0.0,
+            "flops": 0.0,
+            "input_size": "3x224x224",
+            "latency_avg_s": 0.0,
+            "params": 0
+          },
+          "model_name": "mobilenetv2_050",
+          "model_path": "/data/models/current_model.tflite",
+          "model_size_bytes": 2160160
+        }
+      }
+    },
+    {
+      "timestamp": "2026-01-04T16:36:49.225134Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv3_small_100' to device 192.168.137.49",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "16ba36e08c14076eeee7ff637d265b24",
+        "device_endpoint": "192.168.137.49",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-04T16:36:49.638918Z",
+      "type": "success",
+      "message": "Deploy thành công model 'mobilenetv3_small_100' lên thiết bị 192.168.137.49",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "16ba36e08c14076eeee7ff637d265b24",
+        "device_endpoint": "192.168.137.49",
+        "model_path": "D:\\DACN\\ml-controller\\model_store\\mobilenetv3_small_100.tflite",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": null,
+          "message": "Deployment successful",
+          "model_info": {
+            "energy_avg_mwh": 0.0,
+            "flops": 0.0,
+            "input_size": "3x224x224",
+            "latency_avg_s": 0.0,
+            "params": 0
+          },
+          "model_name": "mobilenetv3_small_100",
+          "model_path": "/data/models/current_model.tflite",
+          "model_size_bytes": 2188184
+        }
+      }
+    },
+    {
+      "timestamp": "2026-01-04T17:00:03.824701Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv3_small_100' to device 192.168.137.49",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "16ba36e08c14076eeee7ff637d265b24",
+        "device_endpoint": "192.168.137.49",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-04T17:00:04.367349Z",
+      "type": "success",
+      "message": "Deploy thành công model 'mobilenetv3_small_100' lên thiết bị 192.168.137.49",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "16ba36e08c14076eeee7ff637d265b24",
+        "device_endpoint": "192.168.137.49",
+        "model_path": "D:\\DACN\\ml-controller\\model_store\\mobilenetv3_small_100.tflite",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": null,
+          "message": "Deployment successful",
+          "model_info": {
+            "energy_avg_mwh": 0.0,
+            "flops": 0.0,
+            "input_size": "3x224x224",
+            "latency_avg_s": 0.0,
+            "params": 0
+          },
+          "model_name": "mobilenetv3_small_100",
+          "model_path": "/data/models/current_model.tflite",
+          "model_size_bytes": 2188184
+        }
+      }
     }
   ],
   "metadata": {
     "created_at": "2025-12-13T00:00:00Z",
-    "last_updated": "2026-01-04T15:41:01.431761Z",
-    "total_deployments": 12
+    "last_updated": "2026-01-04T17:00:04.367349Z",
+    "total_deployments": 15
   }
 }

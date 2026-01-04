@@ -67,34 +67,12 @@
                     </div>
                 </div>
                 
-                <!-- Status process -->
-                <div class="status-row" style="margin-top: 16px;">
-                    <div class="status-block" id="process_status">
-                        <div class="status-title" style="font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Status</div>
-                        <div class="status-value" id="deployment_status_value" style="margin-top: 8px;">
-                            <span class="dot idle" id="deployment_status_dot"></span>
-                            <span id="deployment_status_text" style="font-weight: 500;">Ready</span>
-                        </div>
-                        <div id="deployment_progress" class="progress-bar-container" style="display: none; margin-top: 8px;">
-                            <div class="progress-bar-fill" id="deployment_progress_bar" style="width: 0%;"></div>
-                            <small id="deployment_progress_text" class="text-muted" style="display: block; margin-top: 4px;"></small>
-                        </div>
-                    </div>
-                    <div class="status-block" id="model_status">
-                        <div class="status-title" style="font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Model</div>
-                        <div class="status-value" id="current_model_value" style="margin-top: 8px;">
-                            <span id="current_model_name" style="font-weight: 600; color: var(--accent);">No model deployed</span>
-                        </div>
-                        <small class="text-muted" id="model_deployment_time" style="display: block; margin-top: 6px; font-size: 11px;"></small>
-                    </div>
-                </div>
-                
                 <!-- Device Model Status -->
-                <div class="panel" id="device_model_status_panel" style="margin-top: 16px; display: none;">
+                <div class="panel" id="device_model_status_panel" style="margin-top: 16px;">
                     <div class="panel-header">
                         <div>
                             <h3>Device Model Status</h3>
-                            <p class="muted" style="font-size: 12px; margin-top: 4px;">Real-time status of deployed models</p>
+                            <p class="muted" style="font-size: 12px; margin-top: 4px;">Real-time status of online devices</p>
                         </div>
                         <button class="btn ghost" onclick="refreshDeviceModelStatus()" style="font-size: 12px; padding: 6px 12px;">Refresh</button>
                     </div>
@@ -107,16 +85,6 @@
                     <button class="btn primary full" id="rerun_btn" type="button">Re-run last deployment</button>
                     <p class="muted" id="rerun_caption" style="font-size:12px; margin-top:6px;">—</p>
                 </div>
-            </div>
-
-            <div class="panel">
-                <div class="panel-header">
-                    <div>
-                        <h3>Device Telemetry</h3>
-                        <p class="muted" style="font-size:12px; margin-top:4px;">Last update: <span id="deploy_metrics_last_update">—</span></p>
-                    </div>
-                </div>
-                <div id="deploy_metrics_container" class="telemetry-grid"></div>
             </div>
 
             <div class="panel">
