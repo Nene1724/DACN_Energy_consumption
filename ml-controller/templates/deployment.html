@@ -14,29 +14,35 @@
                 </div>
                 
                 <!-- Fleet and device filters -->
-                <div class="form-grid" style="margin-bottom: 12px;">
+                <div class="form-grid" style="margin-bottom: 14px;">
                     <div class="form-control">
-                        <label for="balena_app_filter">Sellect fleet</label>
+                        <label for="balena_app_filter">Fleet</label>
                         <select id="balena_app_filter" class="filter-select" style="width: 100%;">
                             <option value="">All fleets</option>
                         </select>
                     </div>
-                    <label style="display:flex; align-items:center; gap:8px; color: var(--muted); font-size: 13px; margin-top: 6px;">
-                        <input type="checkbox" id="balena_online_only">
-                        Online devices only
+                    <label style="display:flex; align-items:center; gap:8px; color: var(--muted); font-size: 13px; margin-top: 8px; cursor: pointer;">
+                        <input type="checkbox" id="balena_online_only" style="width: 16px; height: 16px; cursor: pointer;">
+                        Show online only
                     </label>
                 </div>
                 
                 <!-- Device selector -->
                 <div class="form-grid">
                     <div class="form-control">
-                        <label for="deploy_device_selector">Select devices (Ctrl+Click for multiple)</label>
-                        <select id="deploy_device_selector" class="filter-select" style="width: 100%; min-height: 120px;" multiple>
-                            <option value="" disabled>Choose devices...</option>
-                        </select>
-                        <small class="text-muted" style="display: block; margin-top: 4px;">
-                            Selected: <strong id="selected_devices_count">0</strong> device(s)
-                        </small>
+                        <label for="deploy_device_list">Devices</label>
+                        <div id="deploy_device_list" class="device-list">
+                            <div style="text-align: center; padding: 30px 20px; color: var(--muted); font-size: 13px;">
+                                <div style="font-size: 32px; margin-bottom: 8px; opacity: 0.5;">📡</div>
+                                Click "Refresh" button above to load devices
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding: 8px 12px; background: rgba(59, 130, 246, 0.05); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.15);">
+                            <small class="text-muted" style="font-size: 12px; color: var(--muted);">
+                                Selected
+                            </small>
+                            <strong id="selected_devices_count" style="font-size: 16px; color: var(--accent); font-weight: 700;">0</strong>
+                        </div>
                     </div>
                     
                     <!-- Device specifications -->
@@ -54,18 +60,20 @@
                     </div>
                     
                     <!-- Load models button -->
-                    <div style="display:flex; gap:10px; margin-top: 8px;">
-                        <button class="btn primary full" onclick="loadAllModels()">Load models</button>
+                    <div style="display:flex; gap:10px; margin-top: 14px;">
+                        <button class="btn primary full" onclick="loadAllModels()" style="font-weight: 600; padding: 14px;">
+                            Load Models
+                        </button>
                     </div>
                 </div>
                 
                 <!-- Status process -->
-                <div class="status-row" style="margin-top: 12px;">
+                <div class="status-row" style="margin-top: 16px;">
                     <div class="status-block" id="process_status">
-                        <div class="status-title">Status process</div>
-                        <div class="status-value" id="deployment_status_value">
+                        <div class="status-title" style="font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Status</div>
+                        <div class="status-value" id="deployment_status_value" style="margin-top: 8px;">
                             <span class="dot idle" id="deployment_status_dot"></span>
-                            <span id="deployment_status_text">Not connected</span>
+                            <span id="deployment_status_text" style="font-weight: 500;">Ready</span>
                         </div>
                         <div id="deployment_progress" class="progress-bar-container" style="display: none; margin-top: 8px;">
                             <div class="progress-bar-fill" id="deployment_progress_bar" style="width: 0%;"></div>
@@ -73,11 +81,11 @@
                         </div>
                     </div>
                     <div class="status-block" id="model_status">
-                        <div class="status-title">Current model</div>
-                        <div class="status-value" id="current_model_value">
-                            <span id="current_model_name">No model</span>
+                        <div class="status-title" style="font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Model</div>
+                        <div class="status-value" id="current_model_value" style="margin-top: 8px;">
+                            <span id="current_model_name" style="font-weight: 600; color: var(--accent);">No model deployed</span>
                         </div>
-                        <small class="text-muted" id="model_deployment_time" style="display: block; margin-top: 4px;"></small>
+                        <small class="text-muted" id="model_deployment_time" style="display: block; margin-top: 6px; font-size: 11px;"></small>
                     </div>
                 </div>
                 <div class="status-block" id="rerun_container" style="margin-top:8px; display:none;">

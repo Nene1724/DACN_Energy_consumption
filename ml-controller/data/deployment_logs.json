@@ -155,53 +155,75 @@
       }
     },
     {
-      "timestamp": "2026-01-04T09:44:17.038632Z",
-      "type": "DEPLOY_START",
-      "message": {
-        "model": "mobilenetv2_050",
-        "device_uuid": "16ba36e08c14076eeee7ff637d265b24",
-        "device_endpoint": "192.168.137.165",
-        "fleet": null
-      },
-      "metadata": {}
-    },
-    {
-      "timestamp": "2026-01-04T09:44:18.042376Z",
-      "type": "DEPLOY_SUCCESS",
-      "message": {
-        "model": "mobilenetv2_050",
-        "device": "16ba36e08c14076eeee7ff637d265b24",
-        "model_path": "D:\\DACN\\ml-controller\\model_store\\mobilenetv2_050.tflite"
-      },
-      "metadata": {}
-    },
-    {
-      "timestamp": "2026-01-04T09:48:11.087595Z",
+      "timestamp": "2026-01-04T12:52:21.205036Z",
       "type": "info",
-      "message": "Starting deployment of 'mobilenetv2_050' to device 192.168.1.100",
+      "message": "Starting deployment of 'mobilenetv2_050' to device 192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
       "metadata": {
         "model_name": "mobilenetv2_050",
-        "device_uuid": "test-device-uuid-12345",
-        "device_endpoint": "192.168.1.100",
-        "fleet": "test-fleet"
+        "device_uuid": "16ba36e08c14076eeee7ff637d265b24",
+        "device_endpoint": "192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
+        "fleet": null
       }
     },
     {
-      "timestamp": "2026-01-04T09:48:12.163098Z",
-      "type": "success",
-      "message": "Deploy thành công model 'mobilenetv2_050' lên thiết bị 192.168.1.100",
+      "timestamp": "2026-01-04T12:52:21.221238Z",
+      "type": "error",
+      "message": "Deployment exception: name 'log' is not defined",
       "metadata": {
         "model_name": "mobilenetv2_050",
-        "device_uuid": "test-device-uuid-12345",
-        "device_endpoint": "192.168.1.100",
-        "model_path": "D:\\DACN\\ml-controller\\model_store\\mobilenetv2_050.tflite",
-        "fleet": "test-fleet"
+        "error_type": "deployment_exception",
+        "error_details": "name 'log' is not defined"
+      }
+    },
+    {
+      "timestamp": "2026-01-04T12:56:50.026559Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv2_050' to device 192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
+      "metadata": {
+        "model_name": "mobilenetv2_050",
+        "device_uuid": "16ba36e08c14076eeee7ff637d265b24",
+        "device_endpoint": "192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-04T12:56:50.042555Z",
+      "type": "error",
+      "message": "Failed to deploy to device: Failed to parse: http://192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a/deploy",
+      "metadata": {
+        "model_name": "mobilenetv2_050",
+        "device_endpoint": "192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
+        "error": "Failed to parse: http://192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a/deploy"
+      }
+    },
+    {
+      "timestamp": "2026-01-04T13:00:20.132020Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv2_050' to device 192.168.1.225",
+      "metadata": {
+        "model_name": "mobilenetv2_050",
+        "device_uuid": "16ba36e08c14076eeee7ff637d265b24",
+        "device_ip": "192.168.1.225",
+        "device_endpoint_raw": "192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-04T13:01:20.209474Z",
+      "type": "error",
+      "message": "Failed to deploy to device: HTTPConnectionPool(host='rb-proxy-apac.bosch.com', port=8080): Read timed out. (read timeout=60)",
+      "metadata": {
+        "model_name": "mobilenetv2_050",
+        "device_ip": "192.168.1.225",
+        "device_endpoint_raw": "192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
+        "error_type": "deployment_failed",
+        "error_details": "HTTPConnectionPool(host='rb-proxy-apac.bosch.com', port=8080): Read timed out. (read timeout=60)"
       }
     }
   ],
   "metadata": {
     "created_at": "2025-12-13T00:00:00Z",
-    "last_updated": "2026-01-04T09:48:12.163098Z",
+    "last_updated": "2026-01-04T13:01:20.209474Z",
     "total_deployments": 8
   }
 }

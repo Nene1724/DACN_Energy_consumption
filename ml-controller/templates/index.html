@@ -79,17 +79,22 @@
         .panel-header h3 { font-size: 18px; }
         .panel-header .muted { color: var(--muted); font-size: 13px; }
         .form-grid { display: grid; gap: 14px; }
-        .form-control label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 6px; }
-        .form-control input { width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: #ffffff; color: var(--text); }
-        .btn { border: 1px solid transparent; border-radius: 12px; padding: 12px 14px; font-weight: 700; cursor: pointer; transition: all 0.2s; color: var(--text); background: #f2f5fb; }
-        .btn.primary { background: linear-gradient(135deg, #3b82f6, #22d3ee); color: #0b1220; border-color: transparent; box-shadow: 0 8px 16px rgba(59, 130, 246, 0.18); }
-        .btn.ghost { border-color: var(--border); background: transparent; color: var(--text); }
+        .form-control { margin-bottom: 4px; overflow: hidden; }
+        .form-control label { font-size: 13px; color: var(--text); font-weight: 600; display: block; margin-bottom: 8px; letter-spacing: 0.01em; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+        .form-control input, .form-control select { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1.5px solid var(--border); background: #ffffff; color: var(--text); font-size: 14px; transition: all 0.2s; box-sizing: border-box; }
+        .form-control input:focus, .form-control select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+        .form-control input:disabled { background: #f1f5f9; color: var(--muted); cursor: not-allowed; }
+        .btn { border: 1px solid transparent; border-radius: 12px; padding: 12px 16px; font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s; color: var(--text); background: #f2f5fb; text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn.primary { background: linear-gradient(135deg, #3b82f6, #22d3ee); color: #ffffff; border-color: transparent; box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2); }
+        .btn.primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 20px rgba(59, 130, 246, 0.3); }
+        .btn.ghost { border-color: var(--border); background: transparent; color: var(--text); font-weight: 600; }
+        .btn.ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: rgba(59, 130, 246, 0.05); }
         .btn.full { width: 100%; }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .status-row { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
-        .status-block { border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #ffffff; }
-        .status-title { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
-        .status-value { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+        .status-row { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+        .status-block { border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 16px; background: linear-gradient(180deg, #ffffff, #fafbff); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); }
+        .status-title { color: var(--muted); font-size: 11px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        .status-value { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px; color: var(--text); line-height: 1.4; }
         .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-flex; }
         .dot.idle { background: #475569; }
         .dot.downloading { background: var(--warning); animation: pulse 1.4s infinite; }
@@ -152,6 +157,28 @@
         .balena-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
         .balena-meta { color: var(--muted); font-size: 12px; display: flex; flex-direction: column; gap: 3px; }
         .balena-actions { display: flex; gap: 8px; align-items: center; }
+        .device-list { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; overflow-x: hidden; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: #f8fafc; }
+        .device-list::-webkit-scrollbar { width: 6px; }
+        .device-list::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
+        .device-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .device-list::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .device-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; background: #ffffff; cursor: pointer; transition: all 0.2s ease; min-height: 54px; }
+        .device-item:hover:not(.disabled) { border-color: var(--accent); background: rgba(59, 130, 246, 0.04); box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08); }
+        .device-item.selected { border-color: var(--accent); background: rgba(59, 130, 246, 0.1); box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); position: relative; }
+        .device-item.selected::before { content: '✓'; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; border-radius: 4px; background: var(--success); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+        .device-item.disabled { opacity: 0.55; cursor: not-allowed; background: #fafbfc; }
+        .device-item.disabled:hover { border-color: var(--border); background: #fafbfc; box-shadow: none; }
+        .device-checkbox { display: none; }
+        .device-checkbox:disabled { cursor: not-allowed; opacity: 0.5; }
+        .device-info { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow: visible; }
+        .device-item.selected .device-info { padding-left: 26px; }
+        .device-name { font-weight: 600; color: var(--text); font-size: 13px; line-height: 1.3; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; word-break: break-word; }
+        .device-details { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; line-height: 1.3; flex-wrap: wrap; word-break: break-word; }
+        .device-status-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: 8px; font-size: 9px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; }
+        .device-status-badge.online { background: rgba(16, 185, 129, 0.15); color: #047857; border: 1px solid rgba(16, 185, 129, 0.25); }
+        .device-status-badge.offline { background: rgba(239, 68, 68, 0.15); color: #b91c1c; border: 1px solid rgba(239, 68, 68, 0.25); }
+        .device-status-badge::before { content: ''; width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+        .device-ip { font-family: 'Courier New', monospace; color: var(--text); font-size: 11px; font-weight: 500; }
         .mini-btn { border: 1px solid var(--border); background: transparent; color: var(--accent); border-radius: 10px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
         .monitor-tabs { display:flex; gap:12px; align-items:flex-end; border-bottom:1px solid var(--border); padding-bottom:6px; margin-bottom:14px; flex-wrap:wrap; }
         .monitor-tab { padding:10px 2px; border:none; border-bottom:2px solid transparent; background:transparent; color:var(--muted); cursor:pointer; font-weight:700; letter-spacing:0.02em; }
@@ -291,10 +318,6 @@
         /* Progress bar styles */
         .progress-bar-container { width: 100%; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; position: relative; margin-top: 8px; }
         .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); transition: width 0.3s ease; border-radius: 4px; }
-        
-        /* Multi-select device list */
-        #deploy_device_selector option { padding: 8px; }
-        #deploy_device_selector option:checked { background: rgba(16, 185, 129, 0.2) !important; color: #059669; font-weight: 600; }
         
         /* Deploy button styles */
         .mini-btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
@@ -1084,30 +1107,104 @@
         }
 
         function populateDeviceSelectors(devices) {
-            // Populate deployment device selector (multi-select)
-            const deploySelector = document.getElementById('deploy_device_selector');
-            if (deploySelector) {
-                const currentValues = Array.from(deploySelector.selectedOptions).map(opt => opt.value);
-                deploySelector.innerHTML = '';
-                devices.forEach(dev => {
-                    if (dev.endpoint || dev.uuid) {
-                        const opt = document.createElement('option');
-                        opt.value = dev.uuid || dev.endpoint;
-                        const status = dev.is_online ? '🟢' : '⚫';
-                        const name = dev.device_name || dev.name || 'Unnamed';
-                        const ip = dev.endpoint ? `(${dev.endpoint.split('/')[0]})` : '';
-                        opt.textContent = `${status} ${name} ${ip}`;
-                        opt.dataset.device = JSON.stringify(dev);
-                        deploySelector.appendChild(opt);
-                    }
-                });
-                // Restore previous selection
-                currentValues.forEach(val => {
-                    const option = deploySelector.querySelector(`option[value="${val}"]`);
-                    if (option) option.selected = true;
-                });
+            // Populate deployment device list (checkbox list)
+            const deployList = document.getElementById('deploy_device_list');
+            if (deployList) {
+                // Get currently selected device UUIDs
+                const currentSelected = Array.from(deployList.querySelectorAll('.device-checkbox:checked')).map(cb => cb.value);
+                
+                deployList.innerHTML = '';
+                
+                if (devices.length === 0) {
+                    deployList.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--muted);">No devices found</div>';
+                } else {
+                    devices.forEach(dev => {
+                        if (dev.endpoint || dev.uuid) {
+                            const isOnline = dev.is_online === true;
+                            const item = document.createElement('div');
+                            item.className = 'device-item';
+                            
+                            // Disable offline devices
+                            if (!isOnline) {
+                                item.classList.add('disabled');
+                            }
+                            
+                            const isSelected = currentSelected.includes(dev.uuid) && isOnline;
+                            if (isSelected) item.classList.add('selected');
+                            
+                            const checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.className = 'device-checkbox';
+                            checkbox.value = dev.uuid || dev.endpoint;
+                            checkbox.checked = isSelected;
+                            checkbox.disabled = !isOnline; // Disable checkbox for offline devices
+                            checkbox.dataset.device = JSON.stringify(dev);
+                            
+                            const info = document.createElement('div');
+                            info.className = 'device-info';
+                            
+                            const name = document.createElement('div');
+                            name.className = 'device-name';
+                            const deviceName = dev.device_name || dev.name || 'Unnamed';
+                            name.textContent = deviceName;
+                            
+                            // Add status badge to name
+                            const statusBadge = document.createElement('span');
+                            statusBadge.className = `device-status-badge ${isOnline ? 'online' : 'offline'}`;
+                            statusBadge.textContent = isOnline ? 'ONLINE' : 'OFFLINE';
+                            name.appendChild(statusBadge);
+                            
+                            const details = document.createElement('div');
+                            details.className = 'device-details';
+                            
+                            // Add IP address
+                            if (dev.endpoint) {
+                                const ipLabel = document.createElement('span');
+                                ipLabel.textContent = 'IP: ';
+                                ipLabel.style.fontWeight = '500';
+                                const ipText = document.createElement('span');
+                                ipText.className = 'device-ip';
+                                ipText.textContent = dev.endpoint.split('/')[0];
+                                details.appendChild(ipLabel);
+                                details.appendChild(ipText);
+                            }
+                            
+                            // Add device type if available
+                            if (dev.device_type || dev.app?.name) {
+                                if (dev.endpoint) {
+                                    details.appendChild(document.createTextNode(' • '));
+                                }
+                                const typeText = document.createElement('span');
+                                typeText.textContent = dev.device_type || dev.app?.name || 'Device';
+                                typeText.style.fontWeight = '500';
+                                details.appendChild(typeText);
+                            }
+                            
+                            info.appendChild(name);
+                            info.appendChild(details);
+                            
+                            item.appendChild(checkbox);
+                            item.appendChild(info);
+                            
+                            // Click handler only for online devices
+                            if (isOnline) {
+                                item.addEventListener('click', () => {
+                                    checkbox.checked = !checkbox.checked;
+                                    item.classList.toggle('selected', checkbox.checked);
+                                    updateSelectedDevicesCount();
+                                });
+                            } else {
+                                // Show tooltip for offline devices
+                                item.title = 'Device is offline and cannot be selected';
+                            }
+                            
+                            deployList.appendChild(item);
+                        }
+                    });
+                }
+                
                 updateSelectedDevicesCount();
-                console.log('Populated deploy_device_selector with', devices.length, 'devices');
+                console.log('Populated deploy_device_list with', devices.length, 'devices');
             }
             
             // Populate monitoring device selector
@@ -2636,25 +2733,27 @@
         let deploymentInProgress = false;
         
         function updateSelectedDevicesCount() {
-            const deploySelector = document.getElementById('deploy_device_selector');
+            const deployList = document.getElementById('deploy_device_list');
             const countEl = document.getElementById('selected_devices_count');
-            if (deploySelector && countEl) {
-                const count = deploySelector.selectedOptions.length;
+            if (deployList && countEl) {
+                const count = deployList.querySelectorAll('.device-checkbox:checked').length;
                 countEl.textContent = count;
             }
         }
         
         function getSelectedDevices() {
-            const deploySelector = document.getElementById('deploy_device_selector');
-            if (!deploySelector) return [];
+            const deployList = document.getElementById('deploy_device_list');
+            if (!deployList) return [];
             
-            return Array.from(deploySelector.selectedOptions).map(opt => {
+            const selectedCheckboxes = Array.from(deployList.querySelectorAll('.device-checkbox:checked'));
+            return selectedCheckboxes.map(checkbox => {
                 try {
-                    return JSON.parse(opt.dataset.device);
-                } catch {
-                    return { uuid: opt.value, endpoint: opt.value };
+                    return JSON.parse(checkbox.dataset.device);
+                } catch (e) {
+                    console.error('Failed to parse device data:', e);
+                    return { uuid: checkbox.value, endpoint: checkbox.value };
                 }
-            });
+            }).filter(dev => dev !== null);
         }
         
         function updateDeploymentStatus(status, message, progress = null) {
@@ -2795,12 +2894,10 @@
             }
         }
         
-        // Add event listener for device selection change
+        // Device selection change is handled in populateDeviceSelectors
         document.addEventListener('DOMContentLoaded', () => {
-            const deploySelector = document.getElementById('deploy_device_selector');
-            if (deploySelector) {
-                deploySelector.addEventListener('change', updateSelectedDevicesCount);
-            }
+            // Update count on load
+            updateSelectedDevicesCount();
         });
 
         // ============================================================================

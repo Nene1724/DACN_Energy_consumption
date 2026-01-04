@@ -1043,17 +1043,14 @@ def deploy_model():
             }
         )
         
-        # TODO: Implement actual Balena deployment via API
-        # For now, simulate deployment success
-        import time
-        time.sleep(1)  # Simulate deployment time
-        
-        # Check if model file exists
+        # Check if model file exists and get model info
         model_path = None
-        for ext in [".pth", ".pt", ".onnx", ".tflite"]:
+        model_ext = None
+        for ext in [".tflite", ".onnx", ".pth", ".pt"]:
             potential_path = os.path.join(MODEL_STORE_DIR, f"{model_name}{ext}")
             if os.path.exists(potential_path):
                 model_path = potential_path
+                model_ext = ext
                 break
         
         if not model_path:
@@ -1072,38 +1069,118 @@ def deploy_model():
                 "error": f"Model file not found for {model_name}"
             }), 404
         
-        # Simulate successful deployment
-        # In production, this would:
-        # 1. Upload model to Balena
-        # 2. Create/update container with model
-        # 3. Start inference service
-        # 4. Monitor startup
+        # Get model info from analyzer
+        model_info = {}
+        try:
+            df = analyzer.df
+            model_row = df[df['model'] == model_name]
+            if not model_row.empty:
+                row = model_row.iloc[0]
+                model_info = {
+                    "input_size": row.get('input_size', '3x224x224'),
+                    "energy_avg_mwh": float(row.get('Energy (mWh)', 0)),
+                    "latency_avg_s": float(row.get('Latency (s)', 0)),
+                    "params": int(row.get('Params', 0)),
+                    "flops": float(row.get('FLOPs (G)', 0))
+                }
+        except Exception as e:
+            print(f"[WARNING] Could not get model info: {e}")
         
-        log_manager.add_log(
-            "success",
-            f"Deploy thành công model '{model_name}' lên thiết bị {device_display}",
-            {
-                "model_name": model_name,
+        # Deploy to device via HTTP
+        if not device_endpoint:
+            # Need to get device IP from Balena API
+            log_manager.add_log(
+                "error",
+                f"device_endpoint required for deployment (device UUID not sufficient)",
+                {"device_uuid": device_uuid}
+            )
+            return jsonify({
+                "success": False,
+                "error": "device_endpoint required for deployment"
+            }), 400
+        
+        # Construct model URL for device to download
+        # Device will download from controller's /models/<filename> endpoint
+        host = request.host  # e.g., "192.168.137.1:5000"
+        model_filename = os.path.basename(model_path)
+        model_url = f"http://{host}/models/{model_filename}"
+        
+        # Get energy budget if specified
+        energy_budget = data.get("energy_budget_mwh")
+        
+        # Prepare deployment payload for device
+        deploy_payload = {
+            "model_name": model_name,
+            "model_url": model_url,
+            "model_info": model_info
+        }
+        
+        if energy_budget is not None:
+            deploy_payload["energy_budget_mwh"] = energy_budget
+        
+        # Call device's /deploy endpoint
+        device_url = f"http://{device_endpoint}/deploy"
+        print(f"[INFO] Deploying to device: {device_url}")
+        
+        try:
+            response = requests.post(
+                device_url,
+                json=deploy_payload,
+                timeout=60
+            )
+            response.raise_for_status()
+            device_response = response.json()
+            
+            log_manager.add_log(
+                "success",
+                f"Deploy thành công model '{model_name}' lên thiết bị {device_display}",
+                {
+                    "model_name": model_name,
+                    "device_uuid": device_uuid,
+                    "device_endpoint": device_endpoint,
+                    "model_path": model_path,
+                    "fleet": fleet,
+                    "device_response": device_response
+                }
+            )
+            
+            return jsonify({
+                "success": True,
+                "message": f"Model {model_name} deployed successfully",
                 "device_uuid": device_uuid,
                 "device_endpoint": device_endpoint,
                 "model_path": model_path,
-                "fleet": fleet
-            }
-        )
-        
-        return jsonify({
-            "success": True,
-            "message": f"Model {model_name} deployed successfully",
-            "device_uuid": device_uuid,
-            "device_endpoint": device_endpoint,
-            "model_path": model_path
-        })
+                "model_url": model_url,
+                "device_response": device_response
+            })
+            
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Failed to deploy to device: {str(e)}"
+            log_manager.add_log(
+                "error",
+                error_msg,
+                {
+                    "model_name": model_name,
+                    "device_endpoint": device_endpoint,
+                    "error": str(e)
+                }
+            )
+            return jsonify({
+                "success": False,
+                "error": error_msg
+            }), 500
         
     except Exception as e:
-        log_manager.add_log("DEPLOY_ERROR", {
-            "error": str(e),
-            "model": data.get("model_name") if data else None
-        })
+        error_msg = f"Deployment exception: {str(e)}"
+        log_manager.add_log(
+            "error",
+            error_msg,
+            {
+                "model_name": data.get("model_name") if data else None,
+                "error_type": "deployment_exception",
+                "error_details": str(e)
+            }
+        )
         return jsonify({"success": False, "error": str(e)}), 500
 
 
