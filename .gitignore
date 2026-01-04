@@ -41,9 +41,6 @@ Thumbs.db
 # Logs
 *.log
 
-# Local environment variables
-.env
-
 # Jupyter Notebook
 .ipynb_checkpoints
 
