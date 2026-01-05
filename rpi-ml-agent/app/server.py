@@ -156,8 +156,7 @@ def save_state_to_disk():
         state_data = {
             "model_name": STATE.get("model_name"),
             "model_info": STATE.get("model_info"),
-            "status": STATE.get("status"),
-            "last_update": STATE.get("last_update")
+            "status": STATE.get("status"),            "inference_active": STATE.get("inference_active", False),            "last_update": STATE.get("last_update")
         }
         with open(STATE_FILE_PATH, "w") as f:
             json.dump(state_data, f)
@@ -174,10 +173,17 @@ def load_state_from_disk():
                 state_data = json.load(f)
             STATE["model_name"] = state_data.get("model_name")
             STATE["model_info"] = state_data.get("model_info")
+            was_running = state_data.get("inference_active", False)
+            
             # Don't restore status, start as ready if model exists
             if STATE["model_name"] and os.path.exists(CURRENT_MODEL_PATH):
                 STATE["status"] = "ready"
                 log(f"Restored model state: {STATE['model_name']}")
+                
+                # Auto-start if inference was active before shutdown
+                if was_running:
+                    log(f"Auto-starting model after restart: {STATE['model_name']}")
+                    threading.Thread(target=_auto_start_model_on_boot, daemon=True).start()
             else:
                 STATE["status"] = "idle"
             return True
@@ -192,8 +198,31 @@ def set_state(**kwargs):
         STATE[k] = v
     STATE["last_update"] = datetime.utcnow().isoformat() + "Z"
     # Persist important state changes to disk
-    if "model_name" in kwargs or "model_info" in kwargs or "status" in kwargs:
+    if "model_name" in kwargs or "model_info" in kwargs or "status" in kwargs or "inference_active" in kwargs:
         save_state_to_disk()
+
+
+def _auto_start_model_on_boot():
+    """Auto-start model after device reboot if it was running before"""
+    import time
+    time.sleep(3)  # Wait for system to fully boot
+    
+    try:
+        if not os.path.exists(CURRENT_MODEL_PATH):
+            log("Auto-start skipped: No model file found")
+            return
+        
+        model_name = STATE.get("model_name")
+        if not model_name:
+            log("Auto-start skipped: No model name in state")
+            return
+        
+        log(f"Auto-starting model: {model_name}")
+        start_model_inference()
+        log("Auto-start completed successfully")
+    except Exception as e:
+        log(f"Auto-start failed: {e}")
+        set_state(status="error", error=str(e), inference_active=False)
 
 
 def log(message):
