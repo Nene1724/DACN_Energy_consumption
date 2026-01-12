@@ -1,0 +1,549 @@
+{
+  "description": "Metadata for popular ML models with PREDICTED energy consumption using trained models",
+  "generated_by": "generate_popular_models_metadata.py",
+  "thresholds": {
+    "jetson_nano": {
+      "p25": 34.5512145,
+      "p50": 104.638656,
+      "p75": 235.255843
+    },
+    "raspberry_pi5": {
+      "p25": 11.079769500000001,
+      "p50": 17.991197,
+      "p75": 30.723004000000003
+    }
+  },
+  "models": [
+    {
+      "name": "mobilenetv3_small_050",
+      "display_name": "MobileNetV3 Small 0.5x",
+      "family": "MobileNet",
+      "params_m": 1.53,
+      "gflops": 0.024,
+      "gmacs": 0.012,
+      "size_mb": 6.1,
+      "latency_avg_s": 0.008,
+      "throughput_iter_per_s": 125.0,
+      "input_resolution": "224x224",
+      "description": "Siêu nhẹ, phù hợp cho thiết bị low-power",
+      "recommended_devices": [
+        "beaglebone",
+        "raspberry-pi-zero",
+        "esp32"
+      ],
+      "url": "https://github.com/pytorch/vision",
+      "tags": [
+        "lightweight",
+        "low-power",
+        "real-time"
+      ],
+      "energy_predictions": {
+        "jetson_nano": {
+          "predicted_energy_mwh": 11.77,
+          "category": "excellent",
+          "ci_lower_mwh": 9.57,
+          "ci_upper_mwh": 13.96
+        },
+        "raspberry_pi5": {
+          "predicted_energy_mwh": 5.85,
+          "category": "excellent",
+          "ci_lower_mwh": 4.92,
+          "ci_upper_mwh": 6.78
+        }
+      }
+    },
+    {
+      "name": "edgenext_xx_small",
+      "display_name": "EdgeNeXt XX-Small",
+      "family": "EdgeNeXt",
+      "params_m": 1.33,
+      "gflops": 0.266,
+      "gmacs": 0.133,
+      "size_mb": 5.2,
+      "latency_avg_s": 0.02,
+      "throughput_iter_per_s": 50.0,
+      "input_resolution": "256x256",
+      "description": "ConvNeXt cho edge, cực kỳ nhẹ",
+      "recommended_devices": [
+        "raspberry-pi-5",
+        "jetson-nano"
+      ],
+      "url": "https://github.com/mmaaz60/EdgeNeXt",
+      "tags": [
+        "modern",
+        "lightweight",
+        "efficient"
+      ],
+      "energy_predictions": {
+        "jetson_nano": {
+          "predicted_energy_mwh": 17.59,
+          "category": "excellent",
+          "ci_lower_mwh": 14.3,
+          "ci_upper_mwh": 20.87
+        },
+        "raspberry_pi5": {
+          "predicted_energy_mwh": 5.87,
+          "category": "excellent",
+          "ci_lower_mwh": 4.94,
+          "ci_upper_mwh": 6.81
+        }
+      }
+    },
+    {
+      "name": "squeezenet1_0",
+      "display_name": "SqueezeNet 1.0",
+      "family": "SqueezeNet",
+      "params_m": 1.25,
+      "gflops": 0.83,
+      "gmacs": 0.415,
+      "size_mb": 5.0,
+      "latency_avg_s": 0.018,
+      "throughput_iter_per_s": 55.6,
+      "input_resolution": "224x224",
+      "description": "SqueezeNet gốc, rất nhỏ gọn",
+      "recommended_devices": [
+        "raspberry-pi-4",
+        "raspberry-pi-5",
+        "jetson-nano"
+      ],
+      "url": "https://github.com/pytorch/vision",
+      "tags": [
+        "classic",
+        "compact"
+      ],
+      "energy_predictions": {
+        "jetson_nano": {
+          "predicted_energy_mwh": 28.5,
+          "category": "excellent",
+          "ci_lower_mwh": 23.17,
+          "ci_upper_mwh": 33.82
+        },
+        "raspberry_pi5": {
+          "predicted_energy_mwh": 5.89,
+          "category": "excellent",
+          "ci_lower_mwh": 4.95,
+          "ci_upper_mwh": 6.82
+        }
+      }
+    },
+    {
+      "name": "mobilenetv3_small_100",
+      "display_name": "MobileNetV3 Small 1.0x",
+      "family": "MobileNet",
+      "params_m": 2.54,
+      "gflops": 0.057,
+      "gmacs": 0.028,
+      "size_mb": 10.1,
+      "latency_avg_s": 0.028,
+      "throughput_iter_per_s": 35.7,
+      "input_resolution": "224x224",
+      "description": "MobileNetV3 Small đầy đủ",
+      "recommended_devices": [
+        "raspberry-pi-4",
+        "raspberry-pi-5",
+        "jetson-nano"
+      ],
+      "url": "https://github.com/pytorch/vision",
+      "tags": [
+        "standard",
+        "efficient"
+      ],
+      "energy_predictions": {
+        "jetson_nano": {
+          "predicted_energy_mwh": 11.47,
+          "category": "excellent",
+          "ci_lower_mwh": 9.33,
+          "ci_upper_mwh": 13.62
+        },
+        "raspberry_pi5": {
+          "predicted_energy_mwh": 5.9,
+          "category": "excellent",
+          "ci_lower_mwh": 4.96,
+          "ci_upper_mwh": 6.84
+        }
+      }
+    },
+    {
+      "name": "mobilenetv2_100",
+      "display_name": "MobileNetV2 1.0x",
+      "family": "MobileNet",
+      "params_m": 3.5,
+      "gflops": 0.3,
+      "gmacs": 0.15,
+      "size_mb": 14.0,
+      "latency_avg_s": 0.035,
+      "throughput_iter_per_s": 28.6,
+      "input_resolution": "224x224",
+      "description": "MobileNetV2 chuẩn",
+      "recommended_devices": [
+        "raspberry-pi-5",
+        "jetson-nano"
+      ],
+      "url": "https://github.com/pytorch/vision",
+      "tags": [
+        "standard",
+        "balanced"
+      ],
+      "energy_predictions": {
+        "jetson_nano": {
+          "predicted_energy_mwh": 20.18,
+          "category": "excellent",
+          "ci_lower_mwh": 16.41,
+          "ci_upper_mwh": 23.96
+        },
+        "raspberry_pi5": {
+          "predicted_energy_mwh": 5.98,
+          "category": "excellent",
+          "ci_lower_mwh": 5.03,
+          "ci_upper_mwh": 6.93
+        }
+      }
+    },
+    {
+      "name": "shufflenet_v2_x0_5",
+      "display_name": "ShuffleNetV2 0.5x",
+      "family": "ShuffleNet",
+      "params_m": 1.37,
+      "gflops": 0.041,
+      "gmacs": 0.02,
+      "size_mb": 5.5,
+      "latency_avg_s": 0.032,
+      "throughput_iter_per_s": 31.25,
+      "input_resolution": "224x224",
+      "description": "ShuffleNet nhẹ, latency trung bình",
+      "recommended_devices": [
+        "raspberry-pi-5",
+        "jetson-nano"
+      ],
+      "url": "https://github.com/pytorch/vision",
+      "tags": [
+        "lightweight",
+        "fast"
+      ],
+      "energy_predictions": {
+        "jetson_nano": {
+          "predicted_energy_mwh": 11.98,
+          "category": "excellent",
+          "ci_lower_mwh": 9.74,
+          "ci_upper_mwh": 14.21
+        },
+        "raspberry_pi5": {
+          "predicted_energy_mwh": 5.85,
+          "category": "excellent",
+          "ci_lower_mwh": 4.92,
+          "ci_upper_mwh": 6.78
+        }
+      }
+    },
+    {
+      "name": "mobilenetv3_large_100",
+      "display_name": "MobileNetV3 Large 1.0x",
+      "family": "MobileNet",
+      "params_m": 5.48,
+      "gflops": 0.219,
+      "gmacs": 0.109,
+      "size_mb": 21.9,
+      "latency_avg_s": 0.055,
+      "throughput_iter_per_s": 18.2,
+      "input_resolution": "224x224",
+      "description": "MobileNetV3 Large đầy đủ",
+      "recommended_devices": [
+        "jetson-nano"
+      ],
+      "url": "https://github.com/pytorch/vision",
+      "tags": [
+        "standard",
+        "accurate"
+      ],
+      "energy_predictions": {
+        "jetson_nano": {
+          "predicted_energy_mwh": 22.3,
+          "category": "excellent",
+          "ci_lower_mwh": 18.13,
+          "ci_upper_mwh": 26.47
+        },
+        "raspberry_pi5": {
+          "predicted_energy_mwh": 7.16,
+          "category": "excellent",
+          "ci_lower_mwh": 6.02,
+          "ci_upper_mwh": 8.3
+        }
+      }
+    },
+    {
+      "name": "efficientnet_lite0",
+      "display_name": "EfficientNet-Lite0",
+      "family": "EfficientNet",
+      "params_m": 4.65,
+      "gflops": 0.39,
+      "gmacs": 0.195,
+      "size_mb": 18.5,
+      "latency_avg_s": 0.065,
+      "throughput_iter_per_s": 15.4,
+      "input_resolution": "224x224",
+      "description": "EfficientNet cho edge",
+      "recommended_devices": [
+        "jetson-nano"
+      ],
+      "url": "https://github.com/tensorflow/tpu",
+      "tags": [
+        "efficient",
+        "accurate"
+      ],
+      "energy_predictions": {
+        "jetson_nano": {
+          "predicted_energy_mwh": 30.01,
+          "category": "excellent",
+          "ci_lower_mwh": 24.4,
+          "ci_upper_mwh": 35.62
+        },
+        "raspberry_pi5": {
+          "predicted_energy_mwh": 6.83,
+          "category": "excellent",
+          "ci_lower_mwh": 5.75,
+          "ci_upper_mwh": 7.92
+        }
+      }
+    },
+    {
+      "name": "resnet18",
+      "display_name": "ResNet-18",
+      "family": "ResNet",
+      "params_m": 11.69,
+      "gflops": 1.82,
+      "gmacs": 0.91,
+      "size_mb": 46.8,
+      "latency_avg_s": 0.085,
+      "throughput_iter_per_s": 11.8,
+      "input_resolution": "224x224",
+      "description": "ResNet nhỏ nhất",
+      "recommended_devices": [
+        "jetson-nano"
+      ],
+      "url": "https://github.com/pytorch/vision",
+      "tags": [
+        "classic",
+        "accurate"
+      ],
+      "energy_predictions": {
+        "jetson_nano": {
+          "predicted_energy_mwh": 54.4,
+          "category": "good",
+          "ci_lower_mwh": 44.23,
+          "ci_upper_mwh": 64.56
+        },
+        "raspberry_pi5": {
+          "predicted_energy_mwh": 8.62,
+          "category": "excellent",
+          "ci_lower_mwh": 7.25,
+          "ci_upper_mwh": 9.99
+        }
+      }
+    },
+    {
+      "name": "efficientnet_b0",
+      "display_name": "EfficientNet-B0",
+      "family": "EfficientNet",
+      "params_m": 5.29,
+      "gflops": 0.39,
+      "gmacs": 0.195,
+      "size_mb": 21.2,
+      "latency_avg_s": 0.095,
+      "throughput_iter_per_s": 10.5,
+      "input_resolution": "224x224",
+      "description": "EfficientNet baseline - latency cao",
+      "recommended_devices": [
+        "jetson-nano"
+      ],
+      "url": "https://github.com/tensorflow/tpu",
+      "tags": [
+        "efficient",
+        "high-latency"
+      ],
+      "energy_predictions": {
+        "jetson_nano": {
+          "predicted_energy_mwh": 55.22,
+          "category": "good",
+          "ci_lower_mwh": 44.9,
+          "ci_upper_mwh": 65.54
+        },
+        "raspberry_pi5": {
+          "predicted_energy_mwh": 7.16,
+          "category": "excellent",
+          "ci_lower_mwh": 6.03,
+          "ci_upper_mwh": 8.3
+        }
+      }
+    },
+    {
+      "name": "resnet34",
+      "display_name": "ResNet-34",
+      "family": "ResNet",
+      "params_m": 21.8,
+      "gflops": 3.68,
+      "gmacs": 1.84,
+      "size_mb": 87.3,
+      "latency_avg_s": 0.145,
+      "throughput_iter_per_s": 6.9,
+      "input_resolution": "224x224",
+      "description": "ResNet vừa - năng lượng CAO",
+      "recommended_devices": [],
+      "url": "https://github.com/pytorch/vision",
+      "tags": [
+        "classic",
+        "high-energy",
+        "not-recommended"
+      ],
+      "energy_predictions": {
+        "jetson_nano": {
+          "predicted_energy_mwh": 110.1,
+          "category": "acceptable",
+          "ci_lower_mwh": 89.52,
+          "ci_upper_mwh": 130.68
+        },
+        "raspberry_pi5": {
+          "predicted_energy_mwh": 8.65,
+          "category": "excellent",
+          "ci_lower_mwh": 7.27,
+          "ci_upper_mwh": 10.02
+        }
+      }
+    },
+    {
+      "name": "resnet50",
+      "display_name": "ResNet-50",
+      "family": "ResNet",
+      "params_m": 25.56,
+      "gflops": 4.12,
+      "gmacs": 2.06,
+      "size_mb": 102.5,
+      "latency_avg_s": 0.185,
+      "throughput_iter_per_s": 5.4,
+      "input_resolution": "224x224",
+      "description": "ResNet chuẩn - RẤT NẶNG cho edge",
+      "recommended_devices": [],
+      "url": "https://github.com/pytorch/vision",
+      "tags": [
+        "classic",
+        "heavy",
+        "not-recommended"
+      ],
+      "energy_predictions": {
+        "jetson_nano": {
+          "predicted_energy_mwh": 110.48,
+          "category": "acceptable",
+          "ci_lower_mwh": 89.83,
+          "ci_upper_mwh": 131.13
+        },
+        "raspberry_pi5": {
+          "predicted_energy_mwh": 8.65,
+          "category": "excellent",
+          "ci_lower_mwh": 7.27,
+          "ci_upper_mwh": 10.02
+        }
+      }
+    },
+    {
+      "name": "densenet121",
+      "display_name": "DenseNet-121",
+      "family": "DenseNet",
+      "params_m": 7.98,
+      "gflops": 2.87,
+      "gmacs": 1.44,
+      "size_mb": 32.0,
+      "latency_avg_s": 0.155,
+      "throughput_iter_per_s": 6.45,
+      "input_resolution": "224x224",
+      "description": "DenseNet - không phù hợp edge",
+      "recommended_devices": [],
+      "url": "https://github.com/pytorch/vision",
+      "tags": [
+        "classic",
+        "heavy",
+        "not-recommended"
+      ],
+      "energy_predictions": {
+        "jetson_nano": {
+          "predicted_energy_mwh": 107.77,
+          "category": "acceptable",
+          "ci_lower_mwh": 87.62,
+          "ci_upper_mwh": 127.91
+        },
+        "raspberry_pi5": {
+          "predicted_energy_mwh": 8.78,
+          "category": "excellent",
+          "ci_lower_mwh": 7.38,
+          "ci_upper_mwh": 10.17
+        }
+      }
+    },
+    {
+      "name": "vgg16",
+      "display_name": "VGG-16",
+      "family": "VGG",
+      "params_m": 138.36,
+      "gflops": 15.5,
+      "gmacs": 7.75,
+      "size_mb": 553.5,
+      "latency_avg_s": 0.45,
+      "throughput_iter_per_s": 2.2,
+      "input_resolution": "224x224",
+      "description": "VGG-16 - CỰC NẶNG, KHÔNG DÙNG cho edge",
+      "recommended_devices": [],
+      "url": "https://github.com/pytorch/vision",
+      "tags": [
+        "classic",
+        "very-heavy",
+        "not-recommended"
+      ],
+      "energy_predictions": {
+        "jetson_nano": {
+          "predicted_energy_mwh": 607.56,
+          "category": "high",
+          "ci_lower_mwh": 493.99,
+          "ci_upper_mwh": 721.14
+        },
+        "raspberry_pi5": {
+          "predicted_energy_mwh": 31.11,
+          "category": "high",
+          "ci_lower_mwh": 26.17,
+          "ci_upper_mwh": 36.05
+        }
+      }
+    },
+    {
+      "name": "efficientnet_b3",
+      "display_name": "EfficientNet-B3",
+      "family": "EfficientNet",
+      "params_m": 12.23,
+      "gflops": 1.86,
+      "gmacs": 0.93,
+      "size_mb": 49.0,
+      "latency_avg_s": 0.25,
+      "throughput_iter_per_s": 4.0,
+      "input_resolution": "300x300",
+      "description": "EfficientNet lớn - năng lượng RẤT CAO",
+      "recommended_devices": [],
+      "url": "https://github.com/tensorflow/tpu",
+      "tags": [
+        "efficient",
+        "very-high-energy",
+        "not-recommended"
+      ],
+      "energy_predictions": {
+        "jetson_nano": {
+          "predicted_energy_mwh": 148.74,
+          "category": "acceptable",
+          "ci_lower_mwh": 120.94,
+          "ci_upper_mwh": 176.55
+        },
+        "raspberry_pi5": {
+          "predicted_energy_mwh": 8.62,
+          "category": "excellent",
+          "ci_lower_mwh": 7.25,
+          "ci_upper_mwh": 9.99
+        }
+      }
+    }
+  ]
+}

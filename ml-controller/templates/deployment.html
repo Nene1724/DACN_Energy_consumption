@@ -91,66 +91,57 @@
                 <div class="panel-header">
                     <h3>Energy Prediction</h3>
                 </div>
-                <p class="muted" style="font-size:13px; margin-bottom:10px;">Fill the metadata and predict the energy consumption of your model</p>
+                <p class="muted" style="font-size:13px; margin-bottom:10px;">Predict energy consumption for popular models before deployment</p>
                 
-                <!-- Common model selector -->
+                <!-- Device type selector -->
                 <div class="form-control" style="margin-bottom: 12px;">
-                    <label for="common_model_selector">Quick select popular model</label>
-                    <select id="common_model_selector" class="filter-select" style="width: 100%;">
-                        <option value="">Choose a model...</option>
-                        <optgroup label="Lightweight Models">
-                            <option value="mobilenet_v2">MobileNetV2 (3.5M params, ~14 mWh)</option>
-                            <option value="mobilenet_v3_small">MobileNetV3-Small (2.5M params, ~10 mWh)</option>
-                            <option value="shufflenet_v2">ShuffleNetV2 (2.3M params, ~12 mWh)</option>
-                            <option value="squeezenet">SqueezeNet (1.2M params, ~8 mWh)</option>
-                        </optgroup>
-                        <optgroup label="Medium Models">
-                            <option value="resnet18">ResNet18 (11.7M params, ~45 mWh)</option>
-                            <option value="resnet34">ResNet34 (21.8M params, ~85 mWh)</option>
-                            <option value="efficientnet_b0">EfficientNet-B0 (5.3M params, ~22 mWh)</option>
-                            <option value="densenet121">DenseNet121 (8.0M params, ~35 mWh)</option>
-                        </optgroup>
-                        <optgroup label="Large Models">
-                            <option value="resnet50">ResNet50 (25.6M params, ~120 mWh)</option>
-                            <option value="resnet101">ResNet101 (44.5M params, ~210 mWh)</option>
-                            <option value="efficientnet_b3">EfficientNet-B3 (12M params, ~68 mWh)</option>
-                            <option value="vgg16">VGG16 (138M params, ~550 mWh)</option>
-                        </optgroup>
-                        <optgroup label="Detection Models">
-                            <option value="yolov5s">YOLOv5s (7.2M params, ~32 mWh)</option>
-                            <option value="yolov5m">YOLOv5m (21.2M params, ~95 mWh)</option>
-                            <option value="yolov8n">YOLOv8n (3.2M params, ~18 mWh)</option>
-                            <option value="yolov8s">YOLOv8s (11.2M params, ~48 mWh)</option>
-                        </optgroup>
+                    <label for="pred_device_type">Target Device</label>
+                    <select id="pred_device_type" class="filter-select" style="width: 100%;">
+                        <option value="jetson_nano">Jetson Nano (MAPE: Loading...)</option>
+                        <option value="raspberry_pi5">Raspberry Pi 5 (MAPE: Loading...)</option>
+                    </select>
+                </div>
+                
+                <!-- Popular models selector -->
+                <div class="form-control" style="margin-bottom: 12px;">
+                    <label for="popular_model_selector">Select popular model</label>
+                    <select id="popular_model_selector" class="filter-select" style="width: 100%;" onchange="fillPopularModelFields()">
+                        <option value="">Loading popular models...</option>
                     </select>
                 </div>
                 
                 <div class="predict-grid">
                     <div class="form-control">
                         <label>Params (M)</label>
-                        <input type="number" step="0.01" id="pred_params_m" placeholder="Auto-filled" readonly>
+                        <input type="text" id="pred_params_m" placeholder="0" style="background:#fff;">
                     </div>
                     <div class="form-control">
                         <label>GFLOPs</label>
-                        <input type="number" step="0.01" id="pred_gflops" placeholder="Auto-filled" readonly>
+                        <input type="text" id="pred_gflops" placeholder="0" style="background:#fff;">
                     </div>
                     <div class="form-control">
                         <label>GMACs</label>
-                        <input type="number" step="0.01" id="pred_gmacs" placeholder="Auto-filled" readonly>
+                        <input type="text" id="pred_gmacs" placeholder="0" style="background:#fff;">
                     </div>
                     <div class="form-control">
                         <label>Size (MB)</label>
-                        <input type="number" step="0.01" id="pred_size_mb" placeholder="Auto-filled" readonly>
+                        <input type="text" id="pred_size_mb" placeholder="0" style="background:#fff;">
                     </div>
                     <div class="form-control">
                         <label>Latency (s)</label>
-                        <input type="number" step="0.0001" id="pred_latency" placeholder="Auto-filled" readonly>
+                        <input type="text" id="pred_latency" placeholder="0" style="background:#fff;">
                     </div>
                     <div class="form-control">
                         <label>Throughput (iter/s)</label>
-                        <input type="number" step="0.0001" id="pred_throughput" placeholder="Auto-filled" readonly>
+                        <input type="text" id="pred_throughput" placeholder="0" style="background:#fff;">
                     </div>
                 </div>
+                
+                <!-- Predict button -->
+                <button class="btn primary full" id="predict_energy_btn" style="margin-top: 12px; font-weight: 600; padding: 14px;">
+                    Predict Energy
+                </button>
+                
                 <div class="predict-output" id="predict_output">Fill the fields and click "Predict".</div>
             </div>
         </div>
@@ -158,13 +149,11 @@
         <div class="col-right">
             <div class="panel">
                 <div class="panel-header">
-                    <div>
+                    <div style="display: flex; align-items: center; gap: 12px;">
                         <h3>Available Models</h3>
-                        <div class="inline-stats">
-                            <span>Total <strong id="stat_total">0</strong></span>
-                            <span>Under 50mWh <strong id="stat_50">0</strong></span>
-                            <span>Under 100mWh <strong id="stat_100">0</strong></span>
-                        </div>
+                        <span id="filter_result_note" style="color: var(--muted); font-size: 13px; font-weight: 500;">
+                            0 models (All models)
+                        </span>
                     </div>
                     <div class="panel-actions">
                         <input type="text" id="search_input" placeholder="Search models..." style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px; width:200px;">
@@ -176,6 +165,7 @@
                         </select>
                     </div>
                 </div>
+                
                 <div class="model-grid" id="model_grid">
                     <div class="loading-placeholder">Loading models...</div>
                 </div>
@@ -191,49 +181,325 @@
                 </div>
                 <div id="logs_container" class="log-list"></div>
             </div>
-
-            <div class="panel">
-                <div class="panel-header">
-                    <div>
-                        <h3>Device Logs</h3>
-                    </div>
-                    <div class="panel-actions">
-                        <button class="btn ghost" id="logs_refresh_btn_standalone">Refresh logs</button>
-                    </div>
-                </div>
-                <div class="form-control" style="margin-bottom: 12px;">
-                    <label for="device_logs_selector">Select device</label>
-                    <select id="device_logs_selector" class="filter-select" style="width: 100%;">
-                        <option value="">Choose a device...</option>
-                    </select>
-                </div>
-                <div class="logs-container">
-                    <div class="logs-header">
-                        <div style="display: flex; gap: 12px; align-items: center;">
-                            <label style="display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px;">
-                                <input type="checkbox" id="logs_autoscroll_panel" checked style="width: 16px; height: 16px;">
-                                Auto-scroll
-                            </label>
-                            <select id="logs_filter_panel" class="filter-select" style="min-width: 150px;">
-                                <option value="all">All logs</option>
-                                <option value="error">Errors only</option>
-                                <option value="app">App logs</option>
-                                <option value="system">System logs</option>
-                            </select>
-                        </div>
-                        <div style="color: var(--muted); font-size: 13px;" id="logs_status_panel">
-                            Select a device to load logs
-                        </div>
-                    </div>
-                    <div class="logs-viewport" id="logs_viewport_panel">
-                        <div class="logs-content" id="logs_content_panel">
-                            <div style="text-align: center; padding: 40px; color: var(--muted);">
-                                Select a device to load logs.
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>
+
+<script>
+// Global variable for models data
+window.popularModels = {};
+window.selectedModelName = null;
+
+// Fetch and update MAPE values dynamically
+async function updateMapeValues() {
+    try {
+        const response = await fetch('/api/energy/metadata');
+        const data = await response.json();
+        
+        if (data.success && data.metadata) {
+            const jetsonMape = data.metadata.jetson_model?.metrics?.test_mape || 21.5;
+            const rpi5Mape = data.metadata.rpi5_model?.metrics?.loo_mape || 14.2;
+            
+            const deviceSelect = document.getElementById('pred_device_type');
+            if (deviceSelect) {
+                deviceSelect.innerHTML = `
+                    <option value="jetson_nano">Jetson Nano (MAPE: ${jetsonMape.toFixed(1)}%)</option>
+                    <option value="raspberry_pi5">Raspberry Pi 5 (MAPE: ${rpi5Mape.toFixed(1)}%)</option>
+                `;
+            }
+        }
+    } catch (err) {
+        console.error('Failed to fetch MAPE values:', err);
+    }
+}
+
+// Load popular models from API
+async function loadPopularModels(deviceType = null) {
+    const modelSelect = document.getElementById('popular_model_selector');
+    if (!modelSelect) return;
+    
+    try {
+        modelSelect.innerHTML = '<option value="">Loading popular models...</option>';
+        
+        // Build URL with optional device filter
+        let url = '/api/models/popular';
+        if (deviceType) {
+            url += `?device=${deviceType}`;
+        }
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.success && data.models) {
+            window.popularModels = {};  // Reset global
+            let html = '<option value="">Choose a popular model...</option>';
+            
+            // Group by family
+            const families = {};
+            data.models.forEach(model => {
+                const family = model.family || 'Other';
+                if (!families[family]) {
+                    families[family] = [];
+                }
+                families[family].push(model);
+            });
+            
+            // Add optgroups for each family
+            Object.keys(families).sort().forEach(family => {
+                html += `<optgroup label="${family}">`;
+                families[family].forEach(model => {
+                    window.popularModels[model.name] = model;
+                    html += `<option value="${model.name}">${model.display_name} (${model.params_m}M params)</option>`;
+                });
+                html += '</optgroup>';
+            });
+            
+            modelSelect.innerHTML = html;
+            console.log('Loaded', data.models.length, 'popular models');
+        }
+    } catch (err) {
+        console.error('Failed to load popular models:', err);
+        modelSelect.innerHTML = '<option value="">Error loading models</option>';
+    }
+}
+
+// Fill model fields when popular model is selected
+function fillPopularModelFields() {
+    const select = document.getElementById('popular_model_selector');
+    const modelName = select.value;
+    
+    if (!modelName || !window.popularModels || !window.popularModels[modelName]) {
+        return;
+    }
+    
+    const m = window.popularModels[modelName];
+    window.selectedModelName = modelName;
+    
+    document.getElementById('pred_params_m').value = m.params_m;
+    document.getElementById('pred_gflops').value = m.gflops;
+    document.getElementById('pred_gmacs').value = m.gmacs;
+    document.getElementById('pred_size_mb').value = m.size_mb;
+    document.getElementById('pred_latency').value = m.latency_avg_s;
+    document.getElementById('pred_throughput').value = m.throughput_iter_per_s;
+}
+
+// Predict energy function (updated to use new API for popular models)
+async function predictEnergy() {
+    const outputDiv = document.getElementById('predict_output');
+    const btn = document.getElementById('predict_energy_btn');
+    
+    // Get input values
+    const deviceType = document.getElementById('pred_device_type').value;
+    const paramsM = parseFloat(document.getElementById('pred_params_m').value);
+    const gflops = parseFloat(document.getElementById('pred_gflops').value);
+    const gmacs = parseFloat(document.getElementById('pred_gmacs').value);
+    const sizeMb = parseFloat(document.getElementById('pred_size_mb').value);
+    const latency = parseFloat(document.getElementById('pred_latency').value);
+    const throughput = parseFloat(document.getElementById('pred_throughput').value);
+    
+    // Validation
+    if (isNaN(paramsM) || isNaN(gflops) || isNaN(gmacs) || isNaN(sizeMb) || isNaN(latency) || isNaN(throughput)) {
+        outputDiv.innerHTML = '<div style="color: var(--danger); font-weight: 500;">⚠️ Please fill all fields with valid numbers.</div>';
+        return;
+    }
+    
+    try {
+        // Show loading state
+        btn.disabled = true;
+        btn.textContent = 'Predicting...';
+        outputDiv.innerHTML = '<div style="color: var(--muted);">⏳ Computing energy prediction...</div>';
+        
+        // Prepare payload
+        const payload = {
+            device_type: deviceType,
+            model_name: window.selectedModelName || 'custom_model',
+            params_m: paramsM,
+            gflops: gflops,
+            gmacs: gmacs,
+            size_mb: sizeMb,
+            latency_avg_s: latency,
+            throughput_iter_per_s: throughput
+        };
+        
+        // Use new API for popular models or old API for available models
+        let apiUrl = '/api/predict-energy';
+        let isPopularModel = window.currentPredictionTab === 'popular';
+        
+        if (isPopularModel) {
+            apiUrl = '/api/predict-energy-for-model';
+        }
+        
+        // Call API
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.prediction) {
+            // API response format
+            const prediction = data.prediction;
+            const energy = prediction.predicted_energy_mwh || 0;
+            const category = prediction.energy_category;
+            const recommendation = prediction.recommendation;
+            const reason = prediction.reason;
+            const modelDownloaded = prediction.model_downloaded;
+            const mape = prediction.prediction_mape_pct;
+            
+            // Category icons and colors
+            const categoryInfo = {
+                'excellent': { icon: '🟢', label: 'Excellent', color: '#10b981', deployable: true },
+                'good': { icon: '🟡', label: 'Good', color: '#f59e0b', deployable: true },
+                'acceptable': { icon: '🟠', label: 'Acceptable', color: '#f97316', deployable: true },
+                'high': { icon: '🔴', label: 'High Energy', color: '#ef4444', deployable: false }
+            };
+            
+            const catInfo = categoryInfo[category] || { icon: '⚪', label: 'Unknown', color: '#6b7280', deployable: false };
+            
+            // Build recommendation text
+            let recText = '';
+            if (reason) {
+                recText = reason;
+            } else if (recommendation === 'deploy') {
+                recText = 'This model is suitable for deployment on the selected device.';
+            } else if (recommendation === 'deploy_with_caution') {
+                recText = 'This model can be deployed but consider optimization to reduce energy consumption.';
+            } else if (recommendation === 'not_recommend') {
+                recText = 'This model has high energy consumption. Not recommended for deployment.';
+            } else {
+                recText = catInfo.deployable ? 'Model can be deployed.' : 'Consider a more efficient model.';
+            }
+            
+            outputDiv.innerHTML = `
+                <div style="background: linear-gradient(135deg, ${catInfo.color}15, ${catInfo.color}05); border: 2px solid ${catInfo.color}; border-radius: 12px; padding: 20px; margin-top: 12px;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                        <span style="font-size: 48px;">${catInfo.icon}</span>
+                        <div style="flex: 1;">
+                            <div style="font-size: 28px; font-weight: 700; color: ${catInfo.color}; line-height: 1.2;">
+                                ${energy.toFixed(2)} mWh
+                            </div>
+                            <div style="font-size: 13px; color: var(--muted); margin-top: 4px;">
+                                ${catInfo.label} ${mape !== undefined && typeof mape === 'number' ? `• Model MAPE: ${mape.toFixed(1)}%` : ''}
+                            </div>
+                        </div>
+                        ${modelDownloaded === true ? '<span style="background: var(--success); color: white; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700;">✓ DOWNLOADED</span>' : ''}
+                        ${modelDownloaded === false ? '<span style="background: var(--warning); color: white; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700;">⚠ NOT DOWNLOADED</span>' : ''}
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 12px; margin-bottom: 12px;">
+                        <div style="background: rgba(255,255,255,0.6); padding: 8px; border-radius: 6px;">
+                            <div style="color: var(--muted); margin-bottom: 2px;">Device</div>
+                            <div style="font-weight: 600;">${deviceType === 'jetson_nano' ? 'Jetson Nano' : 'Raspberry Pi 5'}</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.6); padding: 8px; border-radius: 6px;">
+                            <div style="color: var(--muted); margin-bottom: 2px;">Parameters</div>
+                            <div style="font-weight: 600;">${paramsM.toFixed(2)}M</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.6); padding: 8px; border-radius: 6px;">
+                            <div style="color: var(--muted); margin-bottom: 2px;">GFLOPs</div>
+                            <div style="font-weight: 600;">${gflops.toFixed(2)}</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.6); padding: 8px; border-radius: 6px;">
+                            <div style="color: var(--muted); margin-bottom: 2px;">Latency</div>
+                            <div style="font-weight: 600;">${(latency * 1000).toFixed(1)}ms</div>
+                        </div>
+                    </div>
+                    
+                    <div style="padding: 12px; background: rgba(255,255,255,0.8); border-left: 3px solid ${catInfo.color}; border-radius: 6px; font-size: 13px;">
+                        <div style="font-weight: 700; margin-bottom: 4px; color: var(--text);">💡 Recommendation:</div>
+                        <div style="color: var(--muted);">${recText}</div>
+                    </div>
+                    
+                    ${window.selectedModelName ? `
+                        <div style="margin-top: 12px; text-align: right;">
+                            <button onclick="deployPopularModel('${window.selectedModelName}')" style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px;">
+                                🚀 Deploy ${window.selectedModelName}
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        } else {
+            outputDiv.innerHTML = `<div style="color: var(--danger); font-weight: 500;">❌ ${data.error || 'Prediction failed'}</div>`;
+        }
+    } catch (err) {
+        console.error('Prediction error:', err);
+        outputDiv.innerHTML = `<div style="color: var(--danger); font-weight: 500;">❌ Network error: ${err.message}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Predict Energy';
+    }
+}
+
+// Deploy popular model
+async function deployPopularModel(modelName) {
+    // Get selected device
+    const selectedDevices = Array.from(document.querySelectorAll('.device-checkbox:checked'));
+    
+    if (selectedDevices.length === 0) {
+        showAlert('Please select a device first', 'error');
+        return;
+    }
+    
+    const deviceCheckbox = selectedDevices[0];
+    const deviceIp = deviceCheckbox.dataset.endpoint;
+    
+    if (!deviceIp) {
+        showAlert('Device IP not available', 'error');
+        return;
+    }
+    
+    // Get energy budget (default 100 mWh)
+    const energyBudget = 150;  // Higher budget for popular models
+    
+    // Call existing deploy function
+    try {
+        const response = await fetch('/api/deploy', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model_name: modelName,
+                bbb_ip: deviceIp,
+                max_energy: energyBudget,
+                force: true  // Allow deployment even if energy exceeds budget
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert(`Successfully deployed ${modelName} to device`, 'success');
+            loadDeploymentLogs();
+        } else {
+            showAlert(`Deployment failed: ${data.error}`, 'error');
+        }
+    } catch (err) {
+        console.error('Deployment error:', err);
+        showAlert(`Deployment failed: ${err.message}`, 'error');
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    updateMapeValues();
+    loadPopularModels();  // Load popular models
+    
+    // Attach event listeners
+    const deviceSelect = document.getElementById('pred_device_type');
+    const predictBtn = document.getElementById('predict_energy_btn');
+    
+    if (deviceSelect) {
+        deviceSelect.addEventListener('change', onDeviceTypeChange);
+    }
+    
+    if (predictBtn) {
+        predictBtn.addEventListener('click', predictEnergy);
+    }
+});
+</script>

@@ -17,5 +17,30 @@ services:
       io.balena.features.supervisor-api: '1'
       io.balena.features.sysfs: '1'
 
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    command: |
+      sh -c '
+      cat > /etc/nginx/nginx.conf <<"EOF"
+      events { worker_connections 1024; }
+      http {
+        server {
+          listen 80;
+          location / {
+            proxy_pass http://ml-agent:8000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_connect_timeout 60s;
+          }
+        }
+      }
+      EOF
+      nginx -g "daemon off;"
+      '
+    depends_on:
+      - ml-agent
+
 volumes:
   model-data:

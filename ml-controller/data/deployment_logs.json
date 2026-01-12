@@ -1,244 +1,6 @@
 {
   "logs": [
     {
-      "timestamp": "2025-12-14T04:27:26.273183Z",
-      "type": "success",
-      "message": "Deploy thành công model 'mobilenetv3_small_075' lên thiết bị 192.168.137.10",
-      "metadata": {
-        "model_name": "mobilenetv3_small_075",
-        "device_ip": "192.168.137.10",
-        "energy_mwh": 4.82,
-        "energy_budget_mwh": 100.0,
-        "artifact": "mobilenetv3_small_075.pth"
-      }
-    },
-    {
-      "timestamp": "2025-12-14T06:34:44.152295Z",
-      "type": "success",
-      "message": "Deploy thành công model 'mobilenetv3_small_075' lên thiết bị 192.168.137.207",
-      "metadata": {
-        "model_name": "mobilenetv3_small_075",
-        "device_ip": "192.168.137.207",
-        "energy_mwh": 4.82,
-        "energy_budget_mwh": 80.0,
-        "artifact": "mobilenetv3_small_075.pth"
-      }
-    },
-    {
-      "timestamp": "2025-12-14T07:08:25.029513Z",
-      "type": "success",
-      "message": "Deploy thành công model 'ghostnet_100' lên thiết bị 192.168.137.10",
-      "metadata": {
-        "model_name": "ghostnet_100",
-        "device_ip": "192.168.137.10",
-        "energy_mwh": 20.21,
-        "energy_budget_mwh": 80.0,
-        "artifact": "ghostnet_100.pth"
-      }
-    },
-    {
-      "timestamp": "2025-12-19T06:32:24.137261Z",
-      "type": "success",
-      "message": "Deploy thành công model 'mobilenetv2_050' lên thiết bị 192.168.1.34",
-      "metadata": {
-        "model_name": "mobilenetv2_050",
-        "device_ip": "192.168.1.34",
-        "energy_mwh": 9.49,
-        "energy_budget_mwh": 80.0,
-        "artifact": "mobilenetv2_050.tflite"
-      }
-    },
-    {
-      "timestamp": "2026-01-02T16:28:59.088348Z",
-      "type": "info",
-      "message": "Model URL: http://192.168.137.1:5000/models/mobilenetv3_small_050.pth",
-      "metadata": {
-        "pc_ip": "192.168.137.1",
-        "bbb_ip": "192.168.137.165",
-        "artifact": "mobilenetv3_small_050.pth"
-      }
-    },
-    {
-      "timestamp": "2026-01-02T16:28:59.140070Z",
-      "type": "error",
-      "message": "Lỗi kết nối BBB: 400 Client Error: BAD REQUEST for url: http://192.168.137.165:8000/deploy",
-      "metadata": {
-        "model_name": "mobilenetv3_small_050",
-        "device_ip": "192.168.137.165",
-        "error_type": "connection_error"
-      }
-    },
-    {
-      "timestamp": "2026-01-02T16:29:42.045925Z",
-      "type": "info",
-      "message": "Model URL: http://192.168.137.1:5000/models/mobilenetv3_small_050.pth",
-      "metadata": {
-        "pc_ip": "192.168.137.1",
-        "bbb_ip": "192.168.137.165",
-        "artifact": "mobilenetv3_small_050.pth"
-      }
-    },
-    {
-      "timestamp": "2026-01-02T16:29:42.098138Z",
-      "type": "error",
-      "message": "Lỗi kết nối BBB: 400 Client Error: BAD REQUEST for url: http://192.168.137.165:8000/deploy",
-      "metadata": {
-        "model_name": "mobilenetv3_small_050",
-        "device_ip": "192.168.137.165",
-        "error_type": "connection_error"
-      }
-    },
-    {
-      "timestamp": "2026-01-02T16:32:54.411028Z",
-      "type": "info",
-      "message": "Model URL: http://192.168.137.1:5000/models/mobilenetv2_050.tflite",
-      "metadata": {
-        "pc_ip": "192.168.137.1",
-        "bbb_ip": "192.168.137.165",
-        "artifact": "mobilenetv2_050.tflite"
-      }
-    },
-    {
-      "timestamp": "2026-01-02T16:32:54.753388Z",
-      "type": "success",
-      "message": "Deploy thành công model 'mobilenetv2_050' lên thiết bị 192.168.137.165",
-      "metadata": {
-        "model_name": "mobilenetv2_050",
-        "device_ip": "192.168.137.165",
-        "energy_mwh": 9.49,
-        "energy_budget_mwh": 100.0,
-        "artifact": "mobilenetv2_050.tflite"
-      }
-    },
-    {
-      "timestamp": "2026-01-02T16:37:50.005810Z",
-      "type": "info",
-      "message": "Model URL: http://192.168.137.1:5000/models/mobilenetv2_050.tflite",
-      "metadata": {
-        "pc_ip": "192.168.137.1",
-        "bbb_ip": "192.168.137.165",
-        "artifact": "mobilenetv2_050.tflite"
-      }
-    },
-    {
-      "timestamp": "2026-01-02T16:37:50.330454Z",
-      "type": "success",
-      "message": "Deploy thành công model 'mobilenetv2_050' lên thiết bị 192.168.137.165",
-      "metadata": {
-        "model_name": "mobilenetv2_050",
-        "device_ip": "192.168.137.165",
-        "energy_mwh": 9.49,
-        "energy_budget_mwh": 100.0,
-        "artifact": "mobilenetv2_050.tflite"
-      }
-    },
-    {
-      "timestamp": "2026-01-02T17:23:44.764055Z",
-      "type": "info",
-      "message": "Model URL: http://192.168.137.1:5000/models/mobilenetv2_050.tflite",
-      "metadata": {
-        "pc_ip": "192.168.137.1",
-        "bbb_ip": "192.168.137.165",
-        "artifact": "mobilenetv2_050.tflite"
-      }
-    },
-    {
-      "timestamp": "2026-01-02T17:23:45.174568Z",
-      "type": "success",
-      "message": "Deploy thành công model 'mobilenetv2_050' lên thiết bị 192.168.137.165",
-      "metadata": {
-        "model_name": "mobilenetv2_050",
-        "device_ip": "192.168.137.165",
-        "energy_mwh": 9.49,
-        "energy_budget_mwh": 100.0,
-        "artifact": "mobilenetv2_050.tflite"
-      }
-    },
-    {
-      "timestamp": "2026-01-04T12:52:21.205036Z",
-      "type": "info",
-      "message": "Starting deployment of 'mobilenetv2_050' to device 192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
-      "metadata": {
-        "model_name": "mobilenetv2_050",
-        "device_uuid": "16ba36e08c14076eeee7ff637d265b24",
-        "device_endpoint": "192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
-        "fleet": null
-      }
-    },
-    {
-      "timestamp": "2026-01-04T12:52:21.221238Z",
-      "type": "error",
-      "message": "Deployment exception: name 'log' is not defined",
-      "metadata": {
-        "model_name": "mobilenetv2_050",
-        "error_type": "deployment_exception",
-        "error_details": "name 'log' is not defined"
-      }
-    },
-    {
-      "timestamp": "2026-01-04T12:56:50.026559Z",
-      "type": "info",
-      "message": "Starting deployment of 'mobilenetv2_050' to device 192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
-      "metadata": {
-        "model_name": "mobilenetv2_050",
-        "device_uuid": "16ba36e08c14076eeee7ff637d265b24",
-        "device_endpoint": "192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
-        "fleet": null
-      }
-    },
-    {
-      "timestamp": "2026-01-04T12:56:50.042555Z",
-      "type": "error",
-      "message": "Failed to deploy to device: Failed to parse: http://192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a/deploy",
-      "metadata": {
-        "model_name": "mobilenetv2_050",
-        "device_endpoint": "192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
-        "error": "Failed to parse: http://192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a/deploy"
-      }
-    },
-    {
-      "timestamp": "2026-01-04T13:54:42.216450Z",
-      "type": "info",
-      "message": "Starting deployment of 'mobilenetv2_050' to device 192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
-      "metadata": {
-        "model_name": "mobilenetv2_050",
-        "device_uuid": "16ba36e08c14076eeee7ff637d265b24",
-        "device_endpoint": "192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
-        "fleet": null
-      }
-    },
-    {
-      "timestamp": "2026-01-04T13:54:42.249618Z",
-      "type": "error",
-      "message": "Failed to deploy to device: Failed to parse: http://192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a/deploy",
-      "metadata": {
-        "model_name": "mobilenetv2_050",
-        "device_endpoint": "192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
-        "error": "Failed to parse: http://192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a/deploy"
-      }
-    },
-    {
-      "timestamp": "2026-01-04T14:16:26.352226Z",
-      "type": "info",
-      "message": "Starting deployment of 'mobilenetv2_050' to device 192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
-      "metadata": {
-        "model_name": "mobilenetv2_050",
-        "device_uuid": "16ba36e08c14076eeee7ff637d265b24",
-        "device_endpoint": "192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
-        "fleet": null
-      }
-    },
-    {
-      "timestamp": "2026-01-04T14:16:26.379268Z",
-      "type": "error",
-      "message": "Failed to deploy to device: Failed to parse: http://192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a:8000/deploy",
-      "metadata": {
-        "model_name": "mobilenetv2_050",
-        "device_endpoint": "192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a",
-        "error": "Failed to parse: http://192.168.1.225 2405:4803:c8b8:770:ffff:ffff:ffff:ffec 2405:4803:c8b8:770:bfb4:d097:55eb:7d2a:8000/deploy"
-      }
-    },
-    {
       "timestamp": "2026-01-04T14:23:35.840398Z",
       "type": "info",
       "message": "Starting deployment of 'mobilenetv2_050' to device 192.168.1.225",
@@ -580,11 +342,371 @@
           "model_size_bytes": 2188184
         }
       }
+    },
+    {
+      "timestamp": "2026-01-05T08:06:17.581335Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv3_small_100' to device 192.168.137.49",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "16ba36e08c14076eeee7ff637d265b24",
+        "device_endpoint": "192.168.137.49",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-05T08:06:18.039422Z",
+      "type": "success",
+      "message": "Deploy thành công model 'mobilenetv3_small_100' lên thiết bị 192.168.137.49",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "16ba36e08c14076eeee7ff637d265b24",
+        "device_endpoint": "192.168.137.49",
+        "model_path": "D:\\DACN\\ml-controller\\model_store\\mobilenetv3_small_100.tflite",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": null,
+          "message": "Deployment successful",
+          "model_info": {
+            "energy_avg_mwh": 0.0,
+            "flops": 0.0,
+            "input_size": "3x224x224",
+            "latency_avg_s": 0.0,
+            "params": 0
+          },
+          "model_name": "mobilenetv3_small_100",
+          "model_path": "/data/models/current_model.tflite",
+          "model_size_bytes": 2188184
+        }
+      }
+    },
+    {
+      "timestamp": "2026-01-07T07:08:09.814963Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv3_small_100' to device 192.168.1.122",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "996a1a4622c1cd4bc82ad63b682facf1",
+        "device_endpoint": "192.168.1.122",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-07T07:08:30.852232Z",
+      "type": "error",
+      "message": "Failed to deploy to device: HTTPConnectionPool(host='192.168.1.122', port=8000): Max retries exceeded with url: /deploy (Caused by ConnectTimeoutError(<urllib3.connection.HTTPConnection object at 0x0000025D786956C0>, 'Connection to 192.168.1.122 timed out. (connect timeout=60)'))",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_endpoint": "192.168.1.122",
+        "error": "HTTPConnectionPool(host='192.168.1.122', port=8000): Max retries exceeded with url: /deploy (Caused by ConnectTimeoutError(<urllib3.connection.HTTPConnection object at 0x0000025D786956C0>, 'Connection to 192.168.1.122 timed out. (connect timeout=60)'))"
+      }
+    },
+    {
+      "timestamp": "2026-01-07T18:59:43.112665Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv3_small_100' to device 192.168.137.10",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "996a1a4622c1cd4bc82ad63b682facf1",
+        "device_endpoint": "192.168.137.10",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-07T18:59:45.175177Z",
+      "type": "error",
+      "message": "Failed to deploy to device: HTTPConnectionPool(host='192.168.137.10', port=8000): Max retries exceeded with url: /deploy (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000013C3D5A9BA0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_endpoint": "192.168.137.10",
+        "error": "HTTPConnectionPool(host='192.168.137.10', port=8000): Max retries exceeded with url: /deploy (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000013C3D5A9BA0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))"
+      }
+    },
+    {
+      "timestamp": "2026-01-08T07:32:23.869682Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv3_small_100' to device 192.168.1.122",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "ca63610767159c0b05d7e41c10182117",
+        "device_endpoint": "192.168.1.122",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-08T07:32:44.905454Z",
+      "type": "error",
+      "message": "Failed to deploy to device: HTTPConnectionPool(host='192.168.1.122', port=8000): Max retries exceeded with url: /deploy (Caused by ConnectTimeoutError(<urllib3.connection.HTTPConnection object at 0x00000296842554B0>, 'Connection to 192.168.1.122 timed out. (connect timeout=60)'))",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_endpoint": "192.168.1.122",
+        "error": "HTTPConnectionPool(host='192.168.1.122', port=8000): Max retries exceeded with url: /deploy (Caused by ConnectTimeoutError(<urllib3.connection.HTTPConnection object at 0x00000296842554B0>, 'Connection to 192.168.1.122 timed out. (connect timeout=60)'))"
+      }
+    },
+    {
+      "timestamp": "2026-01-09T03:11:20.628448Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv3_small_100' to device 192.168.1.122",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "ca63610767159c0b05d7e41c10182117",
+        "device_endpoint": "192.168.1.122",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-09T03:11:24.952617Z",
+      "type": "error",
+      "message": "Failed to deploy to device: 500 Server Error: Internal Server Error for url: https://ca63610767159c0b05d7e41c10182117.balena-devices.com/deploy",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_endpoint": "192.168.1.122",
+        "error": "500 Server Error: Internal Server Error for url: https://ca63610767159c0b05d7e41c10182117.balena-devices.com/deploy"
+      }
+    },
+    {
+      "timestamp": "2026-01-09T03:29:38.697370Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv3_small_100' to device 192.168.1.122",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "ca63610767159c0b05d7e41c10182117",
+        "device_endpoint": "192.168.1.122",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-09T03:34:03.037158Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv3_small_100' to device 192.168.1.122",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "ca63610767159c0b05d7e41c10182117",
+        "device_endpoint": "192.168.1.122",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-09T03:34:50.886155Z",
+      "type": "error",
+      "message": "Failed to deploy to device: 500 Server Error: Internal Server Error for url: https://ca63610767159c0b05d7e41c10182117.balena-devices.com/deploy",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_endpoint": "192.168.1.122",
+        "error": "500 Server Error: Internal Server Error for url: https://ca63610767159c0b05d7e41c10182117.balena-devices.com/deploy"
+      }
+    },
+    {
+      "timestamp": "2026-01-09T03:35:29.697303Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv3_small_100' to device 192.168.1.122",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "ca63610767159c0b05d7e41c10182117",
+        "device_endpoint": "192.168.1.122",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-09T03:35:43.133466Z",
+      "type": "error",
+      "message": "Failed to deploy to device: 500 Server Error: Internal Server Error for url: https://ca63610767159c0b05d7e41c10182117.balena-devices.com/deploy",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_endpoint": "192.168.1.122",
+        "error": "500 Server Error: Internal Server Error for url: https://ca63610767159c0b05d7e41c10182117.balena-devices.com/deploy"
+      }
+    },
+    {
+      "timestamp": "2026-01-09T03:36:03.188527Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv3_small_100' to device 192.168.1.122",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "ca63610767159c0b05d7e41c10182117",
+        "device_endpoint": "192.168.1.122",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-09T03:36:26.118937Z",
+      "type": "error",
+      "message": "Failed to deploy to device: 500 Server Error: Internal Server Error for url: https://ca63610767159c0b05d7e41c10182117.balena-devices.com/deploy",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_endpoint": "192.168.1.122",
+        "error": "500 Server Error: Internal Server Error for url: https://ca63610767159c0b05d7e41c10182117.balena-devices.com/deploy"
+      }
+    },
+    {
+      "timestamp": "2026-01-09T03:41:47.012771Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv3_small_100' to device 192.168.1.122",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "ca63610767159c0b05d7e41c10182117",
+        "device_endpoint": "192.168.1.122",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-09T03:42:52.990354Z",
+      "type": "error",
+      "message": "Failed to deploy to device (tried 2 URLs). Last error: HTTPConnectionPool(host='192.168.1.122', port=8000): Max retries exceeded with url: /deploy (Caused by ConnectTimeoutError(<urllib3.connection.HTTPConnection object at 0x00000235C2575390>, 'Connection to 192.168.1.122 timed out. (connect timeout=60)'))",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "ca63610767159c0b05d7e41c10182117",
+        "device_endpoint": "192.168.1.122",
+        "urls_tried": [
+          "https://ca63610767159c0b05d7e41c10182117.balena-devices.com/deploy",
+          "http://192.168.1.122:8000/deploy"
+        ],
+        "last_error": "HTTPConnectionPool(host='192.168.1.122', port=8000): Max retries exceeded with url: /deploy (Caused by ConnectTimeoutError(<urllib3.connection.HTTPConnection object at 0x00000235C2575390>, 'Connection to 192.168.1.122 timed out. (connect timeout=60)'))"
+      }
+    },
+    {
+      "timestamp": "2026-01-09T03:53:03.439308Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv3_small_100' to device 192.168.1.122",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "ca63610767159c0b05d7e41c10182117",
+        "device_endpoint": "192.168.1.122",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-09T03:55:44.449730Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv3_small_100' to device 192.168.1.122",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "ca63610767159c0b05d7e41c10182117",
+        "device_endpoint": "192.168.1.122",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-09T03:57:27.739301Z",
+      "type": "error",
+      "message": "Failed to deploy to device (tried 2 URLs). Last error: HTTPConnectionPool(host='192.168.1.122', port=8000): Max retries exceeded with url: /deploy (Caused by ConnectTimeoutError(<urllib3.connection.HTTPConnection object at 0x000001B7F0B3D9F0>, 'Connection to 192.168.1.122 timed out. (connect timeout=60)'))",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "ca63610767159c0b05d7e41c10182117",
+        "device_endpoint": "192.168.1.122",
+        "urls_tried": [
+          "https://ca63610767159c0b05d7e41c10182117.balena-devices.com/deploy",
+          "http://192.168.1.122:8000/deploy"
+        ],
+        "last_error": "HTTPConnectionPool(host='192.168.1.122', port=8000): Max retries exceeded with url: /deploy (Caused by ConnectTimeoutError(<urllib3.connection.HTTPConnection object at 0x000001B7F0B3D9F0>, 'Connection to 192.168.1.122 timed out. (connect timeout=60)'))"
+      }
+    },
+    {
+      "timestamp": "2026-01-09T04:16:35.196546Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv3_small_100' to device 192.168.1.122",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "ca63610767159c0b05d7e41c10182117",
+        "device_endpoint": "192.168.1.122",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-09T04:17:25.593965Z",
+      "type": "success",
+      "message": "Deploy thành công model 'mobilenetv3_small_100' lên thiết bị 192.168.1.122 (via public URL)",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "ca63610767159c0b05d7e41c10182117",
+        "device_endpoint": "192.168.1.122",
+        "model_path": "D:\\DACN\\ml-controller\\model_store\\mobilenetv3_small_100.tflite",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": null,
+          "message": "Deployment successful",
+          "model_info": {
+            "energy_avg_mwh": 0.0,
+            "flops": 0.0,
+            "input_size": "3x224x224",
+            "latency_avg_s": 0.0,
+            "params": 0
+          },
+          "model_name": "mobilenetv3_small_100",
+          "model_path": "/data/models/current_model.tflite",
+          "model_size_bytes": 2188184
+        },
+        "used_url_type": "public"
+      }
+    },
+    {
+      "timestamp": "2026-01-12T15:21:56.046824Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv3_small_100' to device 192.168.1.122",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "ca63610767159c0b05d7e41c10182117",
+        "device_endpoint": "192.168.1.122",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-12T15:21:58.547575Z",
+      "type": "error",
+      "message": "Failed to deploy to device (tried 2 URLs). Last error: 500 Server Error: INTERNAL SERVER ERROR for url: http://192.168.1.122:8000/deploy",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "ca63610767159c0b05d7e41c10182117",
+        "device_endpoint": "192.168.1.122",
+        "urls_tried": [
+          "https://ca63610767159c0b05d7e41c10182117.balena-devices.com/deploy",
+          "http://192.168.1.122:8000/deploy"
+        ],
+        "last_error": "500 Server Error: INTERNAL SERVER ERROR for url: http://192.168.1.122:8000/deploy"
+      }
+    },
+    {
+      "timestamp": "2026-01-12T15:23:13.522884Z",
+      "type": "info",
+      "message": "Starting deployment of 'mobilenetv3_small_100' to device 192.168.1.122",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "ca63610767159c0b05d7e41c10182117",
+        "device_endpoint": "192.168.1.122",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-01-12T15:23:17.387569Z",
+      "type": "success",
+      "message": "Deploy thành công model 'mobilenetv3_small_100' lên thiết bị 192.168.1.122 (via public URL)",
+      "metadata": {
+        "model_name": "mobilenetv3_small_100",
+        "device_uuid": "ca63610767159c0b05d7e41c10182117",
+        "device_endpoint": "192.168.1.122",
+        "model_path": "D:\\DACN\\ml-controller\\model_store\\mobilenetv3_small_100.tflite",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": null,
+          "message": "Deployment successful",
+          "model_info": {
+            "energy_avg_mwh": 0.0,
+            "flops": 0.0,
+            "input_size": "3x224x224",
+            "latency_avg_s": 0.0,
+            "params": 0
+          },
+          "model_name": "mobilenetv3_small_100",
+          "model_path": "/data/models/current_model.tflite",
+          "model_size_bytes": 2188184
+        },
+        "used_url_type": "public"
+      }
     }
   ],
   "metadata": {
     "created_at": "2025-12-13T00:00:00Z",
-    "last_updated": "2026-01-04T17:00:04.367349Z",
-    "total_deployments": 15
+    "last_updated": "2026-01-12T15:23:17.387569Z",
+    "total_deployments": 18
   }
 }

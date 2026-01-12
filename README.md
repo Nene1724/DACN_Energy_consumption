@@ -14,8 +14,15 @@ Hệ thống bao gồm 2 thành phần chính:
 
 ## Tính Năng Chính
 
-- Dự đoán năng lượng tiêu thụ của mô hình ML trước khi triển khai (sử dụng Gradient Boosting Regressor, R²=0.943)
-- Đề xuất top 10 models phù hợp nhất dựa trên ngân sách năng lượng, kích thước, và latency
+- **Energy Prediction**: Dự đoán năng lượng tiêu thụ của mô hình ML trước khi triển khai
+  - Sử dụng Gradient Boosting Regressor trained trên 274 models thực tế
+  - Jetson Nano: MAPE 18.69%, R²=0.86 (247 models)
+  - Raspberry Pi 5: MAPE 15.88%, R²=0.95 (27 models)
+  - 15+ popular models sẵn có (MobileNet, ResNet, EfficientNet, etc.)
+  - EXCELLENT models đã được tải sẵn trong `model_store` để deploy ngay
+  - 📖 **User Guide**: [ENERGY_PREDICTION_USER_GUIDE.md](ENERGY_PREDICTION_USER_GUIDE.md)
+  - 🔧 **Technical Guide**: [ENERGY_PREDICTION_TECHNICAL_GUIDE.md](ENERGY_PREDICTION_TECHNICAL_GUIDE.md)
+- Đề xuất top models phù hợp nhất dựa trên energy budget, kích thước, và latency
 - Triển khai models lên thiết bị IoT qua HTTP API
 - Tự động download model artifacts từ timm (PyTorch Image Models) khi cần
 - Giám sát telemetry thiết bị real-time (CPU/RAM/Temperature/Storage) với biểu đồ và metrics

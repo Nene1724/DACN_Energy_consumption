@@ -1,5 +1,6 @@
 import os
 import re
+import json
 from urllib.parse import urlparse
 from flask import Flask, request, render_template, jsonify, send_from_directory, make_response
 import requests
@@ -7,12 +8,6 @@ from requests.utils import requote_uri
 from model_analyzer import ModelAnalyzer
 from energy_predictor_service import EnergyPredictorService
 from log_manager import LogManager
-from yolo_models import (
-    get_all_yolo_models,
-    get_yolo_model,
-    get_yolo_models_by_family,
-    get_recommended_yolo_models
-)
 
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates'))
 
@@ -54,7 +49,7 @@ BALENA_DEFAULT_TIMEOUT = int(os.getenv("BALENA_API_TIMEOUT", "30"))
 # Initialize predictor + analyzer + log manager
 predictor_service = EnergyPredictorService(ARTIFACTS_DIR)
 analyzer = ModelAnalyzer(CSV_PATH, predictor_service=predictor_service, model_store_dir=MODEL_STORE_DIR, rpi5_csv_path=RPI5_CSV_PATH)
-log_manager = LogManager(LOG_FILE_PATH, max_logs=500)
+log_manager = LogManager(LOG_FILE_PATH, max_logs=50)
 
 
 def _normalize_key(value: str) -> str:
@@ -152,7 +147,8 @@ def _transform_balena_device(raw):
         "ip_address": raw.get("ip_address"),
         "vpn_address": raw.get("vpn_address"),
         "endpoint": endpoint,
-        "webconsole_url": raw.get("webconsole_url")
+        "webconsole_url": raw.get("webconsole_url"),
+        "is_web_accessible": raw.get("is_web_accessible")
     }
 
 
@@ -183,7 +179,8 @@ def fetch_balena_devices(app_slug=None, online_only=False, limit=50, token=None)
     select_fields = [
         "id", "device_name", "uuid", "status", "is_online",
         "ip_address", "vpn_address", "os_version",
-        "supervisor_version", "last_connectivity_event", "webconsole_url"
+        "supervisor_version", "last_connectivity_event", "webconsole_url",
+        "is_web_accessible"
     ]
     
     query_parts = [
@@ -220,6 +217,35 @@ def fetch_balena_devices(app_slug=None, online_only=False, limit=50, token=None)
     payload = resp.json()
     devices = payload.get("d") or payload.get("value") or []
     return [_transform_balena_device(item) for item in devices]
+
+
+def get_device_public_url(device_uuid: str, token=None) -> str:
+    """
+    Fetch the Public Device URL for a device by its UUID.
+    Returns: https://<uuid>.balena-devices.com or empty string if not enabled.
+    """
+    token = token or os.getenv("BALENA_API_TOKEN")
+    if not token or not device_uuid:
+        return ""
+
+    try:
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json"
+        }
+        url = f"{BALENA_API_BASE.rstrip('/')}/v6/device?$filter=uuid eq '{device_uuid}'&$select=uuid,is_web_accessible"
+        resp = requests.get(url, headers=headers, timeout=BALENA_DEFAULT_TIMEOUT)
+        resp.raise_for_status()
+        payload = resp.json()
+        devices = payload.get("d") or payload.get("value") or []
+        
+        if devices and devices[0].get("is_web_accessible"):
+            # Public URL format: https://<uuid>.balena-devices.com
+            return f"https://{device_uuid}.balena-devices.com"
+    except Exception as e:
+        print(f"[WARN] Could not fetch public URL for device {device_uuid}: {e}")
+    
+    return ""
 
 
 def _render_with_cache(template_name, **context):
@@ -268,25 +294,6 @@ def get_all_models():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route("/api/models/recommended", methods=["GET"])
-def get_recommended_models():
-    """API: Lấy models được recommend cho BBB"""
-    try:
-        device_type = request.args.get("device_type", "BBB")
-        max_energy = float(request.args.get("max_energy", 100))
-        
-        recommendations = analyzer.get_recommended_models(device_type, max_energy)
-        stats = analyzer.get_energy_stats()
-        
-        return jsonify({
-            "success": True,
-            "recommendations": recommendations,
-            "stats": stats
-        })
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
 @app.route("/api/models/<model_name>", methods=["GET"])
 def get_model_details(model_name):
     """API: Lấy chi tiết 1 model"""
@@ -300,209 +307,77 @@ def get_model_details(model_name):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-# ============================================================================
-# YOLO DETECTION MODELS API
-# ============================================================================
-
-@app.route("/api/yolo/models", methods=["GET"])
-def api_get_yolo_models():
-    """
-    API: Get all YOLO detection models
-    
-    Query params:
-        family (optional): Filter by family (yolov5, yolov8)
-    
-    Returns:
-        {
-            "success": true,
-            "models": [...],
-            "count": 10
-        }
-    """
+@app.route("/api/models/download", methods=["POST"])
+def download_model_from_hub():
+    """API: Download model về model_store từ Hugging Face"""
     try:
-        family = request.args.get("family")
+        data = request.get_json()
+        model_name = data.get("model_name")
         
-        if family:
-            models = get_yolo_models_by_family(family)
-        else:
-            models = get_all_yolo_models()
+        if not model_name:
+            return jsonify({"success": False, "error": "Model name is required"}), 400
         
-        # Add energy predictions for each model
-        for model in models:
-            try:
-                # Prepare payload for energy prediction
-                payload = {
-                    "device_type": "jetson_nano_2gb",  # Default to Jetson
-                    "params_m": model["params_m"],
-                    "gflops": model["gflops"],
-                    "gmacs": model["gmacs"],
-                    "size_mb": model["size_mb"],
-                    "latency_avg_s": model["latency_avg_s"],
-                    "throughput_iter_per_s": model["throughput_iter_per_s"]
-                }
+        # Check if model already exists
+        existing_artifact = resolve_model_artifact(model_name)
+        if existing_artifact:
+            return jsonify({
+                "success": True, 
+                "message": f"Model {model_name} already downloaded",
+                "artifact": existing_artifact
+            })
+        
+        # Try to download using timm
+        try:
+            import timm
+            import torch
+            
+            # Create model_store directory if not exists
+            os.makedirs(MODEL_STORE_DIR, exist_ok=True)
+            
+            # Download model from timm
+            print(f"Downloading model: {model_name}")
+            model = timm.create_model(model_name, pretrained=True)
+            
+            # Save as .pth file
+            output_filename = f"{model_name}.pth"
+            output_path = os.path.join(MODEL_STORE_DIR, output_filename)
+            
+            torch.save(model.state_dict(), output_path)
+            
+            # Verify file was created
+            if os.path.exists(output_path):
+                file_size = os.path.getsize(output_path) / (1024 * 1024)  # MB
+                return jsonify({
+                    "success": True,
+                    "message": f"Successfully downloaded {model_name} ({file_size:.2f} MB)",
+                    "artifact": output_filename
+                })
+            else:
+                return jsonify({
+                    "success": False,
+                    "error": "Model download failed - file not created"
+                }), 500
                 
-                # Predict energy
-                predictions = predictor_service.predict([payload])
-                if predictions and predictions[0].get("prediction_mwh"):
-                    model["energy_prediction_mwh"] = predictions[0]["prediction_mwh"]
-                    model["energy_ci_lower_mwh"] = predictions[0]["ci_lower_mwh"]
-                    model["energy_ci_upper_mwh"] = predictions[0]["ci_upper_mwh"]
-            except Exception as e:
-                # If prediction fails, just skip it
-                model["energy_prediction_mwh"] = None
-                model["energy_error"] = str(e)
-        
-        return jsonify({
-            "success": True,
-            "models": models,
-            "count": len(models)
-        })
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route("/api/yolo/models/<model_id>", methods=["GET"])
-def api_get_yolo_model(model_id):
-    """
-    API: Get specific YOLO model details
-    
-    Query params:
-        device_type (optional): Specify device for energy prediction (default: jetson_nano_2gb)
-    
-    Returns:
-        {
-            "success": true,
-            "model": {...}
-        }
-    """
-    try:
-        model = get_yolo_model(model_id)
-        
-        if model is None:
+        except ImportError:
             return jsonify({
                 "success": False,
-                "error": f"YOLO model '{model_id}' not found"
-            }), 404
-        
-        # Add energy prediction
-        device_type = request.args.get("device_type", "jetson_nano_2gb")
-        
-        try:
-            payload = {
-                "device_type": device_type,
-                "params_m": model["params_m"],
-                "gflops": model["gflops"],
-                "gmacs": model["gmacs"],
-                "size_mb": model["size_mb"],
-                "latency_avg_s": model["latency_avg_s"],
-                "throughput_iter_per_s": model["throughput_iter_per_s"]
-            }
+                "error": "timm library not installed. Install with: pip install timm"
+            }), 500
+        except Exception as download_error:
+            return jsonify({
+                "success": False,
+                "error": f"Failed to download model: {str(download_error)}"
+            }), 500
             
-            predictions = predictor_service.predict([payload])
-            if predictions and predictions[0].get("prediction_mwh"):
-                model["energy_prediction"] = {
-                    "device_type": device_type,
-                    "prediction_mwh": predictions[0]["prediction_mwh"],
-                    "ci_lower_mwh": predictions[0]["ci_lower_mwh"],
-                    "ci_upper_mwh": predictions[0]["ci_upper_mwh"],
-                    "model_used": predictions[0].get("model_used"),
-                    "mape_pct": predictions[0].get("mape_pct")
-                }
-        except Exception as e:
-            model["energy_prediction"] = {"error": str(e)}
-        
-        return jsonify({"success": True, "model": model})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
-@app.route("/api/yolo/recommend", methods=["GET"])
-def api_recommend_yolo_models():
-    """
-    API: Get recommended YOLO models based on constraints
-    
-    Query params:
-        max_latency_s (optional): Maximum latency in seconds
-        min_accuracy (optional): Minimum mAP@50
-        max_params_m (optional): Maximum parameters in millions
-        max_energy_mwh (optional): Maximum energy budget in mWh
-        device_type (optional): Device type for energy prediction
-    
-    Returns:
-        {
-            "success": true,
-            "recommendations": [...],
-            "filters_applied": {...}
-        }
-    """
-    try:
-        # Get filter parameters
-        max_latency_s = request.args.get("max_latency_s", type=float)
-        min_accuracy = request.args.get("min_accuracy", type=float)
-        max_params_m = request.args.get("max_params_m", type=float)
-        max_energy_mwh = request.args.get("max_energy_mwh", type=float)
-        device_type = request.args.get("device_type", "jetson_nano_2gb")
-        
-        # Get filtered models
-        models = get_recommended_yolo_models(
-            max_latency_s=max_latency_s,
-            min_accuracy_map50=min_accuracy,
-            max_params_m=max_params_m
-        )
-        
-        # Add energy predictions and filter by energy if needed
-        filtered_models = []
-        for model in models:
-            try:
-                payload = {
-                    "device_type": device_type,
-                    "params_m": model["params_m"],
-                    "gflops": model["gflops"],
-                    "gmacs": model["gmacs"],
-                    "size_mb": model["size_mb"],
-                    "latency_avg_s": model["latency_avg_s"],
-                    "throughput_iter_per_s": model["throughput_iter_per_s"]
-                }
-                
-                predictions = predictor_service.predict([payload])
-                if predictions and predictions[0].get("prediction_mwh"):
-                    energy_mwh = predictions[0]["prediction_mwh"]
-                    model["energy_prediction_mwh"] = energy_mwh
-                    model["energy_ci_lower_mwh"] = predictions[0]["ci_lower_mwh"]
-                    model["energy_ci_upper_mwh"] = predictions[0]["ci_upper_mwh"]
-                    
-                    # Filter by energy if max_energy_mwh is specified
-                    if max_energy_mwh is None or energy_mwh <= max_energy_mwh:
-                        filtered_models.append(model)
-                else:
-                    # If prediction fails, still include if no energy filter
-                    if max_energy_mwh is None:
-                        filtered_models.append(model)
-            except Exception:
-                # Skip models with prediction errors
-                if max_energy_mwh is None:
-                    filtered_models.append(model)
-        
-        return jsonify({
-            "success": True,
-            "recommendations": filtered_models,
-            "count": len(filtered_models),
-            "filters_applied": {
-                "max_latency_s": max_latency_s,
-                "min_accuracy_map50": min_accuracy,
-                "max_params_m": max_params_m,
-                "max_energy_mwh": max_energy_mwh,
-                "device_type": device_type
-            }
-        })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 
 # ============================================================================
-# END YOLO API
-# ============================================================================
 
+# ============================================================================
+# DEPLOYMENT API
+# ============================================================================
 
 @app.route("/api/deploy", methods=["POST"])
 def deploy():
@@ -721,67 +596,100 @@ def deploy():
 
 @app.route("/api/status", methods=["GET"])
 def get_status():
-    """API: Lấy trạng thái của BBB"""
+    """
+    API: Get device status
+    Accepts: bbb_ip (IP address) or device_uuid (UUID for public URL)
+    """
     bbb_ip = request.args.get("bbb_ip")
-    if not bbb_ip:
-        return jsonify({"success": False, "error": "bbb_ip is required"}), 400
+    device_uuid = request.args.get("device_uuid")
+    
+    if not bbb_ip and not device_uuid:
+        return jsonify({"success": False, "error": "bbb_ip or device_uuid is required"}), 400
 
-    try:
-        resp = requests.get(f"http://{bbb_ip}:8000/status", timeout=10)
-        resp.raise_for_status()
-        return jsonify({
-            "success": True,
-            "status": resp.json()
-        })
-    except requests.exceptions.ConnectionError:
-        return jsonify({
-            "success": False,
-            "error": f"Unable to connect to device {bbb_ip}",
-            "device_offline": True
-        }), 200
-    except requests.exceptions.Timeout:
+    # Try public URL first if UUID provided
+    urls_to_try = []
+    
+    if device_uuid:
+        public_url = get_device_public_url(device_uuid)
+        if public_url:
+            urls_to_try.append(f"{public_url}/status")
+    
+    if bbb_ip:
+        urls_to_try.append(f"http://{bbb_ip}:8000/status")
+    
+    if not urls_to_try:
         return jsonify({
             "success": False,
-            "error": f"Device {bbb_ip} did not respond (timeout)",
-            "device_timeout": True
-        }), 200
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": f"Error: {str(e)}"
-        }), 200
+            "error": "No valid endpoint available"
+        }), 400
+    
+    # Try each URL
+    for url in urls_to_try:
+        try:
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
+            return jsonify({
+                "success": True,
+                "status": resp.json()
+            })
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            continue
+        except Exception:
+            continue
+    
+    # All URLs failed
+    return jsonify({
+        "success": False,
+        "error": "Unable to connect to device",
+        "device_offline": True
+    }), 200
 
 @app.route("/api/device/metrics", methods=["GET"])
 def get_device_metrics():
-    """API: Lấy system metrics từ thiết bị BBB (CPU, Memory, Storage, Temperature)"""
+    """
+    API: Get system metrics from device (CPU, Memory, Storage, Temperature)
+    Accepts: bbb_ip (IP address) or device_uuid (UUID for public URL)
+    """
     bbb_ip = request.args.get("bbb_ip")
-    if not bbb_ip:
-        return jsonify({"success": False, "error": "bbb_ip is required"}), 400
+    device_uuid = request.args.get("device_uuid")
+    
+    if not bbb_ip and not device_uuid:
+        return jsonify({"success": False, "error": "bbb_ip or device_uuid is required"}), 400
 
-    try:
-        resp = requests.get(f"http://{bbb_ip}:8000/metrics", timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
-        
-        return jsonify(data)
-        
-    except requests.exceptions.ConnectionError:
+    # Try public URL first if UUID provided
+    urls_to_try = []
+    
+    if device_uuid:
+        public_url = get_device_public_url(device_uuid)
+        if public_url:
+            urls_to_try.append(f"{public_url}/metrics")
+    
+    if bbb_ip:
+        urls_to_try.append(f"http://{bbb_ip}:8000/metrics")
+    
+    if not urls_to_try:
         return jsonify({
             "success": False,
-            "error": f"Unable to connect to device {bbb_ip}",
-            "device_offline": True
-        }), 200
-    except requests.exceptions.Timeout:
-        return jsonify({
-            "success": False,
-            "error": f"Device {bbb_ip} did not respond (timeout)",
-            "device_timeout": True
-        }), 200
-    except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": f"Error: {str(e)}"
-        }), 200
+            "error": "No valid endpoint available"
+        }), 400
+    
+    # Try each URL
+    for url in urls_to_try:
+        try:
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
+            return jsonify(resp.json())
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            continue
+        except Exception:
+            continue
+    
+    # All URLs failed
+    return jsonify({
+        "success": False,
+        "error": f"Unable to connect to device",
+        "device_offline": True
+    }), 200
 
 
 @app.route("/api/device/start", methods=["POST"])
@@ -1100,26 +1008,42 @@ def deploy_model():
             print(f"[WARNING] Could not get model info: {e}")
         
         # Deploy to device via HTTP
-        if not device_endpoint:
-            # Need to get device IP from Balena API
+        # Build list of URLs to try (Public URL first, then local IP)
+        urls_to_try = []
+        public_url = get_device_public_url(device_uuid) if device_uuid else ""
+        
+        if public_url:
+            urls_to_try.append(("public", f"{public_url}/deploy"))
+        if device_endpoint:
+            urls_to_try.append(("local", f"http://{device_endpoint}:8000/deploy"))
+        
+        if not urls_to_try:
             log_manager.add_log(
                 "error",
-                f"device_endpoint required for deployment (device UUID not sufficient)",
+                f"No device endpoint available (UUID: {device_uuid})",
                 {"device_uuid": device_uuid}
             )
             return jsonify({
                 "success": False,
-                "error": "device_endpoint required for deployment"
+                "error": "No device endpoint available (missing UUID and IP)"
             }), 400
         
         # Construct model URL for device to download
-        # Device will download from controller's /models/<filename> endpoint
-        # Use server's external IP instead of request.host (which may be 127.0.0.1)
+        # Priority: 1) CONTROLLER_PUBLIC_URL env, 2) ngrok URL, 3) local IP
         import socket
-        controller_ip = socket.gethostbyname(socket.gethostname())
-        controller_port = request.environ.get('SERVER_PORT', '5000')
-        model_filename = os.path.basename(model_path)
-        model_url = f"http://{controller_ip}:{controller_port}/models/{model_filename}"
+        
+        public_base_url = os.getenv("CONTROLLER_PUBLIC_URL", "").strip()
+        if public_base_url:
+            # Use configured public URL (ngrok/cloudflare tunnel)
+            model_url = f"{public_base_url.rstrip('/')}/models/{os.path.basename(model_path)}"
+            print(f"[INFO] Using public controller URL: {public_base_url}")
+        else:
+            # Fallback to local IP (may fail for cross-network deployment)
+            controller_ip = socket.gethostbyname(socket.gethostname())
+            controller_port = request.environ.get('SERVER_PORT', '5000')
+            model_filename = os.path.basename(model_path)
+            model_url = f"http://{controller_ip}:{controller_port}/models/{model_filename}"
+            print(f"[WARN] Using local IP for model URL. Set CONTROLLER_PUBLIC_URL env for cross-network deployment")
         
         # Get energy budget if specified
         energy_budget = data.get("energy_budget_mwh")
@@ -1134,57 +1058,74 @@ def deploy_model():
         if energy_budget is not None:
             deploy_payload["energy_budget_mwh"] = energy_budget
         
-        # Call device's /deploy endpoint (ML Agent runs on port 8000)
-        device_url = f"http://{device_endpoint}:8000/deploy"
-        print(f"[INFO] Deploying to device: {device_url}")
+        # Try each URL in order (Public URL first, then local IP)
+        last_error = None
+        used_url_type = None
+        device_url = None
         
-        try:
-            response = requests.post(
-                device_url,
-                json=deploy_payload,
-                timeout=60
-            )
-            response.raise_for_status()
-            device_response = response.json()
+        for url_type, url in urls_to_try:
+            device_url = url
+            print(f"[INFO] Trying {url_type} URL for deployment: {device_url}")
             
-            log_manager.add_log(
-                "success",
-                f"Deploy thành công model '{model_name}' lên thiết bị {device_display}",
-                {
-                    "model_name": model_name,
+            try:
+                response = requests.post(
+                    device_url,
+                    json=deploy_payload,
+                    timeout=60
+                )
+                response.raise_for_status()
+                device_response = response.json()
+                used_url_type = url_type
+                
+                log_manager.add_log(
+                    "success",
+                    f"Deploy thành công model '{model_name}' lên thiết bị {device_display} (via {url_type} URL)",
+                    {
+                        "model_name": model_name,
+                        "device_uuid": device_uuid,
+                        "device_endpoint": device_endpoint,
+                        "model_path": model_path,
+                        "fleet": fleet,
+                        "device_response": device_response,
+                        "used_url_type": url_type
+                    }
+                )
+                
+                return jsonify({
+                    "success": True,
+                    "message": f"Model {model_name} deployed successfully",
                     "device_uuid": device_uuid,
                     "device_endpoint": device_endpoint,
                     "model_path": model_path,
-                    "fleet": fleet,
-                    "device_response": device_response
-                }
-            )
-            
-            return jsonify({
-                "success": True,
-                "message": f"Model {model_name} deployed successfully",
+                    "model_url": model_url,
+                    "device_response": device_response,
+                    "used_url_type": url_type
+                })
+                
+            except requests.exceptions.RequestException as e:
+                last_error = str(e)
+                print(f"[WARN] Failed to deploy via {url_type} URL ({device_url}): {e}")
+                # Try next URL
+                continue
+        
+        # All URLs failed
+        error_msg = f"Failed to deploy to device (tried {len(urls_to_try)} URLs). Last error: {last_error}"
+        log_manager.add_log(
+            "error",
+            error_msg,
+            {
+                "model_name": model_name,
                 "device_uuid": device_uuid,
                 "device_endpoint": device_endpoint,
-                "model_path": model_path,
-                "model_url": model_url,
-                "device_response": device_response
-            })
-            
-        except requests.exceptions.RequestException as e:
-            error_msg = f"Failed to deploy to device: {str(e)}"
-            log_manager.add_log(
-                "error",
-                error_msg,
-                {
-                    "model_name": model_name,
-                    "device_endpoint": device_endpoint,
-                    "error": str(e)
-                }
-            )
-            return jsonify({
-                "success": False,
-                "error": error_msg
-            }), 500
+                "urls_tried": [url for _, url in urls_to_try],
+                "last_error": last_error
+            }
+        )
+        return jsonify({
+            "success": False,
+            "error": error_msg,
+            "urls_tried": [url for _, url in urls_to_try]
+        }), 500
         
     except Exception as e:
         error_msg = f"Deployment exception: {str(e)}"
@@ -1221,11 +1162,53 @@ def predict_energy():
 
     try:
         predictions = predictor_service.predict(items)
+        
+        # Load thresholds for categorization
+        thresholds_path = os.path.join(ARTIFACTS_DIR, "energy_thresholds.json")
+        thresholds_data = {}
+        if os.path.exists(thresholds_path):
+            with open(thresholds_path, 'r', encoding='utf-8') as f:
+                thresholds_data = json.load(f)
+        
+        # Add energy category to each prediction
+        for pred in predictions:
+            if pred.get("prediction_mwh") is not None:
+                device_type = pred.get("device_type", "unknown")
+                device_key = "jetson_nano" if "jetson" in device_type.lower() else "raspberry_pi5"
+                thresholds = thresholds_data.get(device_key, {})
+                
+                p25 = thresholds.get("p25", 50)
+                p50 = thresholds.get("p50", 85)
+                p75 = thresholds.get("p75", 150)
+                
+                energy = pred["prediction_mwh"]
+                if energy < p25:
+                    pred["energy_category"] = "excellent"
+                elif energy < p50:
+                    pred["energy_category"] = "good"
+                elif energy < p75:
+                    pred["energy_category"] = "acceptable"
+                else:
+                    pred["energy_category"] = "high"
+        
+        # Clean NaN/Inf values before JSON serialization
+        import math
+        def clean_value(v):
+            if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                return None
+            elif isinstance(v, dict):
+                return {k: clean_value(val) for k, val in v.items()}
+            elif isinstance(v, list):
+                return [clean_value(val) for val in v]
+            return v
+        
+        cleaned_predictions = [clean_value(p) for p in predictions]
+        
         return jsonify({
             "success": True,
-            "count": len(predictions),
-            "predictions": predictions,
-            "model_info": predictor_service.model_info,
+            "count": len(cleaned_predictions),
+            "predictions": cleaned_predictions,
+            "metadata": predictor_service.metadata,
         })
     except ValueError as e:
         return jsonify({"success": False, "error": str(e)}), 400
@@ -1237,6 +1220,358 @@ def predict_energy():
 def download_model(filename):
     """Endpoint để BBB tải model files"""
     return send_from_directory(MODEL_STORE_DIR, filename, as_attachment=False)
+
+
+@app.route("/api/energy/thresholds", methods=["GET"])
+def get_energy_thresholds():
+    """API: Lấy energy thresholds từ percentile analysis"""
+    try:
+        thresholds_path = os.path.join(ARTIFACTS_DIR, "energy_thresholds.json")
+        
+        if not os.path.exists(thresholds_path):
+            # Fallback to hardcoded values if file doesn't exist
+            return jsonify({
+                "success": True,
+                "thresholds": {
+                    "jetson_nano": {
+                        "recommended_threshold": 50.0,
+                        "p25": 50.0,
+                        "p50": 85.0,
+                        "unit": "mWh",
+                        "source": "fallback_default"
+                    },
+                    "raspberry_pi5": {
+                        "recommended_threshold": 30.0,
+                        "p25": 30.0,
+                        "p50": 50.0,
+                        "unit": "mWh",
+                        "source": "fallback_default"
+                    }
+                }
+            })
+        
+        with open(thresholds_path, 'r', encoding='utf-8') as f:
+            thresholds = json.load(f)
+        
+        return jsonify({
+            "success": True,
+            "thresholds": thresholds
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/energy/metadata", methods=["GET"])
+def get_energy_metadata():
+    """API: Lấy model metadata (MAPE, R², training info)"""
+    try:
+        metadata_path = os.path.join(ARTIFACTS_DIR, "device_specific_metadata.json")
+        
+        if not os.path.exists(metadata_path):
+            # Fallback defaults
+            return jsonify({
+                "success": True,
+                "metadata": {
+                    "jetson_model": {
+                        "metrics": {"test_mape": 21.5, "test_r2": 0.96},
+                        "model_name": "Gradient Boosting"
+                    },
+                    "rpi5_model": {
+                        "metrics": {"loo_mape": 14.2, "loo_r2": 0.95},
+                        "model_name": "Gradient Boosting"
+                    }
+                },
+                "source": "fallback"
+            })
+        
+        with open(metadata_path, 'r', encoding='utf-8') as f:
+            metadata = json.load(f)
+        
+        return jsonify({
+            "success": True,
+            "metadata": metadata,
+            "source": "device_specific_metadata.json"
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/models/popular", methods=["GET"])
+def get_popular_models():
+    """API: Lấy danh sách popular models phù hợp với edge devices"""
+    try:
+        popular_models_path = os.path.join(ARTIFACTS_DIR, "popular_models_metadata.json")
+        
+        if not os.path.exists(popular_models_path):
+            return jsonify({
+                "success": False,
+                "error": "Popular models metadata not found. Please create popular_models_metadata.json"
+            }), 404
+        
+        with open(popular_models_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        models = data.get("models", [])
+        
+        # Filter by device if specified
+        device_type = request.args.get("device")
+        if device_type:
+            device_type_lower = device_type.lower()
+            filtered_models = []
+            for model in models:
+                recommended_devices = [d.lower() for d in model.get("recommended_devices", [])]
+                if any(device_type_lower in d for d in recommended_devices):
+                    filtered_models.append(model)
+            models = filtered_models
+        
+        # Sort by params (lightweight first)
+        models = sorted(models, key=lambda x: x.get("params_m", 0))
+        
+        return jsonify({
+            "success": True,
+            "models": models,
+            "count": len(models),
+            "description": data.get("description", "")
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/predict-energy-for-model", methods=["POST"])
+def predict_energy_for_custom_model():
+    """
+    API: Dự đoán năng lượng cho model bất kỳ (popular model không có trong dataset)
+    
+    Request body:
+    {
+        "device_type": "jetson_nano" hoặc "raspberry_pi5",
+        "model_name": "mobilenetv3_small_050",
+        "params_m": 1.53,
+        "gflops": 0.024,
+        "gmacs": 0.012,
+        "size_mb": 6.1,
+        "latency_avg_s": 0.008,
+        "throughput_iter_per_s": 125.0
+    }
+    
+    Returns:
+    {
+        "success": true,
+        "prediction": {
+            "model_name": "mobilenetv3_small_050",
+            "device_type": "jetson_nano",
+            "predicted_energy_mwh": 45.2,
+            "ci_lower_mwh": 38.1,
+            "ci_upper_mwh": 52.3,
+            "energy_category": "excellent",
+            "recommendation": "deploy" hoặc "not_recommend",
+            "reason": "Energy consumption is within excellent range for jetson_nano"
+        }
+    }
+    """
+    try:
+        data = request.get_json(force=True, silent=False)
+    except Exception:
+        return jsonify({"success": False, "error": "Invalid JSON payload"}), 400
+
+    if not data:
+        return jsonify({"success": False, "error": "Empty payload"}), 400
+    
+    # Validate required fields
+    required_fields = ["device_type", "params_m", "gflops", "gmacs", "size_mb", 
+                      "latency_avg_s", "throughput_iter_per_s"]
+    missing_fields = [field for field in required_fields if field not in data]
+    if missing_fields:
+        return jsonify({
+            "success": False,
+            "error": f"Missing required fields: {', '.join(missing_fields)}"
+        }), 400
+    
+    try:
+        # Prepare payload for energy predictor
+        payload = {
+            "device_type": data["device_type"],
+            "params_m": float(data["params_m"]),
+            "gflops": float(data["gflops"]),
+            "gmacs": float(data["gmacs"]),
+            "size_mb": float(data["size_mb"]),
+            "latency_avg_s": float(data["latency_avg_s"]),
+            "throughput_iter_per_s": float(data["throughput_iter_per_s"])
+        }
+        
+        # Predict energy
+        predictions = predictor_service.predict([payload])
+        
+        if not predictions or predictions[0].get("prediction_mwh") is None:
+            error_msg = predictions[0].get("error", "Unknown error") if predictions else "No predictions returned"
+            print(f"[ERROR] Energy prediction failed: {error_msg}")
+            print(f"[DEBUG] Payload: {payload}")
+            return jsonify({
+                "success": False,
+                "error": f"Energy prediction failed: {error_msg}"
+            }), 500
+        
+        pred = predictions[0]
+        
+        # Load thresholds for categorization
+        thresholds_path = os.path.join(ARTIFACTS_DIR, "energy_thresholds.json")
+        thresholds_data = {}
+        if os.path.exists(thresholds_path):
+            with open(thresholds_path, 'r', encoding='utf-8') as f:
+                thresholds_data = json.load(f)
+        
+        # Determine device key
+        device_type = data["device_type"].lower()
+        device_key = "jetson_nano" if "jetson" in device_type else "raspberry_pi5"
+        thresholds = thresholds_data.get(device_key, {})
+        
+        p25 = thresholds.get("p25", 50)
+        p50 = thresholds.get("p50", 85)
+        p75 = thresholds.get("p75", 150)
+        
+        # Categorize energy
+        energy = pred["prediction_mwh"]
+        if energy < p25:
+            energy_category = "excellent"
+            recommendation = "deploy"
+            reason = f"Energy consumption ({energy:.1f} mWh) is within excellent range (< {p25} mWh) for {device_type}"
+        elif energy < p50:
+            energy_category = "good"
+            recommendation = "deploy"
+            reason = f"Energy consumption ({energy:.1f} mWh) is good ({p25}-{p50} mWh) for {device_type}"
+        elif energy < p75:
+            energy_category = "acceptable"
+            recommendation = "deploy_with_caution"
+            reason = f"Energy consumption ({energy:.1f} mWh) is acceptable ({p50}-{p75} mWh) for {device_type}. Consider optimization."
+        else:
+            energy_category = "high"
+            recommendation = "not_recommend"
+            reason = f"Energy consumption ({energy:.1f} mWh) is high (> {p75} mWh) for {device_type}. Not recommended for deployment."
+        
+        # Check if model is downloaded
+        model_name = data.get("model_name", "unknown")
+        model_downloaded = False
+        if model_name and model_name != "unknown":
+            artifact = resolve_model_artifact(model_name)
+            model_downloaded = artifact is not None
+        
+        result = {
+            "model_name": model_name,
+            "device_type": data["device_type"],
+            "predicted_energy_mwh": round(energy, 2),
+            "ci_lower_mwh": round(pred.get("ci_lower_mwh", 0), 2),
+            "ci_upper_mwh": round(pred.get("ci_upper_mwh", 0), 2),
+            "energy_category": energy_category,
+            "recommendation": recommendation,
+            "reason": reason,
+            "thresholds": {
+                "p25": p25,
+                "p50": p50,
+                "p75": p75
+            },
+            "model_info": {
+                "params_m": data["params_m"],
+                "gflops": data["gflops"],
+                "size_mb": data["size_mb"],
+                "latency_avg_s": data["latency_avg_s"]
+            },
+            "model_downloaded": model_downloaded,
+            "model_used_for_prediction": pred.get("model_used"),
+            "prediction_mape_pct": pred.get("mape_pct")
+        }
+        
+        return jsonify({
+            "success": True,
+            "prediction": result
+        })
+        
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": f"Prediction error: {e}"}), 500
+
+
+@app.route("/api/models/recommended", methods=["GET"])
+def get_recommended_models():
+    """API: Lấy recommended models dựa trên device type và energy threshold"""
+    try:
+        device_type = request.args.get("device", "jetson_nano")
+        limit = request.args.get("limit", type=int, default=30)
+        
+        # Get models filtered by device
+        device_key = "jetson_nano" if "jetson" in device_type.lower() else "raspberry_pi5"
+        
+        # Lấy data từ CSV (đã có actual energy)
+        if device_key == "jetson_nano":
+            df = analyzer.df_jetson
+        else:
+            df = analyzer.df_rpi5
+        
+        # Convert to list và sort by actual energy
+        models_list = []
+        for _, row in df.iterrows():
+            models_list.append({
+                "name": row.get("model", "Unknown"),
+                "params_m": round(row.get("params_m", 0), 2),
+                "gflops": round(row.get("gflops", 0), 2),
+                "gmacs": round(row.get("gmacs", 0), 2),
+                "size_mb": round(row.get("size_mb", 0), 2),
+                "latency_avg_s": round(row.get("latency_avg_s", 0), 4),
+                "throughput_iter_per_s": round(row.get("throughput_iter_per_s", 0), 2),
+                "predicted_energy": round(row.get("energy_avg_mwh", 0), 2),  # Use actual as prediction
+                "actual_energy": round(row.get("energy_avg_mwh", 0), 2)
+            })
+        
+        # Sort by energy (ascending)
+        models_list.sort(key=lambda x: x["predicted_energy"])
+        
+        # Get thresholds
+        thresholds_path = os.path.join(ARTIFACTS_DIR, "energy_thresholds.json")
+        thresholds = {}
+        if os.path.exists(thresholds_path):
+            with open(thresholds_path, 'r', encoding='utf-8') as f:
+                thresholds_data = json.load(f)
+                thresholds = thresholds_data.get(device_key, {})
+        
+        p25 = thresholds.get("p25", 50)
+        p50 = thresholds.get("p50", 85)
+        p75 = thresholds.get("p75", 150)
+        
+        # Group by energy level
+        result = {
+            "excellent": [],  # < p25
+            "good": [],       # p25 - p50
+            "acceptable": [], # p50 - p75
+            "high": []        # > p75
+        }
+        
+        for model in models_list[:limit]:
+            energy = model["predicted_energy"]
+            if energy < p25:
+                result["excellent"].append(model)
+            elif energy < p50:
+                result["good"].append(model)
+            elif energy < p75:
+                result["acceptable"].append(model)
+            else:
+                result["high"].append(model)
+        
+        return jsonify({
+            "success": True,
+            "device_type": device_type,
+            "thresholds": {"p25": p25, "p50": p50, "p75": p75},
+            "models": result,
+            "total_analyzed": len(models_list)
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/api/logs", methods=["GET"])
@@ -1319,9 +1654,30 @@ def get_last_deployment():
 
 @app.route("/api/device/status/<device_endpoint>", methods=["GET"])
 def get_device_status(device_endpoint):
-    """API: Proxy to get device status (avoids CORS)"""
+    """
+    API: Proxy to get device status (avoids CORS)
+    device_endpoint can be:
+      - Device UUID (will fetch public URL)
+      - IP address (will use http://<ip>:8000/status)
+    """
     try:
-        device_url = f"http://{device_endpoint}:8000/status"
+        device_url = None
+        
+        # Check if device_endpoint looks like a UUID (32+ hex chars)
+        if len(device_endpoint) >= 32 and all(c in "0123456789abcdef" for c in device_endpoint.lower()):
+            # It's a UUID, try to get public URL
+            public_url = get_device_public_url(device_endpoint)
+            if public_url:
+                device_url = f"{public_url}/status"
+            else:
+                return jsonify({
+                    "success": False,
+                    "error": "Public URL not available for this device"
+                }), 503
+        else:
+            # Treat as IP address
+            device_url = f"http://{device_endpoint}:8000/status"
+        
         response = requests.get(device_url, timeout=5)
         
         if response.status_code == 200:

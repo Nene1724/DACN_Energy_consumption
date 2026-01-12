@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy Prediction Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        button { background: #3498db; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #2980b9; }
+        #result { margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px; }
+        .success { color: #10b981; font-weight: bold; }
+        .error { color: #ef4444; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🔋 Energy Prediction Test</h1>
+    
+    <h3>Test Case: MobileNetV3 Large on RPi5</h3>
+    <ul>
+        <li><strong>Device:</strong> Raspberry Pi 5</li>
+        <li><strong>Model:</strong> mobilenetv3_large_100</li>
+        <li><strong>Params:</strong> 5.48M</li>
+        <li><strong>GFLOPs:</strong> 0.44</li>
+        <li><strong>Expected Energy:</strong> ~13.8 mWh</li>
+    </ul>
+    
+    <button onclick="testPrediction()">Test Energy Prediction</button>
+    
+    <div id="result"></div>
+    
+    <script>
+        async function testPrediction() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>⏳ Testing...</p>';
+            
+            const payload = {
+                device_type: 'raspberry_pi5',
+                params_m: 5.48,
+                gflops: 0.44,
+                gmacs: 0.22,
+                size_mb: 21.9,
+                latency_avg_s: 0.0721,
+                throughput_iter_per_s: 13.87
+            };
+            
+            try {
+                const response = await fetch('http://localhost:5000/api/predict-energy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.predictions && data.predictions.length > 0) {
+                    const pred = data.predictions[0];
+                    const energy = pred.predicted_energy_mwh;
+                    const category = pred.energy_category;
+                    const mape = data.metadata.rpi5_model.metrics.loo_mape;
+                    
+                    resultDiv.innerHTML = `
+                        <h3 class="success">✅ Prediction Successful!</h3>
+                        <p><strong>Predicted Energy:</strong> ${energy.toFixed(2)} mWh</p>
+                        <p><strong>Category:</strong> ${category}</p>
+                        <p><strong>Model MAPE:</strong> ${mape.toFixed(1)}%</p>
+                        <hr>
+                        <h4>Full Response:</h4>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<h3 class="error">❌ Error: ${data.error || 'Unknown error'}</h3>`;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `<h3 class="error">❌ Network Error: ${err.message}</h3>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -61,7 +61,7 @@ class EnergyPredictorService:
         path = os.path.join(self.artifacts_dir, filename)
         if not os.path.exists(path):
             return default
-        with open(path, "r") as f:
+        with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
 
     def _build_feature_row(self, payload: Dict[str, Any]) -> pd.DataFrame:
@@ -110,9 +110,9 @@ class EnergyPredictorService:
         row = {name: features.get(name, np.nan) for name in self.feature_names}
         df_row = pd.DataFrame([row])
         
-        # Handle inf/nan
+        # Handle inf/nan - fill with 0 instead of median (since we only have 1 row)
         df_row.replace([np.inf, -np.inf], np.nan, inplace=True)
-        df_row.fillna(df_row.median(numeric_only=True), inplace=True)
+        df_row.fillna(0, inplace=True)
         
         return df_row
 

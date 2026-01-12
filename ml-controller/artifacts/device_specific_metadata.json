@@ -1,10 +1,10 @@
 {
-  "training_date": "2026-01-02T16:49:47.185805",
+  "training_date": "2026-01-11T18:12:00.675414",
   "approach": "device_specific_models",
   "random_seed": 42,
   "jetson_model": {
-    "model_type": "ExtraTreesRegressor",
-    "model_name": "Extra Trees",
+    "model_type": "GradientBoostingRegressor",
+    "model_name": "Gradient Boosting",
     "n_samples_train": 198,
     "n_samples_test": 50,
     "features": [
@@ -19,18 +19,15 @@
       "computational_density"
     ],
     "metrics": {
-      "test_mape": 21.538491611039984,
-      "test_r2": 0.965301910675286,
-      "test_mae": 78.11424842913337,
-      "cv_mae": 115.61966271788947
+      "test_mape": 18.69346106815802,
+      "test_r2": 0.860493341192294
     },
     "device_type": "jetson_nano_2gb"
   },
   "rpi5_model": {
     "model_type": "GradientBoostingRegressor",
     "model_name": "Gradient Boosting",
-    "n_samples_train": 27,
-    "n_samples_test": 27,
+    "n_samples_total": 27,
     "features": [
       "params_m",
       "gflops",
@@ -43,16 +40,15 @@
       "computational_density"
     ],
     "metrics": {
-      "loo_mape": 14.213306731863472,
-      "loo_r2": 0.9505454251281688,
-      "loo_mae": 3.4969828390623094
+      "loo_mape": 15.879539517636909,
+      "loo_r2": 0.94634339156407
     },
     "device_type": "raspberry_pi_5"
   },
   "deployment_guide": {
-    "routing_logic": "Use device_type to select model: 'jetson_nano' \u2192 jetson_model, 'raspberry_pi5' \u2192 rpi5_model",
-    "feature_engineering": "Compute 9 features from base metrics (params, gflops, gmacs, size, latency, throughput)",
-    "scaling": "Apply device-specific scaler before prediction",
-    "fallback": "For unknown devices, use unified model or return error"
+    "routing_logic": "Sử dụng device_type để chọn mô hình: 'jetson_nano' → jetson_model, 'raspberry_pi5' → rpi5_model",
+    "feature_engineering": "Tính toán đặc trưng từ metrics cơ bản (params, gflops, gmacs, size, latency, throughput)",
+    "scaling": "Áp dụng scaler riêng của thiết bị trước khi dự đoán",
+    "fallback": "Đối với thiết bị không xác định, trả về lỗi hoặc sử dụng mô hình thống nhất"
   }
 }
