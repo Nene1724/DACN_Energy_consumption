@@ -57,10 +57,14 @@ class ModelAnalyzer:
         return False
     
     def get_all_models(self):
-        """Trả về danh sách tất cả models với thông tin cơ bản"""
+        """Trả về danh sách tất cả models bao gồm cả models trong model_store"""
         models = []
+        model_names_from_csv = set()
+        
+        # 1. Get models from CSV benchmark data
         for _, row in self.df.iterrows():
             model_name = row['model']
+            model_names_from_csv.add(self._normalize_key(model_name))
             # Use .get() with default values and handle NaN
             models.append({
                 'name': model_name,
@@ -73,6 +77,39 @@ class ModelAnalyzer:
                 'device': str(row.get('device', 'unknown')) if pd.notna(row.get('device')) else 'unknown',
                 'downloaded': self._check_model_downloaded(model_name)
             })
+        
+        # 2. Scan model_store and add models not in CSV
+        if os.path.isdir(self.model_store_dir):
+            for filename in os.listdir(self.model_store_dir):
+                if not filename.endswith(('.onnx', '.tflite', '.pth', '.pt', '.bin')):
+                    continue
+                
+                base_name, ext = os.path.splitext(filename)
+                normalized = self._normalize_key(base_name)
+                
+                # Skip if already in CSV
+                if normalized in model_names_from_csv:
+                    continue
+                
+                # Get file size
+                file_path = os.path.join(self.model_store_dir, filename)
+                file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+                
+                # Add model with minimal metadata
+                models.append({
+                    'name': base_name,
+                    'params_m': 0,  # Unknown
+                    'size_mb': round(file_size_mb, 2),
+                    'energy_mwh': 0,  # Unknown - needs prediction
+                    'latency_s': 0,  # Unknown
+                    'throughput': 0,  # Unknown
+                    'input_resolution': '',
+                    'device': 'unknown',
+                    'downloaded': True,
+                    'is_library': True,  # Mark as from model_store
+                    'source': 'model_store'
+                })
+        
         return models
     
     def get_recommended_models(self, device_type='BBB', max_energy_mwh=100):

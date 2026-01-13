@@ -93,6 +93,18 @@
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .status-row { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
         .status-block { border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 16px; background: linear-gradient(180deg, #ffffff, #fafbff); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04); }
+        
+        /* Download model */
+        .download-model-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); z-index: 9999; display: none; align-items: center; justify-content: center; }
+        .download-model-overlay.active { display: flex; }
+        .download-model { background: white; border-radius: 16px; padding: 24px; max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); }
+        .download-model h3 { margin-bottom: 12px; font-size: 20px; }
+        .download-model p { color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
+        .download-progress { margin: 20px 0; }
+        .download-progress-bar { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 8px; }
+        .download-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); transition: width 0.3s; }
+        .download-status { font-size: 13px; color: var(--muted); margin-top: 8px; }
+        .model-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; }
         .status-title { color: var(--muted); font-size: 11px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
         .status-value { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px; color: var(--text); line-height: 1.4; }
         .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-flex; }
@@ -2712,22 +2724,208 @@
             }
         }
 
-        function deployPredictedModel() {
+        async function deployPredictedModel() {
+            console.log('deployPredictedModel called');
             const deviceType = document.getElementById('pred_device_type')?.value || 'jetson_nano';
-            const modelName = document.getElementById('common_model_selector')?.value;
+            const modelName = document.getElementById('popular_model_selector')?.value; // FIXED: correct selector
             const paramsM = document.getElementById('pred_params_m')?.value;
-            const energy = document.getElementById('predict_output')?.innerText.match(/([0-9.]+)\s*mWh/);
+            
+            // Get energy from the prediction output div
+            const outputDiv = document.getElementById('predict_output');
+            const energyText = outputDiv?.textContent || '';
+            const energyMatch = energyText.match(/([0-9.]+)\s*mWh/);
+            const energyValue = energyMatch ? energyMatch[1] : 'N/A';
+            
+            console.log('Model:', modelName, 'Device:', deviceType, 'Energy:', energyValue);
             
             if (!modelName) {
                 showAlert('warning', 'Please select a model to deploy');
                 return;
             }
 
-            const message = `Ready to deploy ${modelName} to ${deviceType}\nEnergy: ${energy ? energy[1] : 'N/A'} mWh\nParams: ${paramsM}M`;
-            if (confirm(message)) {
-                showAlert('info', 'Deployment feature will be integrated with Balena Cloud deployment');
-                // TODO: Integrate with existing deployment flow
-                // selectDeviceForDeployment(deviceType, modelName);
+            // Check if model is available in model_store
+            try {
+                console.log('Checking model availability for:', modelName);
+                const checkResponse = await fetch('/api/models/check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model_name: modelName })
+                });
+                const checkData = await checkResponse.json();
+                console.log('Check response:', checkData);
+                
+                if (checkData.available) {
+                    // Model available - proceed to device selection
+                    showAlert('info', `Model ${modelName} is available. Proceeding to deployment...`);
+                    proceedToDeviceSelection(modelName, deviceType, energyValue, paramsM);
+                } else {
+                    // Model not available - show download confirmation
+                    showAlert('warning', `Model ${modelName} not found. Showing download options...`);
+                    showDownloadConfirmation(modelName, deviceType, energyValue, paramsM);
+                }
+            } catch (err) {
+                console.error('Failed to check model availability:', err);
+                showAlert('error', 'Failed to check model availability: ' + err.message);
+            }
+        }
+        
+        function proceedToDeviceSelection(modelName, deviceType, energyStr, paramsM) {
+            console.log('Proceeding to device selection:', modelName);
+            
+            // Pre-select model in search to make it visible when we switch tabs
+            const searchInput = document.getElementById('search_input');
+            if (searchInput) {
+                searchInput.value = modelName;
+            }
+            
+            // Switch to deployment view (already there, but make sure)
+            setActiveView('deployment');
+            
+            // Scroll to model grid and filter to show the model
+            setTimeout(() => {
+                renderModelList(); // Refresh with search filter
+                
+                // Try to find and highlight the model item
+                const modelGrid = document.getElementById('model_grid');
+                if (modelGrid) {
+                    const modelItems = modelGrid.querySelectorAll('.model-item');
+                    let found = false;
+                    
+                    modelItems.forEach(item => {
+                        const itemModelName = item.querySelector('.model-name')?.textContent?.trim();
+                        // Remove "Recommended" badge text for comparison
+                        const cleanName = itemModelName ? itemModelName.replace(/Recommended$/, '').trim() : '';
+                        if (cleanName && cleanName === modelName) {
+                            item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            item.style.border = '2px solid var(--accent)';
+                            item.style.boxShadow = '0 0 0 4px rgba(59, 130, 246, 0.2)';
+                            found = true;
+                            
+                            // Remove highlight after 3 seconds
+                            setTimeout(() => {
+                                item.style.border = '';
+                                item.style.boxShadow = '';
+                            }, 3000);
+                        }
+                    });
+                    
+                    if (found) {
+                        showAlert('success', `Model "${modelName}" is ready. Select devices and click Deploy.`);
+                    } else {
+                        showAlert('info', `Search for "${modelName}" to find it in the model list.`);
+                    }
+                }
+            }, 300);
+        }
+        
+        function showDownloadConfirmation(modelName, deviceType, energyStr, paramsM) {
+            const model = document.getElementById('download_model');
+            const modelTitle = document.getElementById('download_model_title');
+            const modelMessage = document.getElementById('download_model_message');
+            const confirmBtn = document.getElementById('download_confirm_btn');
+            const cancelBtn = document.getElementById('download_cancel_btn');
+            
+            modelTitle.textContent = 'Model Not Available';
+            modelMessage.innerHTML = `
+                <p>The model <strong>${escapeHtml(modelName)}</strong> is not yet downloaded to the model store.</p>
+                <p style="margin-top: 12px;">Would you like to download it now? This will:</p>
+                <ul style="margin: 8px 0 0 20px; color: var(--muted);">
+                    <li>Download model from Hugging Face/TIMM</li>
+                    <li>Convert to ONNX format (optimized for edge devices)</li>
+                    <li>Save to local model store</li>
+                </ul>
+                <p style="margin-top: 12px; font-size: 13px; color: var(--warning);">⚠️ Download may take 1-3 minutes depending on model size.</p>
+            `;
+            
+            // Show model
+            model.classList.add('active');
+            
+            // Handle confirm
+            confirmBtn.onclick = () => {
+                model.classList.remove('active');
+                downloadModelThenDeploy(modelName, deviceType, energyStr, paramsM);
+            };
+            
+            // Handle cancel
+            cancelBtn.onclick = () => {
+                model.classList.remove('active');
+            };
+        }
+        
+        async function downloadModelThenDeploy(modelName, deviceType, energyStr, paramsM) {
+            const model = document.getElementById('download_model');
+            const modelTitle = document.getElementById('download_model_title');
+            const modelMessage = document.getElementById('download_model_message');
+            const progressContainer = document.getElementById('download_progress_container');
+            const progressFill = document.getElementById('download_progress_fill');
+            const progressStatus = document.getElementById('download_progress_status');
+            const modelActions = document.getElementById('download_model_actions');
+            
+            // Show progress UI
+            model.classList.add('active');
+            modelTitle.textContent = 'Downloading Model';
+            modelMessage.innerHTML = `<p>Downloading and converting <strong>${escapeHtml(modelName)}</strong>...</p>`;
+            progressContainer.style.display = 'block';
+            modelActions.style.display = 'none';
+            
+            // Simulate progress (actual download doesn't provide progress yet)
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 90) progress = 90; // Cap at 90% until complete
+                progressFill.style.width = progress + '%';
+                progressStatus.textContent = `Downloading... ${Math.round(progress)}%`;
+            }, 500);
+            
+            try {
+                const response = await fetch('/api/models/download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model_name: modelName })
+                });
+                const data = await response.json();
+                
+                clearInterval(progressInterval);
+                
+                if (data.success) {
+                    // Complete progress
+                    progressFill.style.width = '100%';
+                    progressStatus.textContent = 'Download complete!';
+                    progressStatus.style.color = 'var(--success)';
+                    
+                    // Reload models list to include newly downloaded model
+                    console.log('Reloading models list after download...');
+                    await loadAllModels();
+                    
+                    setTimeout(() => {
+                        model.classList.remove('active');
+                        progressContainer.style.display = 'none';
+                        modelActions.style.display = 'flex';
+                        progressFill.style.width = '0%';
+                        progressStatus.textContent = '';
+                        progressStatus.style.color = '';
+                        
+                        showAlert('success', `Model ${modelName} downloaded successfully (${data.size_mb}MB)`);
+                        proceedToDeviceSelection(modelName, deviceType, energyStr, paramsM);
+                    }, 1500);
+                } else {
+                    throw new Error(data.error || 'Download failed');
+                }
+            } catch (err) {
+                clearInterval(progressInterval);
+                progressStatus.textContent = 'Download failed: ' + err.message;
+                progressStatus.style.color = 'var(--danger)';
+                
+                setTimeout(() => {
+                    model.classList.remove('active');
+                    progressContainer.style.display = 'none';
+                    modelActions.style.display = 'flex';
+                    progressFill.style.width = '0%';
+                    progressStatus.textContent = '';
+                    progressStatus.style.color = '';
+                }, 3000);
+                
+                showAlert('error', 'Download failed: ' + err.message);
             }
         }
 
@@ -3445,5 +3643,25 @@
         // ============================================================================
     
     </script>
+    
+    <!-- Download model -->
+    <div id="download_model" class="download-model-overlay">
+        <div class="download-model">
+            <h3 id="download_model_title">Model Not Available</h3>
+            <div id="download_model_message"></div>
+            
+            <div id="download_progress_container" class="download-progress" style="display: none;">
+                <div class="download-progress-bar">
+                    <div id="download_progress_fill" class="download-progress-fill" style="width: 0%;"></div>
+                </div>
+                <div id="download_progress_status" class="download-status"></div>
+            </div>
+            
+            <div id="download_model_actions" class="model-actions">
+                <button id="download_cancel_btn" class="btn ghost">Cancel</button>
+                <button id="download_confirm_btn" class="btn primary">Download</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

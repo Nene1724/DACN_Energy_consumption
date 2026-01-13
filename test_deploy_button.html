@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Deploy Button</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; }
+        button { padding: 10px 20px; background: #10b981; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #059669; }
+    </style>
+</head>
+<body>
+    <h1>Test Deploy from Prediction</h1>
+    
+    <div class="test-section">
+        <h2>Simulation Form</h2>
+        <label>Device Type:</label>
+        <select id="pred_device_type">
+            <option value="jetson_nano">Jetson Nano</option>
+            <option value="raspberry_pi5">Raspberry Pi 5</option>
+        </select>
+        <br><br>
+        
+        <label>Model:</label>
+        <select id="common_model_selector">
+            <option value="mobilenetv3_small_075">MobileNetV3 Small 0.75x</option>
+            <option value="mobilenetv3_small_050">MobileNetV3 Small 0.5x</option>
+            <option value="resnet50">ResNet50</option>
+        </select>
+        <br><br>
+        
+        <label>Params (M):</label>
+        <input type="text" id="pred_params_m" value="2.54">
+        <br><br>
+        
+        <div id="predict_output">
+            <div style="font-size: 24px; font-weight: bold;">11.47 mWh</div>
+            <div>Predicted Energy Consumption</div>
+        </div>
+        <br>
+        
+        <button onclick="testDeploy()">Test Deploy Button</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Console Output</h2>
+        <div id="console" style="background: #f0f0f0; padding: 10px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px;"></div>
+    </div>
+    
+    <script>
+        function log(msg, type = 'info') {
+            const console = document.getElementById('console');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'blue';
+            console.innerHTML += `<div style="color: ${color}">[${timestamp}] ${msg}</div>`;
+            console.scrollTop = console.scrollHeight;
+        }
+        
+        async function testDeploy() {
+            log('Button clicked!');
+            
+            const deviceType = document.getElementById('pred_device_type')?.value;
+            const modelName = document.getElementById('common_model_selector')?.value;
+            const paramsM = document.getElementById('pred_params_m')?.value;
+            const outputDiv = document.getElementById('predict_output');
+            const energyText = outputDiv?.textContent || '';
+            const energyMatch = energyText.match(/([0-9.]+)\s*mWh/);
+            const energyValue = energyMatch ? energyMatch[1] : 'N/A';
+            
+            log(`Device: ${deviceType}`);
+            log(`Model: ${modelName}`);
+            log(`Params: ${paramsM}M`);
+            log(`Energy: ${energyValue} mWh`);
+            
+            if (!modelName) {
+                log('ERROR: No model selected', 'error');
+                return;
+            }
+            
+            try {
+                log(`Checking model availability: ${modelName}`);
+                const checkResponse = await fetch('http://localhost:5000/api/models/check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model_name: modelName })
+                });
+                const checkData = await checkResponse.json();
+                log(`Response: ${JSON.stringify(checkData)}`);
+                
+                if (checkData.available) {
+                    log(`✓ Model available: ${checkData.artifact} (${checkData.size_mb}MB)`, 'success');
+                    alert('Model available! Would switch to deployment tab.');
+                } else {
+                    log('✗ Model NOT available - would show download model', 'error');
+                    alert('Model not available. Would show download confirmation model.');
+                }
+            } catch (err) {
+                log(`ERROR: ${err.message}`, 'error');
+                alert('Failed to check: ' + err.message);
+            }
+        }
+    </script>
+</body>
+</html>

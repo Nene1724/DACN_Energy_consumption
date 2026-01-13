@@ -322,6 +322,41 @@ def get_model_details(model_name):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route("/api/models/check", methods=["POST"])
+def check_model_availability():
+    """API: Check if model exists in model_store"""
+    try:
+        data = request.get_json()
+        model_name = data.get("model_name")
+        
+        if not model_name:
+            return jsonify({"success": False, "error": "Model name is required"}), 400
+        
+        # Check if model artifact exists
+        artifact = resolve_model_artifact(model_name)
+        
+        if artifact:
+            artifact_path = os.path.join(MODEL_STORE_DIR, artifact)
+            file_size = os.path.getsize(artifact_path)
+            file_size_mb = round(file_size / (1024 * 1024), 2)
+            
+            return jsonify({
+                "success": True,
+                "available": True,
+                "artifact": artifact,
+                "size_mb": file_size_mb,
+                "format": os.path.splitext(artifact)[1].lstrip('.')
+            })
+        else:
+            return jsonify({
+                "success": True,
+                "available": False,
+                "message": f"Model {model_name} not found in model store"
+            })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route("/api/models/download", methods=["POST"])
 def download_model_from_hub():
     """API: Download model về model_store từ Hugging Face"""
