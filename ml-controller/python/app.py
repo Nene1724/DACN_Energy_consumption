@@ -42,7 +42,8 @@ MODEL_STORE_DIR = os.path.join(BASE_DIR, "model_store")
 CSV_PATH = os.path.join(DATA_DIR, "247_models_benchmark_jetson.csv")  # Updated to full dataset
 RPI5_CSV_PATH = os.path.join(DATA_DIR, "27_models_benchmark_rpi5.csv")  # Raspberry Pi 5 dataset
 LOG_FILE_PATH = os.path.join(DATA_DIR, "deployment_logs.json")
-PREFERRED_ARTIFACT_EXTS = [".pth", ".pt", ".onnx", ".tflite", ".bin"]
+# Prefer TFLite (smallest, fastest for RPi/Jetson), then ONNX (cross-platform)
+PREFERRED_ARTIFACT_EXTS = [".tflite", ".onnx", ".pth", ".pt", ".bin"]
 BALENA_API_BASE = os.getenv("BALENA_API_BASE", "https://api.balena-cloud.com")
 BALENA_DEFAULT_TIMEOUT = int(os.getenv("BALENA_API_TIMEOUT", "30"))
 
@@ -281,9 +282,23 @@ def favicon():
 
 @app.route("/api/models/all", methods=["GET"])
 def get_all_models():
-    """API: Lấy danh sách tất cả models"""
+    """API: Lấy danh sách tất cả models từ benchmark CSV (KHÔNG bao gồm popular models)"""
     try:
         models = analyzer.get_all_models()
+        
+        # Add download status for each model
+        for model in models:
+            model_name = model.get("name", "")
+            artifact = None
+            for ext in ['.tflite', '.onnx']:
+                artifact = resolve_model_artifact(model_name + ext)
+                if artifact:
+                    break
+            
+            model["model_downloaded"] = artifact is not None
+            if artifact:
+                model["artifact_file"] = artifact
+        
         stats = analyzer.get_energy_stats()
         return jsonify({
             "success": True, 
@@ -326,10 +341,11 @@ def download_model_from_hub():
                 "artifact": existing_artifact
             })
         
-        # Try to download using timm
+        # Try to download using timm and convert to ONNX
         try:
             import timm
             import torch
+            import onnx
             
             # Create model_store directory if not exists
             os.makedirs(MODEL_STORE_DIR, exist_ok=True)
@@ -337,36 +353,91 @@ def download_model_from_hub():
             # Download model from timm
             print(f"Downloading model: {model_name}")
             model = timm.create_model(model_name, pretrained=True)
+            model.eval()  # Set to evaluation mode
             
-            # Save as .pth file
-            output_filename = f"{model_name}.pth"
+            # Get input size from model config
+            try:
+                data_config = timm.data.resolve_data_config(model.pretrained_cfg)
+                input_size = data_config.get('input_size', (3, 224, 224))
+            except:
+                input_size = (3, 224, 224)  # Default input size
+            
+            # Create dummy input for ONNX export
+            batch_size = 1
+            dummy_input = torch.randn(batch_size, *input_size)
+            
+            # Export to ONNX format (best compatibility for embedded devices)
+            temp_output = os.path.join(MODEL_STORE_DIR, f"{model_name}_temp.onnx")
+            output_filename = f"{model_name}.onnx"
             output_path = os.path.join(MODEL_STORE_DIR, output_filename)
             
-            torch.save(model.state_dict(), output_path)
+            print(f"Converting {model_name} to ONNX format...")
+            torch.onnx.export(
+                model,
+                dummy_input,
+                temp_output,
+                export_params=True,
+                opset_version=17,
+                do_constant_folding=True,
+                input_names=['input'],
+                output_names=['output'],
+                dynamic_axes={
+                    'input': {0: 'batch_size'},
+                    'output': {0: 'batch_size'}
+                }
+            )
             
-            # Verify file was created
+            # Check if external data file was created
+            temp_data_file = temp_output + ".data"
+            if os.path.exists(temp_data_file):
+                print(f"Merging external data into single file...")
+                # Load with external data and save as single file
+                onnx_model = onnx.load(temp_output, load_external_data=True)
+                onnx.save(onnx_model, output_path, save_as_external_data=False)
+                
+                # Remove temp files
+                os.remove(temp_output)
+                os.remove(temp_data_file)
+            else:
+                # No external data, just rename
+                os.rename(temp_output, output_path)
+            
+            # Verify file was created and has reasonable size
             if os.path.exists(output_path):
-                file_size = os.path.getsize(output_path) / (1024 * 1024)  # MB
+                file_size = os.path.getsize(output_path)
+                if file_size < 100000:  # Less than 100KB - likely error
+                    os.remove(output_path)
+                    return jsonify({
+                        "success": False,
+                        "error": f"Model conversion produced invalid file (only {file_size} bytes)"
+                    }), 500
+                
+                file_size_mb = file_size / (1024 * 1024)
+                print(f"✓ Successfully converted to ONNX: {output_filename} ({file_size_mb:.2f} MB)")
                 return jsonify({
                     "success": True,
-                    "message": f"Successfully downloaded {model_name} ({file_size:.2f} MB)",
-                    "artifact": output_filename
+                    "message": f"Successfully downloaded and converted {model_name} to ONNX ({file_size_mb:.2f} MB)",
+                    "artifact": output_filename,
+                    "format": "onnx",
+                    "size_mb": round(file_size_mb, 2)
                 })
             else:
                 return jsonify({
                     "success": False,
-                    "error": "Model download failed - file not created"
+                    "error": "Model conversion failed - ONNX file not created"
                 }), 500
                 
-        except ImportError:
+        except ImportError as ie:
             return jsonify({
                 "success": False,
-                "error": "timm library not installed. Install with: pip install timm"
+                "error": f"Required libraries not installed: {str(ie)}. Install with: pip install timm torch onnx"
             }), 500
         except Exception as download_error:
+            import traceback
+            traceback.print_exc()
             return jsonify({
                 "success": False,
-                "error": f"Failed to download model: {str(download_error)}"
+                "error": f"Failed to download/convert model: {str(download_error)}"
             }), 500
             
     except Exception as e:
@@ -449,21 +520,30 @@ def deploy():
         # Ưu tiên tìm .tflite hoặc .onnx cho embedded devices
         artifact = None
         for preferred_ext in ['.tflite', '.onnx']:
-            artifact = resolve_model_artifact(model_name + preferred_ext)
-            if artifact:
+            candidate = resolve_model_artifact(model_name + preferred_ext)
+            if candidate:
+                artifact = candidate
+                print(f"Found artifact with {preferred_ext}: {artifact}")
                 break
         
         # Fallback: tìm bất kỳ artifact nào
         if not artifact:
             artifact = resolve_model_artifact(model_name)
+            if artifact:
+                print(f"Found fallback artifact: {artifact}")
         
         if not artifact:
+            # List available models to help debug
+            available_models = []
+            if os.path.isdir(MODEL_STORE_DIR):
+                available_models = os.listdir(MODEL_STORE_DIR)
+            
             return jsonify({
                 "success": False,
                 "error": (
                     f"Không tìm thấy file artifact cho model '{model_name}'. "
-                    "Hãy thêm file .tflite hoặc .onnx vào thư mục model_store/ "
-                    "hoặc convert model từ PyTorch (.pth) sang TFLite."
+                    f"Hãy download model trước hoặc thêm file .tflite/.onnx vào model_store/. "
+                    f"Available models: {', '.join(available_models[:10])}"
                 )
             }), 404
         
@@ -1218,8 +1298,31 @@ def predict_energy():
 
 @app.route("/models/<path:filename>")
 def download_model(filename):
-    """Endpoint để BBB tải model files"""
-    return send_from_directory(MODEL_STORE_DIR, filename, as_attachment=False)
+    """Endpoint để BBB/Jetson/RPi tải model files"""
+    try:
+        file_path = os.path.join(MODEL_STORE_DIR, filename)
+        
+        if not os.path.exists(file_path):
+            return jsonify({"error": f"Model file not found: {filename}"}), 404
+        
+        # Send with proper binary headers to avoid ngrok interference
+        response = send_from_directory(
+            MODEL_STORE_DIR, 
+            filename, 
+            as_attachment=True,  # Force download
+            mimetype='application/octet-stream'  # Binary file
+        )
+        
+        # Add headers to prevent caching and ensure binary transfer
+        response.headers['Content-Type'] = 'application/octet-stream'
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        return response
+    except Exception as e:
+        return jsonify({"error": f"Failed to serve model: {str(e)}"}), 500
 
 
 @app.route("/api/energy/thresholds", methods=["GET"])
@@ -1312,6 +1415,21 @@ def get_popular_models():
             data = json.load(f)
         
         models = data.get("models", [])
+        
+        # Add model_downloaded field by checking if artifact exists
+        for model in models:
+            model_name = model.get("name", "")
+            # Check ONLY for .tflite or .onnx artifacts (required for embedded devices)
+            # Do NOT fallback to .pth files as they cannot be deployed
+            artifact = None
+            for ext in ['.tflite', '.onnx']:
+                artifact = resolve_model_artifact(model_name + ext)
+                if artifact:
+                    break
+            
+            model["model_downloaded"] = artifact is not None
+            if artifact:
+                model["artifact_file"] = artifact
         
         # Filter by device if specified
         device_type = request.args.get("device")
