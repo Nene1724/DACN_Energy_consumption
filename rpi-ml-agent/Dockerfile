@@ -13,8 +13,10 @@ COPY requirements.txt ./
 # Install numpy 1.x first, then tensorflow
 RUN pip install --no-cache-dir "numpy>=1.21.2,<2.0" && \
     pip install --no-cache-dir flask==3.0.0 requests==2.32.3 && \
-    pip install --no-cache-dir tensorflow==2.15.1
+    pip install --no-cache-dir tensorflow==2.15.1 \
+    pip install pyserial
 
+COPY fnb58_reader.py /app/fnb58_reader.py
 COPY . .
 
 EXPOSE 8000

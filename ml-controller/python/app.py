@@ -42,8 +42,8 @@ MODEL_STORE_DIR = os.path.join(BASE_DIR, "model_store")
 CSV_PATH = os.path.join(DATA_DIR, "247_models_benchmark_jetson.csv")  # Updated to full dataset
 RPI5_CSV_PATH = os.path.join(DATA_DIR, "27_models_benchmark_rpi5.csv")  # Raspberry Pi 5 dataset
 LOG_FILE_PATH = os.path.join(DATA_DIR, "deployment_logs.json")
-# Prefer TFLite (smallest, fastest for RPi/Jetson), then ONNX (cross-platform)
-PREFERRED_ARTIFACT_EXTS = [".tflite", ".onnx", ".pth", ".pt", ".bin"]
+ENERGY_REPORTS_PATH = os.path.join(DATA_DIR, "energy_reports.json") #sosanh kq dudoan
+PREFERRED_ARTIFACT_EXTS = [".pth", ".pt", ".onnx", ".tflite", ".bin"]
 BALENA_API_BASE = os.getenv("BALENA_API_BASE", "https://api.balena-cloud.com")
 BALENA_DEFAULT_TIMEOUT = int(os.getenv("BALENA_API_TIMEOUT", "30"))
 
@@ -282,23 +282,9 @@ def favicon():
 
 @app.route("/api/models/all", methods=["GET"])
 def get_all_models():
-    """API: Lấy danh sách tất cả models từ benchmark CSV (KHÔNG bao gồm popular models)"""
+    """API: Lấy danh sách tất cả models"""
     try:
         models = analyzer.get_all_models()
-        
-        # Add download status for each model
-        for model in models:
-            model_name = model.get("name", "")
-            artifact = None
-            for ext in ['.tflite', '.onnx']:
-                artifact = resolve_model_artifact(model_name + ext)
-                if artifact:
-                    break
-            
-            model["model_downloaded"] = artifact is not None
-            if artifact:
-                model["artifact_file"] = artifact
-        
         stats = analyzer.get_energy_stats()
         return jsonify({
             "success": True, 
@@ -322,41 +308,6 @@ def get_model_details(model_name):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-@app.route("/api/models/check", methods=["POST"])
-def check_model_availability():
-    """API: Check if model exists in model_store"""
-    try:
-        data = request.get_json()
-        model_name = data.get("model_name")
-        
-        if not model_name:
-            return jsonify({"success": False, "error": "Model name is required"}), 400
-        
-        # Check if model artifact exists
-        artifact = resolve_model_artifact(model_name)
-        
-        if artifact:
-            artifact_path = os.path.join(MODEL_STORE_DIR, artifact)
-            file_size = os.path.getsize(artifact_path)
-            file_size_mb = round(file_size / (1024 * 1024), 2)
-            
-            return jsonify({
-                "success": True,
-                "available": True,
-                "artifact": artifact,
-                "size_mb": file_size_mb,
-                "format": os.path.splitext(artifact)[1].lstrip('.')
-            })
-        else:
-            return jsonify({
-                "success": True,
-                "available": False,
-                "message": f"Model {model_name} not found in model store"
-            })
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-
 @app.route("/api/models/download", methods=["POST"])
 def download_model_from_hub():
     """API: Download model về model_store từ Hugging Face"""
@@ -376,11 +327,10 @@ def download_model_from_hub():
                 "artifact": existing_artifact
             })
         
-        # Try to download using timm and convert to ONNX
+        # Try to download using timm
         try:
             import timm
             import torch
-            import onnx
             
             # Create model_store directory if not exists
             os.makedirs(MODEL_STORE_DIR, exist_ok=True)
@@ -388,91 +338,36 @@ def download_model_from_hub():
             # Download model from timm
             print(f"Downloading model: {model_name}")
             model = timm.create_model(model_name, pretrained=True)
-            model.eval()  # Set to evaluation mode
             
-            # Get input size from model config
-            try:
-                data_config = timm.data.resolve_data_config(model.pretrained_cfg)
-                input_size = data_config.get('input_size', (3, 224, 224))
-            except:
-                input_size = (3, 224, 224)  # Default input size
-            
-            # Create dummy input for ONNX export
-            batch_size = 1
-            dummy_input = torch.randn(batch_size, *input_size)
-            
-            # Export to ONNX format (best compatibility for embedded devices)
-            temp_output = os.path.join(MODEL_STORE_DIR, f"{model_name}_temp.onnx")
-            output_filename = f"{model_name}.onnx"
+            # Save as .pth file
+            output_filename = f"{model_name}.pth"
             output_path = os.path.join(MODEL_STORE_DIR, output_filename)
             
-            print(f"Converting {model_name} to ONNX format...")
-            torch.onnx.export(
-                model,
-                dummy_input,
-                temp_output,
-                export_params=True,
-                opset_version=17,
-                do_constant_folding=True,
-                input_names=['input'],
-                output_names=['output'],
-                dynamic_axes={
-                    'input': {0: 'batch_size'},
-                    'output': {0: 'batch_size'}
-                }
-            )
+            torch.save(model.state_dict(), output_path)
             
-            # Check if external data file was created
-            temp_data_file = temp_output + ".data"
-            if os.path.exists(temp_data_file):
-                print(f"Merging external data into single file...")
-                # Load with external data and save as single file
-                onnx_model = onnx.load(temp_output, load_external_data=True)
-                onnx.save(onnx_model, output_path, save_as_external_data=False)
-                
-                # Remove temp files
-                os.remove(temp_output)
-                os.remove(temp_data_file)
-            else:
-                # No external data, just rename
-                os.rename(temp_output, output_path)
-            
-            # Verify file was created and has reasonable size
+            # Verify file was created
             if os.path.exists(output_path):
-                file_size = os.path.getsize(output_path)
-                if file_size < 100000:  # Less than 100KB - likely error
-                    os.remove(output_path)
-                    return jsonify({
-                        "success": False,
-                        "error": f"Model conversion produced invalid file (only {file_size} bytes)"
-                    }), 500
-                
-                file_size_mb = file_size / (1024 * 1024)
-                print(f"✓ Successfully converted to ONNX: {output_filename} ({file_size_mb:.2f} MB)")
+                file_size = os.path.getsize(output_path) / (1024 * 1024)  # MB
                 return jsonify({
                     "success": True,
-                    "message": f"Successfully downloaded and converted {model_name} to ONNX ({file_size_mb:.2f} MB)",
-                    "artifact": output_filename,
-                    "format": "onnx",
-                    "size_mb": round(file_size_mb, 2)
+                    "message": f"Successfully downloaded {model_name} ({file_size:.2f} MB)",
+                    "artifact": output_filename
                 })
             else:
                 return jsonify({
                     "success": False,
-                    "error": "Model conversion failed - ONNX file not created"
+                    "error": "Model download failed - file not created"
                 }), 500
                 
-        except ImportError as ie:
+        except ImportError:
             return jsonify({
                 "success": False,
-                "error": f"Required libraries not installed: {str(ie)}. Install with: pip install timm torch onnx"
+                "error": "timm library not installed. Install with: pip install timm"
             }), 500
         except Exception as download_error:
-            import traceback
-            traceback.print_exc()
             return jsonify({
                 "success": False,
-                "error": f"Failed to download/convert model: {str(download_error)}"
+                "error": f"Failed to download model: {str(download_error)}"
             }), 500
             
     except Exception as e:
@@ -555,30 +450,21 @@ def deploy():
         # Ưu tiên tìm .tflite hoặc .onnx cho embedded devices
         artifact = None
         for preferred_ext in ['.tflite', '.onnx']:
-            candidate = resolve_model_artifact(model_name + preferred_ext)
-            if candidate:
-                artifact = candidate
-                print(f"Found artifact with {preferred_ext}: {artifact}")
+            artifact = resolve_model_artifact(model_name + preferred_ext)
+            if artifact:
                 break
         
         # Fallback: tìm bất kỳ artifact nào
         if not artifact:
             artifact = resolve_model_artifact(model_name)
-            if artifact:
-                print(f"Found fallback artifact: {artifact}")
         
         if not artifact:
-            # List available models to help debug
-            available_models = []
-            if os.path.isdir(MODEL_STORE_DIR):
-                available_models = os.listdir(MODEL_STORE_DIR)
-            
             return jsonify({
                 "success": False,
                 "error": (
                     f"Không tìm thấy file artifact cho model '{model_name}'. "
-                    f"Hãy download model trước hoặc thêm file .tflite/.onnx vào model_store/. "
-                    f"Available models: {', '.join(available_models[:10])}"
+                    "Hãy thêm file .tflite hoặc .onnx vào thư mục model_store/ "
+                    "hoặc convert model từ PyTorch (.pth) sang TFLite."
                 )
             }), 404
         
@@ -844,6 +730,32 @@ def start_device_model():
             metadata={"device_ip": bbb_ip, "error_type": "start_error"}
         )
         return jsonify({"success": False, "error": error_msg}), 502
+
+@app.route("/api/device/measure-energy", methods=["POST"]) #ss kq
+def device_measure_energy():
+    """Proxy a measurement request to an agent and ensure results are reported back.
+
+    JSON body:
+    {
+      "device_url": "http://<agent>:<port>",
+      "duration_s": 10.0
+    }
+    """
+    try:
+        data = request.get_json(force=True, silent=False) or {}
+        device_url = data.get("device_url")
+        duration_s = float(data.get("duration_s", 10.0))
+        if not device_url:
+            return jsonify({"success": False, "error": "device_url is required"}), 400
+
+        controller_url = request.host_url.rstrip('/')
+        payload = {"duration_s": duration_s, "controller_url": controller_url}
+        resp = requests.post(f"{device_url.rstrip('/')}/measure_energy", json=payload, timeout=duration_s + 10)
+        resp.raise_for_status()
+        result = resp.json()
+        return jsonify({"success": True, "agent_result": result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route("/api/balena/fleets", methods=["GET"])
 def get_balena_fleets():
@@ -1333,31 +1245,8 @@ def predict_energy():
 
 @app.route("/models/<path:filename>")
 def download_model(filename):
-    """Endpoint để BBB/Jetson/RPi tải model files"""
-    try:
-        file_path = os.path.join(MODEL_STORE_DIR, filename)
-        
-        if not os.path.exists(file_path):
-            return jsonify({"error": f"Model file not found: {filename}"}), 404
-        
-        # Send with proper binary headers to avoid ngrok interference
-        response = send_from_directory(
-            MODEL_STORE_DIR, 
-            filename, 
-            as_attachment=True,  # Force download
-            mimetype='application/octet-stream'  # Binary file
-        )
-        
-        # Add headers to prevent caching and ensure binary transfer
-        response.headers['Content-Type'] = 'application/octet-stream'
-        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
-        
-        return response
-    except Exception as e:
-        return jsonify({"error": f"Failed to serve model: {str(e)}"}), 500
+    """Endpoint để BBB tải model files"""
+    return send_from_directory(MODEL_STORE_DIR, filename, as_attachment=False)
 
 
 @app.route("/api/energy/thresholds", methods=["GET"])
@@ -1434,6 +1323,159 @@ def get_energy_metadata():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# -------- Energy measurement reporting & comparison --------
+def _load_json_safe(path: str, default):
+    try:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return default
+
+
+def _save_json_safe(path: str, data) -> None:
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[WARN] Failed to write {path}: {e}")
+
+
+@app.route("/api/energy/report", methods=["POST"])
+def api_energy_report():
+    """Receive actual energy measurement from agents and compute comparison.
+
+    Expected JSON body:
+    {
+      "device_type": "jetson_nano" | "raspberry_pi5" | ...,
+      "device_id": "<optional>",
+      "model_name": "edgenext_xx_small",
+      "actual_energy_mwh": 17.5,
+      "avg_power_mw": 950.2,
+      "duration_s": 62.3,
+      "timestamp": "ISO8601" (optional),
+      "sensor_type": "powercap|tegrastats|ina219|unknown" (optional)
+    }
+    If features are not provided, attempt lookup by model_name+device from benchmark CSVs.
+    """
+    from datetime import datetime
+    try:
+        payload = request.get_json(force=True, silent=False) or {}
+        device_type = (payload.get("device_type") or payload.get("device") or "unknown").strip()
+        model_name = (payload.get("model_name") or payload.get("model") or "").strip()
+        actual_energy_mwh = float(payload.get("actual_energy_mwh"))
+        duration_s = float(payload.get("duration_s", 0))
+        avg_power_mw = payload.get("avg_power_mw")
+        avg_power_mw = float(avg_power_mw) if avg_power_mw is not None else None
+        sensor_type = payload.get("sensor_type") or "unknown"
+        ts = payload.get("timestamp") or datetime.utcnow().isoformat()
+
+        # Build predictor input from CSVs if possible
+        feat = {
+            "device_type": device_type,
+            "model": model_name,
+        }
+
+        # Try find row in analyzer.df
+        row = None
+        if model_name:
+            try:
+                def _norm(s: str) -> str:
+                    return "".join(ch.lower() for ch in s if ch.isalnum())
+                mnorm = _norm(model_name)
+                df = analyzer.df
+                # Filter by device first
+                if any(k in device_type.lower() for k in ["jetson", "nano"]):
+                    df = df[df["device"] == "jetson_nano_2gb"]
+                elif any(k in device_type.lower() for k in ["rasp", "rpi", "pi5"]):
+                    df = df[df["device"] == "raspberry_pi5"]
+                for _, r in df.iterrows():
+                    if _norm(str(r.get("model_name", ""))) == mnorm:
+                        row = r
+                        break
+            except Exception:
+                row = None
+
+        if row is not None:
+            feat.update({
+                "params_m": float(row.get("params_m", 0) or 0),
+                "gflops": float(row.get("gflops", 0) or 0),
+                "gmacs": float(row.get("gmacs", 0) or 0),
+                "size_mb": float(row.get("size_mb", 0) or 0),
+                "latency_avg_s": float(row.get("latency_avg_s", 0) or 0),
+                "throughput_iter_per_s": float(row.get("throughput_iter_per_s", 0) or 0),
+            })
+        else:
+            for k in ["params_m","gflops","gmacs","size_mb","latency_avg_s","throughput_iter_per_s"]:
+                if k in payload:
+                    feat[k] = float(payload.get(k))
+
+        predicted_mwh = None
+        ci_lower = None
+        ci_upper = None
+        model_used = None
+        mape_pct = None
+        if all(k in feat for k in ["params_m","gflops","gmacs","size_mb","latency_avg_s","throughput_iter_per_s"]):
+            pred = predictor_service.predict([feat])[0]
+            if not pred.get("error"):
+                predicted_mwh = pred.get("prediction_mwh")
+                ci_lower = pred.get("ci_lower_mwh")
+                ci_upper = pred.get("ci_upper_mwh")
+                model_used = pred.get("model_used")
+                mape_pct = pred.get("mape_pct")
+
+        abs_err = None
+        pct_err = None
+        if (predicted_mwh is not None) and (actual_energy_mwh is not None):
+            abs_err = abs(actual_energy_mwh - predicted_mwh)
+            if actual_energy_mwh > 1e-9:
+                pct_err = abs_err / actual_energy_mwh * 100.0
+
+        reports = _load_json_safe(ENERGY_REPORTS_PATH, default=[])
+        entry = {
+            "timestamp": ts,
+            "device_type": device_type,
+            "device_id": payload.get("device_id"),
+            "model_name": model_name,
+            "sensor_type": sensor_type,
+            "duration_s": duration_s,
+            "avg_power_mw": avg_power_mw,
+            "actual_energy_mwh": actual_energy_mwh,
+            "predicted_mwh": predicted_mwh,
+            "ci_lower_mwh": ci_lower,
+            "ci_upper_mwh": ci_upper,
+            "abs_error_mwh": abs_err,
+            "pct_error": pct_err,
+        }
+        reports.append(entry)
+        _save_json_safe(ENERGY_REPORTS_PATH, reports)
+
+        return jsonify({
+            "success": True,
+            "comparison": entry,
+            "count": len(reports)
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+
+@app.route("/api/energy/recent", methods=["GET"])
+def api_energy_recent():
+    try:
+        n = int(request.args.get("n", 20))
+        reports = _load_json_safe(ENERGY_REPORTS_PATH, default=[])
+        return jsonify({
+            "success": True,
+            "items": reports[-n:][::-1],
+            "total": len(reports)
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+# ss kq dd
+
 @app.route("/api/models/popular", methods=["GET"])
 def get_popular_models():
     """API: Lấy danh sách popular models phù hợp với edge devices"""
@@ -1450,21 +1492,6 @@ def get_popular_models():
             data = json.load(f)
         
         models = data.get("models", [])
-        
-        # Add model_downloaded field by checking if artifact exists
-        for model in models:
-            model_name = model.get("name", "")
-            # Check ONLY for .tflite or .onnx artifacts (required for embedded devices)
-            # Do NOT fallback to .pth files as they cannot be deployed
-            artifact = None
-            for ext in ['.tflite', '.onnx']:
-                artifact = resolve_model_artifact(model_name + ext)
-                if artifact:
-                    break
-            
-            model["model_downloaded"] = artifact is not None
-            if artifact:
-                model["artifact_file"] = artifact
         
         # Filter by device if specified
         device_type = request.args.get("device")

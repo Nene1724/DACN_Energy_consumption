@@ -45,6 +45,7 @@ os.makedirs(MODEL_DIR, exist_ok=True)
 CURRENT_MODEL_PATH = os.path.join(MODEL_DIR, "current_model.tflite")  # Use .tflite extension
 STATE_FILE_PATH = os.path.join(MODEL_DIR, "agent_state.json")
 ENERGY_HISTORY_LIMIT = 40
+CONTROLLER_URL = os.getenv("CONTROLLER_URL", "http://localhost:5000") #ss kq dd
 
 # Used only for simulated fallback telemetry when the OS doesn't expose temp sensors.
 _SIM_TEMP_START_TS = time.time()
@@ -857,6 +858,229 @@ def _load_tflite_model(model_path, input_size):
     interpreter.invoke()  # warmup
     return interpreter, input_details
 
+#ss kq dd
+# -------- Energy measurement utilities (powercap-based) --------
+def _find_powercap_energy_file():
+    base = "/sys/class/powercap"
+    if not os.path.isdir(base):
+        return None
+    # try package-level energy_uj (total)
+    for root, dirs, files in os.walk(base):
+        if "energy_uj" in files:
+            return os.path.join(root, "energy_uj")
+    return None
+
+
+def _read_uint(path: str):
+    try:
+        with open(path, "r") as f:
+            return int(f.read().strip())
+    except Exception:
+        return None
+
+
+def _run_single_inference_locked(interpreter, input_size):
+    c, h, w = input_size
+    input_details = interpreter.get_input_details()[0]
+    dtype = input_details["dtype"]
+    shape = input_details["shape"]
+    try:
+        if len(shape) == 4 and shape[1] == h and shape[2] == w:
+            dummy = np.random.rand(*shape).astype(dtype)
+        else:
+            dummy = np.random.rand(1, h, w, c).astype(dtype)
+    except Exception:
+        dummy = np.random.rand(1, h, w, c).astype(np.float32)
+    interpreter.set_tensor(input_details["index"], dummy)
+    interpreter.invoke()
+
+
+def measure_energy_during_inference(duration_s: float = 10.0):
+    """Measure energy using powercap energy_uj while running inferences."""
+    energy_file = _find_powercap_energy_file()
+    if energy_file is None:
+        return {
+            "success": False,
+            "error": "powercap energy_uj not available",
+            "sensor_type": "unknown"
+        }
+
+    if STATE.get("status") not in ("running", "ready"):
+        return {"success": False, "error": "Model not ready/running"}
+
+    # Prepare model handles
+    with MODEL_LOCK:
+        interpreter = LOADED_INTERPRETER
+        input_size = LOADED_INPUT_SIZE
+    if interpreter is None or input_size is None:
+        return {"success": False, "error": "Interpreter not loaded"}
+
+    start_uj = _read_uint(energy_file)
+    start_ts = time.time()
+    iters = 0
+    while (time.time() - start_ts) < duration_s:
+        try:
+            with MODEL_LOCK:
+                _run_single_inference_locked(interpreter, input_size)
+            iters += 1
+        except Exception:
+            break
+
+    end_uj = _read_uint(energy_file)
+    end_ts = time.time()
+
+    if start_uj is None or end_uj is None or end_uj < start_uj:
+        return {"success": False, "error": "Invalid energy_uj readings"}
+
+    delta_uj = end_uj - start_uj  # microjoules
+    elapsed_s = max(end_ts - start_ts, 1e-6)
+    # mWh = μJ / 3.6e6
+    energy_mwh = float(delta_uj) / 3_600_000.0
+    avg_power_mw = (energy_mwh * 3600.0) / elapsed_s  # mWh -> mW via P = E/t
+
+    return {
+        "success": True,
+        "sensor_type": "powercap",
+        "duration_s": elapsed_s,
+        "iterations": iters,
+        "actual_energy_mwh": energy_mwh,
+        "avg_power_mw": avg_power_mw
+    }
+
+
+@app.route("/measure_energy", methods=["POST"])
+def measure_energy_endpoint():
+    data = request.get_json(silent=True) or {}
+    duration_s = float(data.get("duration_s", 10.0))
+    report = measure_energy_during_inference(duration_s=duration_s)
+    if not report.get("success"):
+        return jsonify(report), 400
+
+    # Optionally post to controller
+    try:
+        controller = data.get("controller_url") or CONTROLLER_URL
+        if controller:
+            payload = {
+                "device_type": "jetson_nano",
+                "device_id": os.getenv("BALENA_DEVICE_UUID"),
+                "model_name": STATE.get("model_name"),
+                "actual_energy_mwh": report.get("actual_energy_mwh"),
+                "avg_power_mw": report.get("avg_power_mw"),
+                "duration_s": report.get("duration_s"),
+                "sensor_type": report.get("sensor_type"),
+            }
+            try:
+                requests.post(f"{controller.rstrip('/')}/api/energy/report", json=payload, timeout=10)
+            except Exception as post_err:
+                report["post_warning"] = f"Failed to post to controller: {post_err}"
+    except Exception as e:
+        report["post_warning"] = str(e)
+
+    return jsonify(report)
+
+
+@app.route("/measure_energy_fnb58", methods=["POST"])
+def measure_energy_fnb58():
+    """Measure energy using FNB58 USB tester via serial port.
+    
+    Request body:
+    {
+      "fnb58_port": "/dev/ttyUSB0",  # or "COM3" on Windows
+      "duration_s": 30,
+      "auto_detect": true  # if true, try to find FNB58 automatically
+    }
+    
+    Returns energy measurement and optionally posts to controller.
+    """
+    try:
+        import sys
+        sys.path.insert(0, os.path.dirname(__file__))
+        from fnb58_reader import FNB58Reader, detect_fnb58_port
+    except ImportError as e:
+        return jsonify({
+            "success": False,
+            "error": f"FNB58 reader not available: {e}. Install: pip install pyserial"
+        }), 500
+    
+    data = request.get_json(silent=True) or {}
+    duration_s = float(data.get("duration_s", 30.0))
+    port = data.get("fnb58_port")
+    auto_detect = data.get("auto_detect", True)
+    
+    # Try to detect FNB58 if not specified
+    if not port and auto_detect:
+        log(f"[FNB58] Attempting auto-detection...")
+        port = detect_fnb58_port()
+        if port:
+            log(f"[FNB58] Detected on {port}")
+    
+    if not port:
+        return jsonify({
+            "success": False,
+            "error": "FNB58 port not found. Specify fnb58_port or enable auto_detect"
+        }), 400
+    
+    try:
+        log(f"[FNB58] Measuring for {duration_s}s on {port}...")
+        reader = FNB58Reader(port)
+        
+        if not reader.start():
+            return jsonify({
+                "success": False,
+                "error": f"Failed to connect to {port}: {reader.connection_error}"
+            }), 400
+        
+        # Wait for measurement
+        time.sleep(duration_s)
+        result = reader.stop()
+        
+        if not result.get('success'):
+            return jsonify({
+                "success": False,
+                "error": f"FNB58 measurement failed: {result.get('error')}"
+            }), 400
+        
+        # Build response
+        response = {
+            "success": True,
+            "sensor_type": "fnb58",
+            "port": port,
+            "duration_s": duration_s,
+            "samples_count": result.get('samples_count'),
+            "actual_energy_mwh": result.get('total_energy_mwh'),
+            "avg_power_mw": result.get('avg_power_mw'),
+            "last_values": result.get('last_values')
+        }
+        
+        # Post to controller if available
+        try:
+            controller = data.get("controller_url") or CONTROLLER_URL
+            if controller and response.get('actual_energy_mwh'):
+                payload = {
+                    "device_type": "jetson_nano",
+                    "device_id": os.getenv("BALENA_DEVICE_UUID"),
+                    "model_name": STATE.get("model_name"),
+                    "actual_energy_mwh": response['actual_energy_mwh'],
+                    "avg_power_mw": response.get('avg_power_mw'),
+                    "duration_s": duration_s,
+                    "sensor_type": "fnb58",
+                }
+                try:
+                    requests.post(f"{controller.rstrip('/')}/api/energy/report", json=payload, timeout=10)
+                    response["posted_to_controller"] = True
+                except Exception as post_err:
+                    response["post_warning"] = f"Failed to post to controller: {post_err}"
+        except Exception as e:
+            response["post_warning"] = str(e)
+        
+        return jsonify(response)
+    
+    except Exception as e:
+        log(f"[FNB58] Error: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 @app.route("/telemetry", methods=["POST"])
 def telemetry():
