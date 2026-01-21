@@ -1,5 +1,5 @@
 {
-  "training_date": "2026-01-11T18:12:00.675414",
+  "training_date": "2026-01-22T02:46:22.426932",
   "approach": "device_specific_models",
   "random_seed": 42,
   "jetson_model": {
@@ -25,9 +25,9 @@
     "device_type": "jetson_nano_2gb"
   },
   "rpi5_model": {
-    "model_type": "GradientBoostingRegressor",
-    "model_name": "Gradient Boosting",
-    "n_samples_total": 27,
+    "model_type": "ExtraTreesRegressor",
+    "model_name": "Extra Trees",
+    "n_samples_total": 253,
     "features": [
       "params_m",
       "gflops",
@@ -40,8 +40,8 @@
       "computational_density"
     ],
     "metrics": {
-      "loo_mape": 15.879539517636909,
-      "loo_r2": 0.94634339156407
+      "loo_mape": 13.518789511951637,
+      "loo_r2": 0.9023351743268239
     },
     "device_type": "raspberry_pi_5"
   },
