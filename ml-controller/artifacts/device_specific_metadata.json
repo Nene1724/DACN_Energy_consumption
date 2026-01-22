@@ -1,5 +1,5 @@
 {
-  "training_date": "2026-01-22T03:10:27.173858",
+  "training_date": "2026-01-22T16:06:53.280554",
   "approach": "device_specific_models",
   "random_seed": 42,
   "jetson_model": {
@@ -40,8 +40,8 @@
       "computational_density"
     ],
     "metrics": {
-      "loo_mape": 13.518789511951631,
-      "loo_r2": 0.9023351743268239
+      "loo_mape": 13.077247676335247,
+      "loo_r2": 0.9734772462850978
     },
     "device_type": "raspberry_pi_5"
   },
