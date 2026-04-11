@@ -1,0 +1,16 @@
+[
+  {
+    "timestamp": "2026-04-07T01:12:08.446563+00:00",
+    "device_id": "7c5c93028893443c5105aaa5d739538f",
+    "device_type": "jetson_nano",
+    "model_name": "squeezenet1_1",
+    "actual_energy_mwh": 28.2733,
+    "predicted_mwh": 10.28,
+    "abs_error_mwh": 17.9933,
+    "pct_error": 175.0321,
+    "avg_power_mw": 3392.801,
+    "duration_s": 30.0,
+    "sensor_type": "fnb58",
+    "source": "edge_agent"
+  }
+]

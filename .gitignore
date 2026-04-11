@@ -1,50 +1,51 @@
-# Python
+
+# --- Python ---
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
 
-# Virtual Environment
+# Virtual environments
+.venv/
 venv/
-env/
 ENV/
-.venv
 
-# IDEs
-.vscode/
-.idea/
+# Packaging/build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Test / typecheck / lint caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+coverage.xml
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs / runtime artifacts
+*.log
+*.pid
+*.tmp
 *.swp
-*.swo
-*~
 
-# OS
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# OS/editor
 .DS_Store
 Thumbs.db
+*.code-workspace
+.vscode/
 
-# Logs
-*.log
+# Docker (local overrides)
+docker-compose.override.yml
 
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# Model files (optional - uncomment if models are too large)
-# *.pth
-# *.onnx
-# *.tflite

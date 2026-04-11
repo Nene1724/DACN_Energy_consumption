@@ -1,11 +1,11 @@
 import pandas as pd
 import os
 import re
-from typing import Optional
+from typing import Optional, Iterable, List
 
 
 class ModelAnalyzer:
-    def __init__(self, csv_path, predictor_service: Optional[object] = None, model_store_dir: str = None, rpi5_csv_path: str = None):
+    def __init__(self, csv_path, predictor_service: Optional[object] = None, model_store_dir: str = None, rpi5_csv_path: str = None, extra_model_dirs: Optional[Iterable[str]] = None):
         """
         Load và phân tích benchmark data
         
@@ -34,25 +34,37 @@ class ModelAnalyzer:
         self.df = self.df.sort_values('energy_avg_mwh')
         self.predictor_service = predictor_service
         self.model_store_dir = model_store_dir or os.path.join(os.path.dirname(os.path.dirname(__file__)), 'model_store')
+        self.extra_model_dirs = [d for d in (extra_model_dirs or []) if d]
+        self.local_model_dirs: List[str] = []
+        seen_dirs = set()
+        for directory in [self.model_store_dir, *self.extra_model_dirs]:
+            normalized = os.path.abspath(directory)
+            if normalized in seen_dirs:
+                continue
+            seen_dirs.add(normalized)
+            self.local_model_dirs.append(directory)
+
+    def _iter_local_model_dirs(self):
+        for directory in self.local_model_dirs:
+            if os.path.isdir(directory):
+                yield directory
     
     def _normalize_key(self, value: str) -> str:
         """Normalize model name for comparison"""
         return "".join(ch.lower() for ch in value if ch.isalnum())
     
     def _check_model_downloaded(self, model_name: str) -> bool:
-        """Check if model artifact exists in model_store"""
-        if not os.path.isdir(self.model_store_dir):
-            return False
-        
+        """Check if model artifact exists in any local model directory"""
         normalized = self._normalize_key(model_name)
         if not normalized:
             return False
         
         # Check for exact match (case-insensitive, alphanumeric only)
-        for filename in os.listdir(self.model_store_dir):
-            base, _ = os.path.splitext(filename)
-            if self._normalize_key(base) == normalized:
-                return True
+        for directory in self._iter_local_model_dirs():
+            for filename in os.listdir(directory):
+                base, _ = os.path.splitext(filename)
+                if self._normalize_key(base) == normalized:
+                    return True
         
         return False
     
@@ -78,9 +90,10 @@ class ModelAnalyzer:
                 'downloaded': self._check_model_downloaded(model_name)
             })
         
-        # 2. Scan model_store and add models not in CSV
-        if os.path.isdir(self.model_store_dir):
-            for filename in os.listdir(self.model_store_dir):
+        # 2. Scan local model directories and add models not in CSV
+        for directory in self._iter_local_model_dirs():
+            source_name = 'model_store' if os.path.abspath(directory) == os.path.abspath(self.model_store_dir) else os.path.basename(directory) or 'local'
+            for filename in os.listdir(directory):
                 if not filename.endswith(('.onnx', '.tflite', '.pth', '.pt', '.bin')):
                     continue
                 
@@ -92,7 +105,7 @@ class ModelAnalyzer:
                     continue
                 
                 # Get file size
-                file_path = os.path.join(self.model_store_dir, filename)
+                file_path = os.path.join(directory, filename)
                 file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
                 
                 # Add model with minimal metadata
@@ -106,8 +119,8 @@ class ModelAnalyzer:
                     'input_resolution': '',
                     'device': 'unknown',
                     'downloaded': True,
-                    'is_library': True,  # Mark as from model_store
-                    'source': 'model_store'
+                    'is_library': True,  # Mark as from local artifact directory
+                    'source': source_name
                 })
         
         return models
@@ -181,6 +194,28 @@ class ModelAnalyzer:
         """Lấy thông tin chi tiết của 1 model"""
         row = self.df[self.df['model'] == model_name]
         if row.empty:
+            normalized = self._normalize_key(model_name)
+            for directory in self._iter_local_model_dirs():
+                for filename in os.listdir(directory):
+                    base_name, _ = os.path.splitext(filename)
+                    if self._normalize_key(base_name) != normalized:
+                        continue
+                    file_path = os.path.join(directory, filename)
+                    return {
+                        'name': base_name,
+                        'params_m': 0,
+                        'gflops': 0,
+                        'gmacs': 0,
+                        'size_mb': round(os.path.getsize(file_path) / (1024 * 1024), 2),
+                        'energy_avg_mwh': 0,
+                        'energy_std_mwh': 0,
+                        'latency_avg_s': 0,
+                        'latency_std_s': 0,
+                        'throughput_iter_per_s': 0,
+                        'input_resolution': '',
+                        'input_size': '',
+                        'source': 'local_artifact'
+                    }
             return None
         
         row = row.iloc[0]

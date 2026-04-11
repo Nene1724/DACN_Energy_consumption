@@ -8,12 +8,11 @@
                 <div class="panel-header">
                     <div>
                         <h3>Balena Cloud</h3>
-                        <p class="muted">Select device and deploy models</p>
+                        <p class="muted">Select target devices for deploy and monitoring</p>
                     </div>
                     <button class="btn ghost" id="balena_refresh_btn" type="button">Refresh</button>
                 </div>
-                
-                <!-- Fleet and device filters -->
+
                 <div class="form-grid" style="margin-bottom: 14px;">
                     <div class="form-control">
                         <label for="balena_app_filter">Fleet</label>
@@ -26,15 +25,14 @@
                         Show online only
                     </label>
                 </div>
-                
-                <!-- Device selector -->
+
                 <div class="form-grid">
                     <div class="form-control">
                         <label for="deploy_device_list">Devices</label>
                         <div id="deploy_device_list" class="device-list">
                             <div style="text-align: center; padding: 30px 20px; color: var(--muted); font-size: 13px;">
-                                <div style="font-size: 32px; margin-bottom: 8px; opacity: 0.5;">📡</div>
-                                Click "Refresh" button above to load devices
+                                <div style="font-size: 32px; margin-bottom: 8px; opacity: 0.5;">Device</div>
+                                Click "Refresh" to load Jetson/RPi devices
                             </div>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding: 8px 12px; background: rgba(59, 130, 246, 0.05); border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.15);">
@@ -44,72 +42,73 @@
                             <strong id="selected_devices_count" style="font-size: 16px; color: var(--accent); font-weight: 700;">0</strong>
                         </div>
                     </div>
-                    
-                    <!-- Device specifications -->
+
                     <div id="device_specs" class="selection-preview" style="margin-top: 8px; display: none;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                             <strong id="device_specs_name">Device Name</strong>
                             <span class="badge ok" id="device_specs_status">ONLINE</span>
                         </div>
                         <div style="color: var(--muted); font-size: 13px; display: flex; flex-direction: column; gap: 4px;">
-                            <div><strong>Type:</strong> <span id="device_specs_type">—</span></div>
-                            <div><strong>OS:</strong> <span id="device_specs_os">—</span></div>
-                            <div><strong>Specs:</strong> <span id="device_specs_hardware">—</span></div>
-                            <div><strong>UUID:</strong> <span id="device_specs_uuid" style="font-family: monospace; font-size: 11px;">—</span></div>
+                            <div><strong>Type:</strong> <span id="device_specs_type">-</span></div>
+                            <div><strong>OS:</strong> <span id="device_specs_os">-</span></div>
+                            <div><strong>Specs:</strong> <span id="device_specs_hardware">-</span></div>
+                            <div><strong>UUID:</strong> <span id="device_specs_uuid" style="font-family: monospace; font-size: 11px;">-</span></div>
                         </div>
                     </div>
-                    
-                    <!-- Load models button -->
-                    <div style="display:flex; gap:10px; margin-top: 14px;">
-                        <button class="btn primary full" onclick="loadAllModels()" style="font-weight: 600; padding: 14px;">
-                            Load Models
-                        </button>
-                    </div>
                 </div>
-                
-                <!-- Device Model Status -->
+
                 <div class="panel" id="device_model_status_panel" style="margin-top: 16px;">
                     <div class="panel-header">
                         <div>
                             <h3>Device Model Status</h3>
-                            <p class="muted" style="font-size: 12px; margin-top: 4px;">Real-time status of online devices</p>
+                            <p class="muted" style="font-size: 12px; margin-top: 4px;">Real-time agent state from deployed edge devices</p>
                         </div>
                         <button class="btn ghost" onclick="refreshDeviceModelStatus()" style="font-size: 12px; padding: 6px 12px;">Refresh</button>
                     </div>
-                    <div id="device_model_status_list" style="display: flex; flex-direction: column; gap: 12px;">
-                        <!-- Will be populated dynamically -->
-                    </div>
+                    <div id="device_model_status_list" style="display: flex; flex-direction: column; gap: 12px;"></div>
                 </div>
-                
+
                 <div class="status-block" id="rerun_container" style="margin-top:8px; display:none;">
                     <button class="btn primary full" id="rerun_btn" type="button">Re-run last deployment</button>
-                    <p class="muted" id="rerun_caption" style="font-size:12px; margin-top:6px;">—</p>
+                    <p class="muted" id="rerun_caption" style="font-size:12px; margin-top:6px;">-</p>
                 </div>
             </div>
+        </div>
 
+        <div class="col-right">
             <div class="panel">
                 <div class="panel-header">
-                    <h3>Energy Prediction</h3>
+                    <div>
+                        <h3>Energy Prediction</h3>
+                        <p class="muted" style="font-size:13px; margin-top:4px;">
+                            Upload an ONNX/TFLite model outside the benchmark dataset, extract its features, predict energy, then deploy it directly.
+                        </p>
+                    </div>
                 </div>
-                <p class="muted" style="font-size:13px; margin-bottom:10px;">Predict energy consumption for popular models before deployment</p>
-                
-                <!-- Device type selector -->
+
                 <div class="form-control" style="margin-bottom: 12px;">
                     <label for="pred_device_type">Target Device</label>
                     <select id="pred_device_type" class="filter-select" style="width: 100%;">
-                        <option value="jetson_nano">Jetson Nano (MAPE: Loading...)</option>
-                        <option value="raspberry_pi5">Raspberry Pi 5 (MAPE: Loading...)</option>
+                        <option value="jetson_nano">Jetson Nano</option>
+                        <option value="raspberry_pi5">Raspberry Pi 5</option>
                     </select>
                 </div>
-                
-                <!-- Popular models selector -->
-                <div class="form-control" style="margin-bottom: 12px;">
-                    <label for="popular_model_selector">Select popular model</label>
-                    <select id="popular_model_selector" class="filter-select" style="width: 100%;" onchange="fillPopularModelFields()">
-                        <option value="">Loading popular models...</option>
-                    </select>
+
+                <div style="margin-bottom:12px;">
+                    <div id="model_upload_zone"
+                         style="border:2px dashed var(--border); border-radius:10px; padding:16px 12px; text-align:center; cursor:pointer; transition:border-color .2s; background:#fafafa;"
+                         onclick="document.getElementById('model_file_input').click()"
+                         ondragover="event.preventDefault(); this.style.borderColor='var(--accent)';"
+                         ondragleave="this.style.borderColor='var(--border)';"
+                         ondrop="handleModelFileDrop(event)">
+                        <div id="upload_zone_label" style="font-size:13px; color:var(--muted);">
+                            Click or drag &amp; drop an <strong>.onnx</strong> / <strong>.tflite</strong> file
+                        </div>
+                        <input type="file" id="model_file_input" accept=".onnx,.tflite" style="display:none;" onchange="analyzeModelFile(this.files[0])">
+                    </div>
+                    <div id="upload_status" style="display:none; margin-top:8px; font-size:12px;"></div>
                 </div>
-                
+
                 <div class="predict-grid">
                     <div class="form-control">
                         <label>Params (M)</label>
@@ -128,46 +127,21 @@
                         <input type="text" id="pred_size_mb" placeholder="0" style="background:#fff;">
                     </div>
                     <div class="form-control">
-                        <label>Latency (s)</label>
+                        <label id="label_latency">Latency (s)</label>
                         <input type="text" id="pred_latency" placeholder="0" style="background:#fff;">
                     </div>
                     <div class="form-control">
-                        <label>Throughput (iter/s)</label>
+                        <label id="label_throughput">Throughput (iter/s)</label>
                         <input type="text" id="pred_throughput" placeholder="0" style="background:#fff;">
                     </div>
                 </div>
-                
-                <!-- Predict button -->
-                <button class="btn primary full" id="predict_energy_btn" style="margin-top: 12px; font-weight: 600; padding: 14px;">
+
+                <button class="btn primary full" id="predict_uploaded_energy_btn" style="margin-top: 12px; font-weight: 600; padding: 14px;">
                     Predict Energy
                 </button>
-                
-                <div class="predict-output" id="predict_output">Fill the fields and click "Predict".</div>
-            </div>
-        </div>
 
-        <div class="col-right">
-            <div class="panel">
-                <div class="panel-header">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <h3>Available Models</h3>
-                        <span id="filter_result_note" style="color: var(--muted); font-size: 13px; font-weight: 500;">
-                            0 models (All models)
-                        </span>
-                    </div>
-                    <div class="panel-actions">
-                        <input type="text" id="search_input" placeholder="Search models..." style="padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:13px; width:200px;">
-                        <select id="filter_select" class="filter-select">
-                            <option value="all">All models</option>
-                            <option value="recommended">Recommended</option>
-                            <option value="under_50">Under 50 mWh</option>
-                            <option value="under_100">Under 100 mWh</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="model-grid" id="model_grid">
-                    <div class="loading-placeholder">Loading models...</div>
+                <div class="predict-output" id="uploaded_predict_output">
+                    Upload a model, confirm the extracted features, then click "Predict Energy".
                 </div>
             </div>
 
@@ -186,320 +160,391 @@
 </div>
 
 <script>
-// Global variable for models data
-window.popularModels = {};
-window.selectedModelName = null;
+window.currentUploadedFile = null;
+window.currentAnalyzedModel = null;
+window.currentPredictionResult = null;
+window.currentUploadedArtifact = null;
 
-// Fetch and update MAPE values dynamically
+function inferPredictionDeviceType() {
+    const checked = document.querySelector('.device-checkbox:checked');
+    if (!checked) return null;
+
+    const deviceName = `${checked.dataset.name || ''} ${checked.dataset.deviceType || ''}`.toLowerCase();
+    if (deviceName.includes('raspberry') || deviceName.includes('rpi')) return 'raspberry_pi5';
+    if (deviceName.includes('jetson')) return 'jetson_nano';
+    return null;
+}
+
+function syncPredictionDeviceTypeFromSelection() {
+    const inferred = inferPredictionDeviceType();
+    const select = document.getElementById('pred_device_type');
+    if (select && inferred) {
+        select.value = inferred;
+    }
+}
+
 async function updateMapeValues() {
     try {
         const response = await fetch('/api/energy/metadata');
         const data = await response.json();
-        
-        if (data.success && data.metadata) {
-            const jetsonMape = data.metadata.jetson_model?.metrics?.test_mape || 21.5;
-            const rpi5Mape = data.metadata.rpi5_model?.metrics?.loo_mape || 14.2;
-            
-            const deviceSelect = document.getElementById('pred_device_type');
-            if (deviceSelect) {
-                deviceSelect.innerHTML = `
-                    <option value="jetson_nano">Jetson Nano (MAPE: ${jetsonMape.toFixed(1)}%)</option>
-                    <option value="raspberry_pi5">Raspberry Pi 5 (MAPE: ${rpi5Mape.toFixed(1)}%)</option>
-                `;
-            }
+        if (!data.success || !data.metadata) return;
+
+        const jetsonMetrics = data.metadata.jetson_model?.metrics || {};
+        const rpiMetrics = data.metadata.rpi5_model?.metrics || {};
+        const jetsonMape = Number(jetsonMetrics.cv_mape_eps ?? jetsonMetrics.cv_smape ?? 20.2);
+        const rpiMape = Number(rpiMetrics.cv_mape_eps ?? rpiMetrics.cv_smape ?? 12.8);
+
+        const select = document.getElementById('pred_device_type');
+        if (select) {
+            select.innerHTML = `
+                <option value="jetson_nano">Jetson Nano (CV MAPE: ${jetsonMape.toFixed(1)}%)</option>
+                <option value="raspberry_pi5">Raspberry Pi 5 (CV MAPE: ${rpiMape.toFixed(1)}%)</option>
+            `;
+            syncPredictionDeviceTypeFromSelection();
         }
     } catch (err) {
-        console.error('Failed to fetch MAPE values:', err);
+        console.error('Failed to fetch energy metadata:', err);
     }
 }
 
-// Load popular models from API
-async function loadPopularModels(deviceType = null) {
-    const modelSelect = document.getElementById('popular_model_selector');
-    if (!modelSelect) return;
-    
+function resetUploadState() {
+    window.currentUploadedArtifact = null;
+    window.currentPredictionResult = null;
+}
+
+function handleModelFileDrop(event) {
+    event.preventDefault();
+    const zone = document.getElementById('model_upload_zone');
+    if (zone) zone.style.borderColor = 'var(--border)';
+    const file = event.dataTransfer?.files?.[0];
+    if (file) analyzeModelFile(file);
+}
+
+async function analyzeModelFile(file) {
+    if (!file) return;
+
+    resetUploadState();
+    window.currentUploadedFile = file;
+
+    const zone = document.getElementById('model_upload_zone');
+    const zoneLabel = document.getElementById('upload_zone_label');
+    const statusDiv = document.getElementById('upload_status');
+    const outputDiv = document.getElementById('uploaded_predict_output');
+    const deviceType = document.getElementById('pred_device_type')?.value || 'jetson_nano';
+
+    zoneLabel.innerHTML = `<span style="color:var(--accent)">Analyzing <strong>${file.name}</strong> ...</span>`;
+    statusDiv.style.display = 'none';
+    outputDiv.textContent = 'Feature extraction in progress...';
+
     try {
-        modelSelect.innerHTML = '<option value="">Loading popular models...</option>';
-        
-        // Build URL with optional device filter
-        let url = '/api/models/popular';
-        if (deviceType) {
-            url += `?device=${deviceType}`;
-        }
-        
-        const response = await fetch(url);
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('device_type', deviceType);
+
+        const response = await fetch('/api/analyze-model-file', {
+            method: 'POST',
+            body: formData
+        });
         const data = await response.json();
-        
-        if (data.success && data.models) {
-            window.popularModels = {};  // Reset global
-            let html = '<option value="">Choose a popular model...</option>';
-            
-            // Group by family
-            const families = {};
-            data.models.forEach(model => {
-                const family = model.family || 'Other';
-                if (!families[family]) {
-                    families[family] = [];
-                }
-                families[family].push(model);
-            });
-            
-            // Add optgroups for each family
-            Object.keys(families).sort().forEach(family => {
-                html += `<optgroup label="${family}">`;
-                families[family].forEach(model => {
-                    window.popularModels[model.name] = model;
-                    html += `<option value="${model.name}">${model.display_name} (${model.params_m}M params)</option>`;
-                });
-                html += '</optgroup>';
-            });
-            
-            modelSelect.innerHTML = html;
-            console.log('Loaded', data.models.length, 'popular models');
+        if (!data.success) {
+            zoneLabel.innerHTML = `<span style="color:var(--danger)">Upload failed: ${data.error}</span>`;
+            outputDiv.innerHTML = `<div style="color: var(--danger);">${data.error}</div>`;
+            return;
         }
+
+        const f = data.features || {};
+        window.currentAnalyzedModel = {
+            filename: data.filename || file.name,
+            model_name: (file.name || 'custom_model').replace(/\.[^.]+$/, ''),
+            ...f
+        };
+
+        if (f.params_m != null) document.getElementById('pred_params_m').value = f.params_m;
+        if (f.gflops != null) document.getElementById('pred_gflops').value = f.gflops;
+        if (f.gmacs != null) document.getElementById('pred_gmacs').value = f.gmacs;
+        if (f.size_mb != null) document.getElementById('pred_size_mb').value = f.size_mb;
+        if (f.latency_avg_s != null) document.getElementById('pred_latency').value = f.latency_avg_s;
+        if (f.throughput_iter_per_s != null) document.getElementById('pred_throughput').value = f.throughput_iter_per_s;
+
+        document.getElementById('label_latency').textContent = 'Latency (s) *est.';
+        document.getElementById('label_throughput').textContent = 'Throughput (iter/s) *est.';
+
+        const inputShape = Array.isArray(f.input_shape) ? f.input_shape.join('x') : 'unknown';
+        zoneLabel.innerHTML = `<span style="color:var(--success)"><strong>${file.name}</strong> ready: ${f.params_m ?? '?'}M params, ${f.gflops ?? '?'} GFLOPs, ${f.size_mb ?? '?'} MB <span style="color:var(--muted)">(input ${inputShape})</span></span>`;
+        zone.style.borderColor = 'var(--success)';
+
+        if (Array.isArray(f.warnings) && f.warnings.length) {
+            statusDiv.innerHTML = f.warnings.map(item => `<div style="color:var(--warning); padding:4px 0;">${item}</div>`).join('');
+            statusDiv.style.display = 'block';
+        }
+
+        outputDiv.innerHTML = `
+            <div style="color: var(--muted); font-size: 13px;">
+                Features extracted from <strong>${file.name}</strong>. Review the values and click <strong>Predict Energy</strong>.
+            </div>
+        `;
     } catch (err) {
-        console.error('Failed to load popular models:', err);
-        modelSelect.innerHTML = '<option value="">Error loading models</option>';
+        console.error('Analyze model error:', err);
+        zoneLabel.innerHTML = `<span style="color:var(--danger)">Upload failed: ${err.message}</span>`;
+        outputDiv.innerHTML = `<div style="color: var(--danger);">${err.message}</div>`;
     }
 }
 
-// Fill model fields when popular model is selected
-function fillPopularModelFields() {
-    const select = document.getElementById('popular_model_selector');
-    const modelName = select.value;
-    
-    if (!modelName || !window.popularModels || !window.popularModels[modelName]) {
-        return;
-    }
-    
-    const m = window.popularModels[modelName];
-    window.selectedModelName = modelName;
-    
-    document.getElementById('pred_params_m').value = m.params_m;
-    document.getElementById('pred_gflops').value = m.gflops;
-    document.getElementById('pred_gmacs').value = m.gmacs;
-    document.getElementById('pred_size_mb').value = m.size_mb;
-    document.getElementById('pred_latency').value = m.latency_avg_s;
-    document.getElementById('pred_throughput').value = m.throughput_iter_per_s;
+function collectPredictionPayload() {
+    const deviceType = document.getElementById('pred_device_type')?.value || 'jetson_nano';
+    return {
+        device_type: deviceType,
+        model_name: window.currentAnalyzedModel?.model_name || window.currentUploadedFile?.name?.replace(/\.[^.]+$/, '') || 'custom_model',
+        params_m: parseFloat(document.getElementById('pred_params_m').value),
+        gflops: parseFloat(document.getElementById('pred_gflops').value),
+        gmacs: parseFloat(document.getElementById('pred_gmacs').value),
+        size_mb: parseFloat(document.getElementById('pred_size_mb').value),
+        latency_avg_s: parseFloat(document.getElementById('pred_latency').value),
+        throughput_iter_per_s: parseFloat(document.getElementById('pred_throughput').value),
+    };
 }
 
-// Predict energy function (updated to use new API for popular models)
-async function predictEnergy() {
-    const outputDiv = document.getElementById('predict_output');
-    const btn = document.getElementById('predict_energy_btn');
-    
-    // Get input values
-    const deviceType = document.getElementById('pred_device_type').value;
-    const paramsM = parseFloat(document.getElementById('pred_params_m').value);
-    const gflops = parseFloat(document.getElementById('pred_gflops').value);
-    const gmacs = parseFloat(document.getElementById('pred_gmacs').value);
-    const sizeMb = parseFloat(document.getElementById('pred_size_mb').value);
-    const latency = parseFloat(document.getElementById('pred_latency').value);
-    const throughput = parseFloat(document.getElementById('pred_throughput').value);
-    
-    // Validation
-    if (isNaN(paramsM) || isNaN(gflops) || isNaN(gmacs) || isNaN(sizeMb) || isNaN(latency) || isNaN(throughput)) {
-        outputDiv.innerHTML = '<div style="color: var(--danger); font-weight: 500;">⚠️ Please fill all fields with valid numbers.</div>';
-        return;
+function renderPredictionResult(prediction, payload) {
+    const outputDiv = document.getElementById('uploaded_predict_output');
+    const categoryInfo = {
+        excellent: { color: '#10b981', label: 'Excellent' },
+        good: { color: '#f59e0b', label: 'Good' },
+        acceptable: { color: '#f97316', label: 'Acceptable' },
+        high: { color: '#ef4444', label: 'High Energy' }
+    };
+    const cat = categoryInfo[prediction.energy_category] || { color: '#6b7280', label: 'Unknown' };
+    const canDeploy = Boolean(window.currentUploadedFile);
+
+    outputDiv.innerHTML = `
+        <div style="background: linear-gradient(135deg, ${cat.color}15, ${cat.color}05); border: 2px solid ${cat.color}; border-radius: 12px; padding: 18px; margin-top: 12px;">
+            <div style="display:flex; justify-content:space-between; gap:16px; align-items:flex-start;">
+                <div>
+                    <div style="font-size: 28px; font-weight: 700; color: ${cat.color}; line-height: 1.2;">
+                        ${Number(prediction.predicted_energy_mwh || 0).toFixed(2)} mWh
+                    </div>
+                    <div style="font-size: 13px; color: var(--muted); margin-top: 4px;">
+                        ${cat.label}${typeof prediction.prediction_mape_pct === 'number' ? ` • CV MAPE ${prediction.prediction_mape_pct.toFixed(1)}%` : ''}
+                    </div>
+                </div>
+                <span class="badge" style="background:${cat.color}; color:white;">${prediction.recommendation || 'review'}</span>
+            </div>
+
+            <div style="display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; font-size: 12px; margin-top: 14px;">
+                <div style="background: rgba(255,255,255,0.65); padding: 10px; border-radius: 8px;">
+                    <div style="color: var(--muted); margin-bottom: 2px;">Model</div>
+                    <div style="font-weight: 600;">${prediction.model_name || payload.model_name}</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.65); padding: 10px; border-radius: 8px;">
+                    <div style="color: var(--muted); margin-bottom: 2px;">Device</div>
+                    <div style="font-weight: 600;">${payload.device_type === 'jetson_nano' ? 'Jetson Nano' : 'Raspberry Pi 5'}</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.65); padding: 10px; border-radius: 8px;">
+                    <div style="color: var(--muted); margin-bottom: 2px;">Latency</div>
+                    <div style="font-weight: 600;">${(payload.latency_avg_s * 1000).toFixed(1)} ms</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.65); padding: 10px; border-radius: 8px;">
+                    <div style="color: var(--muted); margin-bottom: 2px;">Throughput</div>
+                    <div style="font-weight: 600;">${payload.throughput_iter_per_s.toFixed(2)} iter/s</div>
+                </div>
+            </div>
+
+            <div style="padding: 12px; margin-top: 12px; background: rgba(255,255,255,0.8); border-left: 3px solid ${cat.color}; border-radius: 6px; font-size: 13px;">
+                <div style="font-weight: 700; margin-bottom: 4px;">Recommendation</div>
+                <div style="color: var(--muted);">${prediction.reason || 'Prediction completed.'}</div>
+            </div>
+
+            ${canDeploy ? `
+                <div style="display:flex; justify-content:flex-end; margin-top: 14px;">
+                    <button class="btn primary" type="button" onclick="deployCurrentPrediction()">Upload And Deploy</button>
+                </div>
+            ` : `
+                <div style="margin-top: 14px; color: var(--muted); font-size: 12px;">
+                    To deploy this prediction result, keep the uploaded model file selected.
+                </div>
+            `}
+        </div>
+    `;
+}
+
+async function predictUploadedModelEnergy() {
+    syncPredictionDeviceTypeFromSelection();
+
+    const btn = document.getElementById('predict_uploaded_energy_btn');
+    const outputDiv = document.getElementById('uploaded_predict_output');
+    const payload = collectPredictionPayload();
+
+    const numericFields = ['params_m', 'gflops', 'gmacs', 'size_mb', 'latency_avg_s', 'throughput_iter_per_s'];
+    for (const key of numericFields) {
+        if (!Number.isFinite(payload[key])) {
+            outputDiv.innerHTML = `<div style="color: var(--danger); font-weight: 500;">Please fill all feature fields with valid numeric values.</div>`;
+            return;
+        }
     }
-    
+
     try {
-        // Show loading state
         btn.disabled = true;
         btn.textContent = 'Predicting...';
-        outputDiv.innerHTML = '<div style="color: var(--muted);">⏳ Computing energy prediction...</div>';
-        
-        // Prepare payload
-        const payload = {
-            device_type: deviceType,
-            model_name: window.selectedModelName || 'custom_model',
-            params_m: paramsM,
-            gflops: gflops,
-            gmacs: gmacs,
-            size_mb: sizeMb,
-            latency_avg_s: latency,
-            throughput_iter_per_s: throughput
-        };
-        
-        // Use new API for popular models or old API for available models
-        let apiUrl = '/api/predict-energy';
-        let isPopularModel = window.currentPredictionTab === 'popular';
-        
-        if (isPopularModel) {
-            apiUrl = '/api/predict-energy-for-model';
-        }
-        
-        // Call API
-        const response = await fetch(apiUrl, {
+        outputDiv.innerHTML = '<div style="color: var(--muted);">Computing energy prediction...</div>';
+
+        const response = await fetch('/api/predict-energy-for-model', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        
         const data = await response.json();
-        
-        if (data.success && data.prediction) {
-            // API response format
-            const prediction = data.prediction;
-            const energy = prediction.predicted_energy_mwh || 0;
-            const category = prediction.energy_category;
-            const recommendation = prediction.recommendation;
-            const reason = prediction.reason;
-            const modelDownloaded = prediction.model_downloaded;
-            const mape = prediction.prediction_mape_pct;
-            
-            // Category icons and colors
-            const categoryInfo = {
-                'excellent': { icon: '🟢', label: 'Excellent', color: '#10b981', deployable: true },
-                'good': { icon: '🟡', label: 'Good', color: '#f59e0b', deployable: true },
-                'acceptable': { icon: '🟠', label: 'Acceptable', color: '#f97316', deployable: true },
-                'high': { icon: '🔴', label: 'High Energy', color: '#ef4444', deployable: false }
-            };
-            
-            const catInfo = categoryInfo[category] || { icon: '⚪', label: 'Unknown', color: '#6b7280', deployable: false };
-            
-            // Build recommendation text
-            let recText = '';
-            if (reason) {
-                recText = reason;
-            } else if (recommendation === 'deploy') {
-                recText = 'This model is suitable for deployment on the selected device.';
-            } else if (recommendation === 'deploy_with_caution') {
-                recText = 'This model can be deployed but consider optimization to reduce energy consumption.';
-            } else if (recommendation === 'not_recommend') {
-                recText = 'This model has high energy consumption. Not recommended for deployment.';
-            } else {
-                recText = catInfo.deployable ? 'Model can be deployed.' : 'Consider a more efficient model.';
-            }
-            
-            outputDiv.innerHTML = `
-                <div style="background: linear-gradient(135deg, ${catInfo.color}15, ${catInfo.color}05); border: 2px solid ${catInfo.color}; border-radius: 12px; padding: 20px; margin-top: 12px;">
-                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-                        <span style="font-size: 48px;">${catInfo.icon}</span>
-                        <div style="flex: 1;">
-                            <div style="font-size: 28px; font-weight: 700; color: ${catInfo.color}; line-height: 1.2;">
-                                ${energy.toFixed(2)} mWh
-                            </div>
-                            <div style="font-size: 13px; color: var(--muted); margin-top: 4px;">
-                                ${catInfo.label} ${mape !== undefined && typeof mape === 'number' ? `• Model MAPE: ${mape.toFixed(1)}%` : ''}
-                            </div>
-                        </div>
-                        ${modelDownloaded === true ? '<span style="background: var(--success); color: white; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700;">✓ DOWNLOADED</span>' : ''}
-                        ${modelDownloaded === false ? '<span style="background: var(--warning); color: white; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700;">⚠ NOT DOWNLOADED</span>' : ''}
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 12px; margin-bottom: 12px;">
-                        <div style="background: rgba(255,255,255,0.6); padding: 8px; border-radius: 6px;">
-                            <div style="color: var(--muted); margin-bottom: 2px;">Device</div>
-                            <div style="font-weight: 600;">${deviceType === 'jetson_nano' ? 'Jetson Nano' : 'Raspberry Pi 5'}</div>
-                        </div>
-                        <div style="background: rgba(255,255,255,0.6); padding: 8px; border-radius: 6px;">
-                            <div style="color: var(--muted); margin-bottom: 2px;">Parameters</div>
-                            <div style="font-weight: 600;">${paramsM.toFixed(2)}M</div>
-                        </div>
-                        <div style="background: rgba(255,255,255,0.6); padding: 8px; border-radius: 6px;">
-                            <div style="color: var(--muted); margin-bottom: 2px;">GFLOPs</div>
-                            <div style="font-weight: 600;">${gflops.toFixed(2)}</div>
-                        </div>
-                        <div style="background: rgba(255,255,255,0.6); padding: 8px; border-radius: 6px;">
-                            <div style="color: var(--muted); margin-bottom: 2px;">Latency</div>
-                            <div style="font-weight: 600;">${(latency * 1000).toFixed(1)}ms</div>
-                        </div>
-                    </div>
-                    
-                    <div style="padding: 12px; background: rgba(255,255,255,0.8); border-left: 3px solid ${catInfo.color}; border-radius: 6px; font-size: 13px;">
-                        <div style="font-weight: 700; margin-bottom: 4px; color: var(--text);">💡 Recommendation:</div>
-                        <div style="color: var(--muted);">${recText}</div>
-                    </div>
-                    
-                    ${window.selectedModelName ? `
-                        <div style="margin-top: 12px; text-align: right;">
-                            <button onclick="deployPopularModel('${window.selectedModelName}')" style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px;">
-                                🚀 Deploy ${window.selectedModelName}
-                            </button>
-                        </div>
-                    ` : ''}
-                </div>
-            `;
-        } else {
-            outputDiv.innerHTML = `<div style="color: var(--danger); font-weight: 500;">❌ ${data.error || 'Prediction failed'}</div>`;
+        if (!data.success || !data.prediction) {
+            throw new Error(data.error || 'Prediction failed');
         }
+
+        window.currentPredictionResult = data.prediction;
+        renderPredictionResult(data.prediction, payload);
     } catch (err) {
         console.error('Prediction error:', err);
-        outputDiv.innerHTML = `<div style="color: var(--danger); font-weight: 500;">❌ Network error: ${err.message}</div>`;
+        outputDiv.innerHTML = `<div style="color: var(--danger); font-weight: 500;">${err.message}</div>`;
     } finally {
         btn.disabled = false;
         btn.textContent = 'Predict Energy';
     }
 }
 
-// Deploy popular model
-async function deployPopularModel(modelName) {
-    // Get selected device
-    const selectedDevices = Array.from(document.querySelectorAll('.device-checkbox:checked'));
-    
-    if (selectedDevices.length === 0) {
-        showAlert('Please select a device first', 'error');
+async function ensureUploadedArtifact() {
+    if (window.currentUploadedArtifact) return window.currentUploadedArtifact;
+    if (!window.currentUploadedFile) {
+        throw new Error('No model file selected for deploy');
+    }
+
+    const formData = new FormData();
+    formData.append('file', window.currentUploadedFile);
+    formData.append('model_name', window.currentAnalyzedModel?.model_name || window.currentUploadedFile.name);
+
+    const response = await fetch('/api/models/upload', {
+        method: 'POST',
+        body: formData
+    });
+    const data = await response.json();
+    if (!data.success) {
+        throw new Error(data.error || 'Failed to upload custom model');
+    }
+
+    window.currentUploadedArtifact = data;
+    return data;
+}
+
+function buildDeployModelInfo(uploadResult) {
+    const prediction = window.currentPredictionResult || {};
+    const analyzed = window.currentAnalyzedModel || {};
+    const payload = collectPredictionPayload();
+
+    return {
+        model_name: uploadResult.model_name,
+        artifact_file: uploadResult.artifact_file,
+        artifact_format: uploadResult.format,
+        input_size: analyzed.input_shape || analyzed.input_size || '3x224x224',
+        params_m: payload.params_m,
+        gflops: payload.gflops,
+        gmacs: payload.gmacs,
+        size_mb: payload.size_mb,
+        latency_avg_s: payload.latency_avg_s,
+        throughput_iter_per_s: payload.throughput_iter_per_s,
+        predicted_energy_mwh: prediction.predicted_energy_mwh,
+        energy_avg_mwh: prediction.predicted_energy_mwh,
+        prediction_mape_pct: prediction.prediction_mape_pct,
+        prediction_reason: prediction.reason,
+        energy_category: prediction.energy_category,
+        source_type: 'uploaded_custom_model'
+    };
+}
+
+async function deployCurrentPrediction() {
+    const selectedDevices = typeof getSelectedDevices === 'function' ? getSelectedDevices() : [];
+    if (!selectedDevices.length) {
+        showAlert('error', 'Please select at least one device before deployment.');
         return;
     }
-    
-    const deviceCheckbox = selectedDevices[0];
-    const deviceIp = deviceCheckbox.dataset.endpoint;
-    
-    if (!deviceIp) {
-        showAlert('Device IP not available', 'error');
+    if (!window.currentPredictionResult) {
+        showAlert('error', 'Please run energy prediction before deployment.');
         return;
     }
-    
-    // Get energy budget (default 100 mWh)
-    const energyBudget = 150;  // Higher budget for popular models
-    
-    // Call existing deploy function
+
     try {
-        const response = await fetch('/api/deploy', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model_name: modelName,
-                bbb_ip: deviceIp,
-                max_energy: energyBudget,
-                force: true  // Allow deployment even if energy exceeds budget
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showAlert(`Successfully deployed ${modelName} to device`, 'success');
-            loadDeploymentLogs();
-        } else {
-            showAlert(`Deployment failed: ${data.error}`, 'error');
+        const uploadResult = await ensureUploadedArtifact();
+        const modelInfo = buildDeployModelInfo(uploadResult);
+
+        let successCount = 0;
+        const failures = [];
+        let firstSuccessfulDevice = null;
+
+        for (const device of selectedDevices) {
+            const response = await fetch('/api/balena/deploy', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model_name: uploadResult.model_name,
+                    artifact_file: uploadResult.artifact_file,
+                    model_info: modelInfo,
+                    energy_budget_mwh: modelInfo.predicted_energy_mwh,
+                    device_uuid: device.uuid,
+                    device_endpoint: device.endpoint,
+                    fleet: device.fleet_slug || device.slug
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                successCount += 1;
+                if (!firstSuccessfulDevice) {
+                    firstSuccessfulDevice = device;
+                }
+            } else {
+                failures.push(`${device.device_name || device.uuid}: ${result.error}`);
+            }
+        }
+
+        if (successCount) {
+            showAlert('success', `Deployed ${uploadResult.model_name} to ${successCount} device(s).`);
+            if (typeof updateCurrentModel === 'function') {
+                updateCurrentModel(uploadResult.model_name);
+            }
+            if (typeof loadDeploymentLogs === 'function') {
+                loadDeploymentLogs();
+            }
+            if (typeof refreshDeviceModelStatus === 'function') {
+                refreshDeviceModelStatus();
+            }
+            if (firstSuccessfulDevice && typeof selectMonitoringDevice === 'function') {
+                selectMonitoringDevice(firstSuccessfulDevice, { refresh: true });
+            }
+        }
+        if (failures.length) {
+            showAlert('warning', failures.join(' | '));
         }
     } catch (err) {
-        console.error('Deployment error:', err);
-        showAlert(`Deployment failed: ${err.message}`, 'error');
+        console.error('Custom deploy failed:', err);
+        showAlert('error', `Custom deploy failed: ${err.message}`);
     }
 }
 
-// Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     updateMapeValues();
-    loadPopularModels();  // Load popular models
-    
-    // Attach event listeners
-    const deviceSelect = document.getElementById('pred_device_type');
-    const predictBtn = document.getElementById('predict_energy_btn');
-    
-    if (deviceSelect) {
-        deviceSelect.addEventListener('change', onDeviceTypeChange);
-    }
-    
+
+    const predictBtn = document.getElementById('predict_uploaded_energy_btn');
     if (predictBtn) {
-        predictBtn.addEventListener('click', predictEnergy);
+        predictBtn.addEventListener('click', predictUploadedModelEnergy);
     }
+
+    const deviceSelect = document.getElementById('pred_device_type');
+    if (deviceSelect) {
+        deviceSelect.addEventListener('change', () => {
+            resetUploadState();
+            document.getElementById('label_latency').textContent = 'Latency (s)';
+            document.getElementById('label_throughput').textContent = 'Throughput (iter/s)';
+        });
+    }
+
+    document.addEventListener('change', (event) => {
+        if (event.target && event.target.classList && event.target.classList.contains('device-checkbox')) {
+            syncPredictionDeviceTypeFromSelection();
+        }
+    });
 });
 </script>

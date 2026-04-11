@@ -353,7 +353,6 @@
         <div class="view-tabs" id="view_tabs">
             <button class="view-tab" data-view="deployment">Deployment</button>
             <button class="view-tab" data-view="monitoring">Monitoring</button>
-            <button class="view-tab" data-view="analytics">Model Analytics</button>
         </div>
 
         <!-- Hidden fields to store current device endpoint/IP and UUID for polling -->
@@ -362,7 +361,6 @@
 
         {% include 'deployment.html' %}
         {% include 'monitoring.html' %}
-        {% include 'analytics.html' %}
 
     </div> <!-- end shell -->
     <script>
@@ -413,13 +411,11 @@
             
             const deploymentView = document.getElementById('deployment_view');
             const monitoringView = document.getElementById('monitoring_view');
-            const analyticsView = document.getElementById('analytics_view');
             const viewTabs = document.getElementById('view_tabs');
 
             console.log('Found elements:', {
                 deploymentView: !!deploymentView,
                 monitoringView: !!monitoringView,
-                analyticsView: !!analyticsView,
                 viewTabs: !!viewTabs
             });
 
@@ -431,7 +427,6 @@
             }
             if (deploymentView) deploymentView.classList.toggle('hidden', view !== 'deployment');
             if (monitoringView) monitoringView.classList.toggle('hidden', view !== 'monitoring');
-            if (analyticsView) analyticsView.classList.toggle('hidden', view !== 'analytics');
 
             if (view === 'deployment') {
                 console.log('Deployment view activated');
@@ -450,11 +445,7 @@
             } else {
                 stopMetricsPolling();
             }
-            
-            if (view === 'analytics') {
-                loadModelAnalytics();
-            }
-            
+
             console.log('View switched to:', view);
         }
 
@@ -465,8 +456,6 @@
                 initial = 'monitoring';
             } else if (path.includes('/deployment')) {
                 initial = 'deployment';
-            } else if (path.includes('/analytics')) {
-                initial = 'analytics';
             }
             setActiveView(initial);
             
@@ -571,9 +560,7 @@
                     const selectedUuid = selectedOption?.dataset?.uuid || '';
                     
                     if (selectedIp) {
-                        document.getElementById('bbb_ip').value = selectedIp;
-                        document.getElementById('device_uuid').value = selectedUuid;
-                        refreshDeviceMetrics({ silent: false });
+                        selectMonitoringDevice({ endpoint: selectedIp, uuid: selectedUuid }, { refresh: true });
                     }
                 });
             }
@@ -603,6 +590,7 @@
             renderSelectionPreview();
             updateFilterCount(0);
             renderEnergyMetrics(null);
+            renderEnergyComparison(null, null);
             
             // Load Balena data once on page load (parallel)
             Promise.all([loadBalenaFleets(), loadBalenaDevices()]).then(() => {
@@ -611,12 +599,7 @@
         });
 
         async function loadInitialData() {
-            showLoading();
-            try {
-                await Promise.all([loadRecommendations(), loadAllModels()]);
-            } catch (err) {
-                console.error(err);
-            }
+            return Promise.resolve();
         }
 
         async function loadRecommendations() {
@@ -1361,7 +1344,8 @@
                         monitorSelector.appendChild(opt);
                     }
                 });
-                if (currentValue) monitorSelector.value = currentValue;
+                const preferredValue = currentValue || document.getElementById('bbb_ip')?.value || '';
+                if (preferredValue) monitorSelector.value = preferredValue;
                 console.log('Populated monitor_device_selector with', devices.length, 'devices');
             }
         }
@@ -1434,7 +1418,10 @@
             } else {
                 modelStatus.querySelector('.status-value').textContent = 'No model';
             }
-            renderEnergyMetrics(status ? status.energy_metrics : null);
+            const energyMetrics = status ? status.energy_metrics : null;
+            const modelInfo = status ? status.model_info : null;
+            renderEnergyMetrics(energyMetrics, modelInfo);
+            renderEnergyComparison(modelInfo, energyMetrics, status ? status.meter_metrics : null);
         }
 
         function displayStats(stats) {
@@ -1453,7 +1440,7 @@
             main100.textContent = stats.models_under_100mwh ?? 0;
         }
 
-        function renderEnergyMetrics(metrics) {
+        function renderEnergyMetrics(metrics, modelInfo) {
             const budgetEl = document.getElementById('energy_budget_value');
             const latestEl = document.getElementById('energy_latest_value');
             const avgEl = document.getElementById('energy_avg_value');
@@ -1491,6 +1478,151 @@
                     <li><span>${formatTimestamp(item.timestamp)}</span><span>${formatMetric(item.energy_mwh, 2)} mWh</span></li>
                 `).join('');
             }
+        }
+
+        function extractPredictedEnergyMwh(modelInfo) {
+            if (!modelInfo || typeof modelInfo !== 'object') return null;
+            const candidateKeys = [
+                'predicted_energy_mwh',
+                'energy_prediction_mwh',
+                'energy_avg_mwh',
+                'energy_mwh'
+            ];
+            for (const key of candidateKeys) {
+                const raw = modelInfo[key];
+                if (raw == null) continue;
+                const num = Number(raw);
+                if (Number.isFinite(num)) return num;
+            }
+            return null;
+        }
+
+        function renderEnergyComparison(modelInfo, energyMetrics, meterMetrics = null, latestEnergyReport = null) {
+            const predictedEl = document.getElementById('compare_predicted_value');
+            const measuredEl = document.getElementById('compare_measured_value');
+            const absErrEl = document.getElementById('compare_error_abs');
+            const errPctEl = document.getElementById('compare_error_pct');
+            const accEl = document.getElementById('compare_accuracy');
+            const sourceEl = document.getElementById('compare_source');
+            const updatedEl = document.getElementById('compare_updated');
+            const noteEl = document.getElementById('compare_status_note');
+
+            if (!predictedEl || !measuredEl || !absErrEl || !errPctEl || !accEl || !sourceEl || !updatedEl || !noteEl) {
+                return;
+            }
+
+            const reportedPredicted = latestEnergyReport && latestEnergyReport.predicted_mwh != null
+                ? Number(latestEnergyReport.predicted_mwh)
+                : null;
+            const reportedMeasured = latestEnergyReport && latestEnergyReport.actual_energy_mwh != null
+                ? Number(latestEnergyReport.actual_energy_mwh)
+                : null;
+
+            const predicted = reportedPredicted ?? extractPredictedEnergyMwh(modelInfo)
+                ?? (energyMetrics && energyMetrics.predicted_mwh != null ? Number(energyMetrics.predicted_mwh) : null);
+            const measured = reportedMeasured;
+
+            let latestSample = null;
+            if (energyMetrics && Array.isArray(energyMetrics.history) && energyMetrics.history.length) {
+                latestSample = energyMetrics.history[energyMetrics.history.length - 1];
+            }
+
+            predictedEl.textContent = Number.isFinite(predicted) ? `${formatMetric(predicted, 2)} mWh` : 'N/A';
+            measuredEl.textContent = Number.isFinite(measured) ? `${formatMetric(measured, 2)} mWh` : 'N/A';
+
+            if (Number.isFinite(predicted) && Number.isFinite(measured)) {
+                const absError = Math.abs(measured - predicted);
+                const errPct = predicted !== 0 ? (absError / Math.abs(predicted)) * 100 : null;
+                const accuracy = Number.isFinite(errPct) ? Math.max(0, 100 - errPct) : null;
+
+                absErrEl.textContent = `${formatMetric(absError, 2)} mWh`;
+                errPctEl.textContent = Number.isFinite(errPct) ? `${formatMetric(errPct, 2)}%` : 'N/A';
+                accEl.textContent = Number.isFinite(accuracy) ? `${formatMetric(accuracy, 2)}%` : 'N/A';
+            } else {
+                absErrEl.textContent = 'N/A';
+                errPctEl.textContent = 'N/A';
+                accEl.textContent = 'N/A';
+            }
+
+            let sourceValue = 'N/A';
+            if (latestEnergyReport && (latestEnergyReport.sensor_type || latestEnergyReport.source)) {
+                sourceValue = [latestEnergyReport.sensor_type || 'fnb58', latestEnergyReport.source || 'reported'].filter(Boolean).join(' / ');
+            } else if (latestSample && (latestSample.source || latestSample.note)) {
+                sourceValue = latestSample.source || latestSample.note;
+            } else if (meterMetrics && (meterMetrics.transport || meterMetrics.status)) {
+                sourceValue = [meterMetrics.transport, meterMetrics.status].filter(Boolean).join(' / ');
+            }
+            sourceEl.textContent = sourceValue;
+            updatedEl.textContent = latestEnergyReport && latestEnergyReport.timestamp
+                ? formatTimestamp(latestEnergyReport.timestamp)
+                : (latestSample && latestSample.timestamp
+                ? formatTimestamp(latestSample.timestamp)
+                : (meterMetrics && meterMetrics.updated_at ? formatTimestamp(meterMetrics.updated_at) : 'N/A'));
+
+            if (Number.isFinite(predicted) && Number.isFinite(measured) && latestEnergyReport) {
+                noteEl.textContent = 'Using the latest controlled FNB58 measurement reported by the device.';
+            } else if (Number.isFinite(predicted) && meterMetrics && meterMetrics.connected) {
+                noteEl.textContent = 'FNB58 live meter is connected. Run a timed measurement to compute accuracy.';
+            } else if (Number.isFinite(predicted) && meterMetrics && meterMetrics.error) {
+                noteEl.textContent = `Waiting for FNB58 data: ${meterMetrics.error}`;
+            } else if (Number.isFinite(predicted)) {
+                noteEl.textContent = 'Prediction is ready. Waiting for FNB58 samples.';
+            } else {
+                noteEl.textContent = 'Waiting for device data.';
+            }
+        }
+
+        function renderMeterStatus(status, fallbackMeter = null) {
+            const connectionEl = document.getElementById('meter_connection_state');
+            const portEl = document.getElementById('meter_port');
+            const voltageEl = document.getElementById('meter_voltage');
+            const currentEl = document.getElementById('meter_current');
+            const powerEl = document.getElementById('meter_power');
+            const energyEl = document.getElementById('meter_energy');
+            const updatedEl = document.getElementById('meter_updated');
+            const errorEl = document.getElementById('meter_error');
+
+            if (!connectionEl || !portEl || !voltageEl || !currentEl || !powerEl || !energyEl || !updatedEl || !errorEl) {
+                return;
+            }
+
+            const meter = status && typeof status === 'object'
+                ? (status.meter_metrics || status.fnb58 || status.meter || fallbackMeter || null)
+                : (fallbackMeter || null);
+
+            if (!meter) {
+                connectionEl.textContent = 'N/A';
+                portEl.textContent = 'N/A';
+                voltageEl.textContent = 'N/A';
+                currentEl.textContent = 'N/A';
+                powerEl.textContent = 'N/A';
+                energyEl.textContent = 'N/A';
+                updatedEl.textContent = 'N/A';
+                errorEl.textContent = 'No meter data available';
+                return;
+            }
+
+            const connected = meter.connected === true || meter.status === 'connected' || meter.status === 'running';
+            connectionEl.textContent = connected ? 'Connected' : (meter.status || 'Disconnected');
+            portEl.textContent = meter.port || meter.device || 'N/A';
+
+            const voltage = Number(meter.voltage_v ?? meter.last_values?.voltage_v);
+            const current = Number(meter.current_a ?? meter.last_values?.current_a);
+            const powerMw = Number(meter.power_mw ?? meter.avg_power_mw ?? meter.last_values?.power_mw);
+            const powerW = Number.isFinite(powerMw) ? powerMw / 1000 : Number(meter.power_w ?? meter.last_values?.power_w);
+            const energyMwh = Number(
+                meter.measured_energy_mwh ??
+                meter.energy_mwh ??
+                meter.total_energy_mwh ??
+                meter.last_values?.energy_mwh
+            );
+
+            voltageEl.textContent = Number.isFinite(voltage) ? `${formatMetric(voltage, 2)} V` : 'N/A';
+            currentEl.textContent = Number.isFinite(current) ? `${formatMetric(current, 3)} A` : 'N/A';
+            powerEl.textContent = Number.isFinite(powerW) ? `${formatMetric(powerW, 3)} W` : 'N/A';
+            energyEl.textContent = Number.isFinite(energyMwh) ? `${formatMetric(energyMwh, 2)} mWh` : 'N/A';
+            updatedEl.textContent = meter.updated_at ? formatTimestamp(meter.updated_at) : 'N/A';
+            errorEl.textContent = meter.error || (connected ? 'Streaming' : 'No live readings yet');
         }
 
         function startMetricsPolling() {
@@ -1538,16 +1670,22 @@
             const params = new URLSearchParams();
             if (deviceUuid) params.append('device_uuid', deviceUuid);
             if (bbbIp) params.append('bbb_ip', bbbIp);
-            
-            fetch(`/api/device/metrics?${params}`)
-                .then(res => res.json())
-                .then(data => {
-                    console.log('API response:', data);
-                    
-                    if (data.success) {
-                        updateDeviceMetrics(data);
+
+            Promise.all([
+                fetch(`/api/device/metrics?${params}`).then(res => res.json()),
+                fetch(`/api/status?${params}`).then(res => res.json()).catch(() => ({ success: false }))
+            ])
+                .then(([metricsData, statusData]) => {
+                    console.log('Metrics API response:', metricsData);
+
+                    if (metricsData.success) {
+                        updateDeviceMetrics(metricsData, statusData && statusData.success ? statusData.status : null);
                     } else {
-                        console.warn('Failed to fetch device metrics:', data.error || 'No metrics data');
+                        console.warn('Failed to fetch device metrics:', metricsData.error || 'No metrics data');
+                    }
+
+                    if (statusData && statusData.success) {
+                        updateDeviceStatus(statusData.status);
                     }
                 })
                 .catch(err => {
@@ -1555,7 +1693,7 @@
                 });
         }
 
-        function updateDeviceMetrics(data) {
+        function updateDeviceMetrics(data, status = null) {
             const lastUpdate = document.getElementById('monitor_last_update');
             if (lastUpdate) {
                 lastUpdate.textContent = new Date().toLocaleTimeString();
@@ -1576,18 +1714,31 @@
                 serviceBadge.textContent = agentStatus.toUpperCase();
                 serviceBadge.className = `badge ${agentStatus === 'ready' || agentStatus === 'running' ? 'ok' : ''}`;
             }
+
+            if (status) {
+                const meterMetrics = status.meter_metrics || data.meter || null;
+                renderEnergyComparison(status.model_info || null, status.energy_metrics || null, meterMetrics, status.latest_energy_report || null);
+                renderMeterStatus(status, data.meter || null);
+            } else {
+                renderEnergyComparison(null, null, data.meter || null);
+                renderMeterStatus(null, data.meter || null);
+            }
             
             // Extract metrics from response (structure: cpu.percent, memory.used_percent, etc)
+            const memoryUsedMb = data.memory?.used_mb ?? ((Number(data.memory?.used_bytes) || 0) / (1024 * 1024));
+            const memoryTotalMb = data.memory?.total_mb ?? ((Number(data.memory?.total_bytes) || 0) / (1024 * 1024));
+            const diskUsedGb = data.storage?.used_gb ?? ((Number(data.storage?.used_bytes) || 0) / (1024 * 1024 * 1024));
+            const diskTotalGb = data.storage?.total_gb ?? ((Number(data.storage?.total_bytes) || 0) / (1024 * 1024 * 1024));
             const metrics = {
                 timestamp: Date.now(),
                 cpuPercent: parseFloat(data.cpu?.percent || 0),
                 temperatureC: parseFloat(data.temperature_c || 0),
                 memUsedPercent: parseFloat(data.memory?.used_percent || 0),
-                memUsedGb: parseFloat(data.memory?.used_mb || 0) / 1024,
-                memTotalGb: parseFloat(data.memory?.total_mb || 0) / 1024,
+                memUsedGb: parseFloat(memoryUsedMb || 0) / 1024,
+                memTotalGb: parseFloat(memoryTotalMb || 0) / 1024,
                 diskUsedPercent: parseFloat(data.storage?.used_percent || 0),
-                diskUsedGb: parseFloat(data.storage?.used_gb || 0),
-                diskTotalGb: parseFloat(data.storage?.total_gb || 0)
+                diskUsedGb: parseFloat(diskUsedGb || 0),
+                diskTotalGb: parseFloat(diskTotalGb || 0)
             };
             
             console.log('Received metrics:', metrics);
@@ -1638,40 +1789,10 @@
                 serviceBadge.className = 'badge';
             }
             
-            // Fetch device metrics from correct endpoint
-            fetch(`/api/device/metrics?bbb_ip=${encodeURIComponent(bbbIp)}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success && data.metrics) {
-                        updateDeviceMetrics(data);
-                        
-                        if (!options.silent) {
-                            showAlert('success', 'Device metrics refreshed');
-                        }
-                    } else {
-                        if (serviceDot) serviceDot.className = 'dot error';
-                        if (serviceState) serviceState.textContent = 'offline';
-                        if (serviceBadge) {
-                            serviceBadge.textContent = 'Offline';
-                            serviceBadge.className = 'badge over';
-                        }
-                        if (!options.silent) {
-                            showAlert('error', data.error || 'Failed to connect to device');
-                        }
-                    }
-                })
-                .catch(err => {
-                    console.error('Failed to refresh metrics:', err);
-                    if (serviceDot) serviceDot.className = 'dot error';
-                    if (serviceState) serviceState.textContent = 'error';
-                    if (serviceBadge) {
-                        serviceBadge.textContent = 'Error';
-                        serviceBadge.className = 'badge over';
-                    }
-                    if (!options.silent) {
-                        showAlert('error', 'Connection error: ' + err.message);
-                    }
-                });
+            fetchDeviceMetrics();
+            if (!options.silent) {
+                showAlert('info', 'Refreshing device metrics...');
+            }
         }
 
         function renderMonitoringTab(tab) {
@@ -2727,7 +2848,11 @@
         async function deployPredictedModel() {
             console.log('deployPredictedModel called');
             const deviceType = document.getElementById('pred_device_type')?.value || 'jetson_nano';
-            const modelName = document.getElementById('popular_model_selector')?.value; // FIXED: correct selector
+            const modelName =
+                window.currentPredictionResult?.model_name ||
+                window.currentAnalyzedModel?.model_name ||
+                window.currentUploadedFile?.name?.replace(/\.[^.]+$/, '') ||
+                null;
             const paramsM = document.getElementById('pred_params_m')?.value;
             
             // Get energy from the prediction output div
@@ -2743,30 +2868,27 @@
                 return;
             }
 
-            // Check if model is available in model_store
-            try {
-                console.log('Checking model availability for:', modelName);
-                const checkResponse = await fetch('/api/models/check', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ model_name: modelName })
-                });
-                const checkData = await checkResponse.json();
-                console.log('Check response:', checkData);
-                
-                if (checkData.available) {
-                    // Model available - proceed to device selection
-                    showAlert('info', `Model ${modelName} is available. Proceeding to deployment...`);
-                    proceedToDeviceSelection(modelName, deviceType, energyValue, paramsM);
-                } else {
-                    // Model not available - show download confirmation
-                    showAlert('warning', `Model ${modelName} not found. Showing download options...`);
-                    showDownloadConfirmation(modelName, deviceType, energyValue, paramsM);
+            const isUploadedCustomArtifact = Boolean(window.currentUploadedFile);
+            const selectedDevices = typeof getSelectedDevices === 'function' ? getSelectedDevices() : [];
+
+            if (isUploadedCustomArtifact && typeof deployCurrentPrediction === 'function') {
+                if (!selectedDevices.length) {
+                    setActiveView('deployment');
+                    const deployList = document.getElementById('deploy_device_list');
+                    if (deployList && typeof deployList.scrollIntoView === 'function') {
+                        deployList.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    showAlert('warning', 'Please select at least one device in Balena Cloud before deployment.');
+                    return;
                 }
-            } catch (err) {
-                console.error('Failed to check model availability:', err);
-                showAlert('error', 'Failed to check model availability: ' + err.message);
+
+                showAlert('info', `Deploying ${modelName} to ${selectedDevices.length} selected device(s)...`);
+                await deployCurrentPrediction();
+                return;
             }
+
+            showAlert('info', `Preparing ${modelName} for deployment...`);
+            proceedToDeviceSelection(modelName, deviceType, energyValue, paramsM);
         }
         
         function proceedToDeviceSelection(modelName, deviceType, energyStr, paramsM) {
@@ -2819,37 +2941,8 @@
         }
         
         function showDownloadConfirmation(modelName, deviceType, energyStr, paramsM) {
-            const model = document.getElementById('download_model');
-            const modelTitle = document.getElementById('download_model_title');
-            const modelMessage = document.getElementById('download_model_message');
-            const confirmBtn = document.getElementById('download_confirm_btn');
-            const cancelBtn = document.getElementById('download_cancel_btn');
-            
-            modelTitle.textContent = 'Model Not Available';
-            modelMessage.innerHTML = `
-                <p>The model <strong>${escapeHtml(modelName)}</strong> is not yet downloaded to the model store.</p>
-                <p style="margin-top: 12px;">Would you like to download it now? This will:</p>
-                <ul style="margin: 8px 0 0 20px; color: var(--muted);">
-                    <li>Download model from Hugging Face/TIMM</li>
-                    <li>Convert to ONNX format (optimized for edge devices)</li>
-                    <li>Save to local model store</li>
-                </ul>
-                <p style="margin-top: 12px; font-size: 13px; color: var(--warning);">⚠️ Download may take 1-3 minutes depending on model size.</p>
-            `;
-            
-            // Show model
-            model.classList.add('active');
-            
-            // Handle confirm
-            confirmBtn.onclick = () => {
-                model.classList.remove('active');
-                downloadModelThenDeploy(modelName, deviceType, energyStr, paramsM);
-            };
-            
-            // Handle cancel
-            cancelBtn.onclick = () => {
-                model.classList.remove('active');
-            };
+            showAlert('info', `Using local ONNX/TFLite artifact for ${modelName}.`);
+            proceedToDeviceSelection(modelName, deviceType, energyStr, paramsM);
         }
         
         async function downloadModelThenDeploy(modelName, deviceType, energyStr, paramsM) {
@@ -3442,6 +3535,35 @@
             // Refresh device model status
             setTimeout(() => refreshDeviceModelStatus(), 1000);
         }
+
+        function selectMonitoringDevice(device, options = {}) {
+            if (!device) return;
+
+            const endpoint = device.endpoint || device.ip_address || '';
+            const uuid = device.uuid || '';
+
+            const ipEl = document.getElementById('bbb_ip');
+            if (ipEl) {
+                ipEl.value = endpoint;
+            }
+
+            const uuidEl = document.getElementById('device_uuid');
+            if (uuidEl) {
+                uuidEl.value = uuid;
+            }
+
+            const monitorSelector = document.getElementById('monitor_device_selector');
+            if (monitorSelector && endpoint) {
+                const matchingOption = Array.from(monitorSelector.options).find(opt => opt.value === endpoint);
+                if (matchingOption) {
+                    monitorSelector.value = endpoint;
+                }
+            }
+
+            if (options.refresh !== false) {
+                refreshDeviceMetrics({ silent: true });
+            }
+        }
         
         // Device Model Status Functions
         let deviceStatusRefreshInterval = null;
@@ -3449,25 +3571,25 @@
         
         async function fetchDeviceModelStatus(device) {
             try {
-                // Use UUID if available for cross-network support, fallback to IP
-                const deviceIdentifier = device.uuid || device.endpoint;
-                
-                // Use backend proxy to avoid CORS
-                const response = await fetch(`/api/device/status/${deviceIdentifier}`, {
+                const params = new URLSearchParams();
+                if (device.uuid) params.append('device_uuid', device.uuid);
+                if (device.endpoint) params.append('bbb_ip', device.endpoint);
+
+                const response = await fetch(`/api/status?${params.toString()}`, {
                     method: 'GET',
                     signal: AbortSignal.timeout(10000)
                 });
                 
                 const result = await response.json();
                 
-                if (result.success && result.data) {
+                if (result.success && result.status) {
                     return {
                         device: device,
-                        status: result.data.status || 'unknown',
-                        model_name: result.data.model_name || 'None',
-                        inference_active: result.data.inference_active || false,
-                        error: result.data.error || null,
-                        last_update: result.data.last_update || null
+                        status: result.status.status || 'unknown',
+                        model_name: result.status.model_name || 'None',
+                        inference_active: result.status.inference_active || false,
+                        error: result.status.error || null,
+                        last_update: result.status.last_update || null
                     };
                 } else {
                     return {
@@ -3503,7 +3625,7 @@
             } else if (result.status === 'error') {
                 statusBadge = '<span class="badge error">ERROR</span>';
                 statusIcon = '🔴';
-                statusColor = 'var(--error)';
+                statusColor = 'var(--danger)';
             } else if (result.status === 'offline') {
                 statusBadge = '<span class="badge muted">OFFLINE</span>';
                 statusIcon = '⚫';
@@ -3535,8 +3657,8 @@
                         <span>${result.inference_active ? '✅ Active' : '⏸️ Paused'}</span>
                         
                         ${result.error ? `
-                            <strong style="color: var(--error);">Error:</strong>
-                            <span style="color: var(--error); font-size: 11px; word-break: break-word;">${result.error.substring(0, 100)}${result.error.length > 100 ? '...' : ''}</span>
+                            <strong style="color: var(--danger);">Error:</strong>
+                            <span style="color: var(--danger); font-size: 11px; word-break: break-word;">${result.error.substring(0, 100)}${result.error.length > 100 ? '...' : ''}</span>
                         ` : ''}
                     </div>
                 </div>
@@ -3554,7 +3676,7 @@
         async function refreshDeviceModelStatus() {
             // Get all online devices from balenaDevices array
             const onlineDevices = balenaDevices.filter(dev => 
-                dev.is_online === true && dev.endpoint
+                dev.is_online === true && (dev.endpoint || dev.uuid)
             );
             
             const panel = document.getElementById('device_model_status_panel');

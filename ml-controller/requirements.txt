@@ -1,4 +1,18 @@
 flask==3.0.0
-requests==2.32.0
-torch>=2.0.0
-timm>=0.9.0
+requests==2.32.3
+
+# Core analytics
+numpy>=2.0
+pandas>=1.5
+scikit-learn>=1.2
+matplotlib>=3.8
+seaborn>=0.13
+
+# Model feature extraction (optional but recommended)
+onnx>=1.14.0
+onnx-tool>=0.8.0
+
+# Optional (only needed for /api/models/download timm->onnx conversion)
+# NOTE: torch/timm may not have wheels for newest Python versions.
+# torch
+# timm

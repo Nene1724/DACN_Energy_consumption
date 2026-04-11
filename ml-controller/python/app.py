@@ -1,18 +1,21 @@
 import os
 import re
 import json
+from datetime import datetime, timezone
 from urllib.parse import urlparse
+from typing import Optional
 from flask import Flask, request, render_template, jsonify, send_from_directory, make_response
 import requests
 from requests.utils import requote_uri
 from model_analyzer import ModelAnalyzer
 from energy_predictor_service import EnergyPredictorService
 from log_manager import LogManager
+from onnx_feature_extractor import extract_features as extract_model_features
 
 app = Flask(__name__, template_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates'))
 
 # Load environment variables from .env (non-destructive: keep existing env vars)
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))  # ml-controller root
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 ENV_PATH = os.path.join(BASE_DIR, ".env")
 
 
@@ -39,17 +42,80 @@ load_env_file(ENV_PATH)
 DATA_DIR = os.path.join(BASE_DIR, "data")
 ARTIFACTS_DIR = os.path.join(BASE_DIR, "artifacts")
 MODEL_STORE_DIR = os.path.join(BASE_DIR, "model_store")
-CSV_PATH = os.path.join(DATA_DIR, "247_models_benchmark_jetson.csv")  # Updated to full dataset
-RPI5_CSV_PATH = os.path.join(DATA_DIR, "27_models_benchmark_rpi5.csv")  # Raspberry Pi 5 dataset
+NEW_MODELS_DIR = os.path.join(BASE_DIR, "new_models")
+CSV_PATH = os.path.join(DATA_DIR, "360_models_benchmark_jetson.csv") 
+RPI5_CSV_PATH = os.path.join(DATA_DIR, "253_models_benchmark_rpi5.csv")  
 LOG_FILE_PATH = os.path.join(DATA_DIR, "deployment_logs.json")
-# Prefer TFLite (smallest, fastest for RPi/Jetson), then ONNX (cross-platform)
+ENERGY_REPORTS_PATH = os.path.join(DATA_DIR, "energy_measurements.json")
 PREFERRED_ARTIFACT_EXTS = [".tflite", ".onnx", ".pth", ".pt", ".bin"]
 BALENA_API_BASE = os.getenv("BALENA_API_BASE", "https://api.balena-cloud.com")
 BALENA_DEFAULT_TIMEOUT = int(os.getenv("BALENA_API_TIMEOUT", "30"))
+MODEL_ANALYZE_MAX_MB = int(os.getenv("MODEL_ANALYZE_MAX_MB", "128"))
 
-# Initialize predictor + analyzer + log manager
+
+def _get_balena_token() -> str:
+    """Return the Balena token from any supported env var name."""
+    for key in ("BALENA_API_TOKEN", "BALENA_API_KEY", "BALENA_TOKEN", "BALENA_SESSION_TOKEN"):
+        val = (os.getenv(key) or "").strip()
+        if val:
+            return val
+    return ""
+
+
+def _infer_bind_ip(prefer_connect_to_ip: Optional[str] = None) -> str:
+    """Best-effort guess of a LAN-facing IP address for this host."""
+    target = (prefer_connect_to_ip or "8.8.8.8").strip()
+    try:
+        import socket
+
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect((target, 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return ""
+
+
+def _get_controller_base_url(req, prefer_connect_to_ip: Optional[str] = None) -> str:
+    """Return a device-reachable base URL for model downloads.
+
+    Priority:
+    1) CONTROLLER_PUBLIC_URL (recommended for cross-network / EC2)
+    2) Request-derived scheme+host (works when request host is reachable)
+    3) Best-effort inferred LAN IP (only when request host is localhost)
+    """
+    public_base_url = (os.getenv("CONTROLLER_PUBLIC_URL") or "").strip()
+    if public_base_url:
+        return public_base_url.rstrip("/")
+
+    # Respect reverse-proxy headers if present.
+    forwarded_proto = (req.headers.get("X-Forwarded-Proto") or "").split(",")[0].strip()
+    forwarded_host = (req.headers.get("X-Forwarded-Host") or "").split(",")[0].strip()
+    scheme = forwarded_proto or getattr(req, "scheme", None) or "http"
+    host = forwarded_host or getattr(req, "host", "")
+    base = f"{scheme}://{host}".rstrip("/")
+
+    # If running locally and accessed via localhost, try to swap in a LAN IP.
+    if any(loop in host for loop in ("localhost", "127.0.0.1", "0.0.0.0")):
+        inferred_ip = _infer_bind_ip(prefer_connect_to_ip)
+        if inferred_ip:
+            # Preserve port if present.
+            port = ""
+            if ":" in host:
+                port = host.split(":", 1)[1]
+            base = f"{scheme}://{inferred_ip}{(':' + port) if port else ''}"
+
+    return base.rstrip("/")
+
 predictor_service = EnergyPredictorService(ARTIFACTS_DIR)
-analyzer = ModelAnalyzer(CSV_PATH, predictor_service=predictor_service, model_store_dir=MODEL_STORE_DIR, rpi5_csv_path=RPI5_CSV_PATH)
+analyzer = ModelAnalyzer(
+    CSV_PATH,
+    predictor_service=predictor_service,
+    model_store_dir=MODEL_STORE_DIR,
+    rpi5_csv_path=RPI5_CSV_PATH,
+    extra_model_dirs=[NEW_MODELS_DIR],
+)
 log_manager = LogManager(LOG_FILE_PATH, max_logs=50)
 
 
@@ -57,9 +123,43 @@ def _normalize_key(value: str) -> str:
     return "".join(ch.lower() for ch in value if ch.isalnum())
 
 
+def _iter_local_model_dirs():
+    seen = set()
+    for directory in (MODEL_STORE_DIR, NEW_MODELS_DIR):
+        normalized = os.path.abspath(directory)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        if os.path.isdir(directory):
+            yield directory
+
+
+def _find_local_artifact_path(filename: str):
+    safe_name = os.path.basename(str(filename or ""))
+    if not safe_name:
+        return None
+    for directory in _iter_local_model_dirs():
+        candidate = os.path.join(directory, safe_name)
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
+def _list_local_artifacts():
+    items = []
+    seen = set()
+    for directory in _iter_local_model_dirs():
+        for filename in os.listdir(directory):
+            if filename in seen:
+                continue
+            seen.add(filename)
+            items.append(filename)
+    return sorted(items)
+
+
 def resolve_model_artifact(model_name: str):
     """
-    Find a matching model artifact file inside MODEL_STORE_DIR.
+    Find a matching model artifact file inside local artifact directories.
     Accepts variations in casing/spacing and tries preferred extensions.
     """
     if not model_name:
@@ -69,20 +169,21 @@ def resolve_model_artifact(model_name: str):
     if not normalized:
         return None
 
-    if not os.path.isdir(MODEL_STORE_DIR):
+    local_dirs = list(_iter_local_model_dirs())
+    if not local_dirs:
         return None
 
     # Exact match ignoring casing / non-alphanumerics
-    for filename in os.listdir(MODEL_STORE_DIR):
-        base, _ = os.path.splitext(filename)
-        if _normalize_key(base) == normalized:
-            return filename
+    for directory in local_dirs:
+        for filename in os.listdir(directory):
+            base, _ = os.path.splitext(filename)
+            if _normalize_key(base) == normalized:
+                return filename
 
     # Try preferred extensions with sanitized base names
     provided_base, provided_ext = os.path.splitext(model_name)
     if provided_ext:
-        direct_path = os.path.join(MODEL_STORE_DIR, model_name)
-        if os.path.exists(direct_path):
+        if _find_local_artifact_path(model_name):
             return model_name
 
     slug = re.sub(r"[^a-zA-Z0-9]+", "_", model_name).strip("_") or model_name
@@ -92,14 +193,68 @@ def resolve_model_artifact(model_name: str):
         else:
             candidate = f"{model_name}{ext}"
 
-        candidate_path = os.path.join(MODEL_STORE_DIR, candidate)
-        if os.path.exists(candidate_path):
+        if _find_local_artifact_path(candidate):
             return candidate
 
         slug_candidate = f"{slug}{ext}"
-        slug_path = os.path.join(MODEL_STORE_DIR, slug_candidate)
-        if os.path.exists(slug_path):
+        if _find_local_artifact_path(slug_candidate):
             return slug_candidate
+
+    return None
+
+
+def _safe_float(value):
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _sanitize_model_base_name(value: str) -> str:
+    base = os.path.splitext(os.path.basename(str(value or "")))[0]
+    sanitized = re.sub(r"[^A-Za-z0-9._-]+", "_", base).strip("._-")
+    return sanitized or f"custom_model_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+
+
+def _load_energy_reports():
+    if not os.path.exists(ENERGY_REPORTS_PATH):
+        return []
+    try:
+        with open(ENERGY_REPORTS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _save_energy_reports(items):
+    os.makedirs(os.path.dirname(ENERGY_REPORTS_PATH), exist_ok=True)
+    with open(ENERGY_REPORTS_PATH, "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False, indent=2)
+
+
+def _get_latest_energy_report(device_id=None, model_name=None):
+    items = _load_energy_reports()
+    normalized_device_id = str(device_id or "").strip()
+    normalized_model_name = str(model_name or "").strip().lower()
+
+    def matches(item, require_model=True):
+        if normalized_device_id and str(item.get("device_id") or "").strip() != normalized_device_id:
+            return False
+        if require_model and normalized_model_name:
+            return str(item.get("model_name") or "").strip().lower() == normalized_model_name
+        return True
+
+    for item in reversed(items):
+        if matches(item, require_model=True):
+            return item
+
+    if normalized_device_id:
+        for item in reversed(items):
+            if matches(item, require_model=False):
+                return item
 
     return None
 
@@ -170,13 +325,13 @@ def _get_balena_base_url() -> str:
 
 
 def fetch_balena_devices(app_slug=None, online_only=False, limit=50, token=None):
-    token = token or os.getenv("BALENA_API_TOKEN")
+    token = (token or _get_balena_token()).strip()
     if not token:
         raise ValueError("BALENA_API_TOKEN chưa được cấu hình")
 
     limit = max(1, min(int(limit or 50), 200))
 
-    # Build OData query parameters (don't use dict to avoid double encoding)
+    # Build OData query parameters
     select_fields = [
         "id", "device_name", "uuid", "status", "is_online",
         "ip_address", "vpn_address", "os_version",
@@ -193,7 +348,6 @@ def fetch_balena_devices(app_slug=None, online_only=False, limit=50, token=None)
 
     filters = []
     if app_slug:
-        # If app_slug is numeric, treat as app ID; otherwise use slug filter
         if app_slug.isdigit():
             filters.append(f"belongs_to__application eq {app_slug}")
         else:
@@ -225,7 +379,7 @@ def get_device_public_url(device_uuid: str, token=None) -> str:
     Fetch the Public Device URL for a device by its UUID.
     Returns: https://<uuid>.balena-devices.com or empty string if not enabled.
     """
-    token = token or os.getenv("BALENA_API_TOKEN")
+    token = (token or _get_balena_token()).strip()
     if not token or not device_uuid:
         return ""
 
@@ -270,8 +424,8 @@ def monitoring():
 
 @app.route("/analytics")
 def analytics():
-    """Analytics view - now integrated as partial in index.html"""
-    return _render_with_cache("index.html", initial_view="analytics")
+    """Legacy analytics route: keep URL alive but render deployment view."""
+    return _render_with_cache("index.html", initial_view="deployment")
 
 
 @app.route("/favicon.ico")
@@ -324,7 +478,7 @@ def get_model_details(model_name):
 
 @app.route("/api/models/check", methods=["POST"])
 def check_model_availability():
-    """API: Check if model exists in model_store"""
+    """API: Check if model exists in local artifact directories."""
     try:
         data = request.get_json()
         model_name = data.get("model_name")
@@ -336,7 +490,13 @@ def check_model_availability():
         artifact = resolve_model_artifact(model_name)
         
         if artifact:
-            artifact_path = os.path.join(MODEL_STORE_DIR, artifact)
+            artifact_path = _find_local_artifact_path(artifact)
+            if not artifact_path:
+                return jsonify({
+                    "success": False,
+                    "available": False,
+                    "message": f"Artifact {artifact} could not be resolved on disk"
+                }), 404
             file_size = os.path.getsize(artifact_path)
             file_size_mb = round(file_size / (1024 * 1024), 2)
             
@@ -351,7 +511,7 @@ def check_model_availability():
             return jsonify({
                 "success": True,
                 "available": False,
-                "message": f"Model {model_name} not found in model store"
+                "message": f"Model {model_name} not found in local artifact directories"
             })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -465,7 +625,11 @@ def download_model_from_hub():
         except ImportError as ie:
             return jsonify({
                 "success": False,
-                "error": f"Required libraries not installed: {str(ie)}. Install with: pip install timm torch onnx"
+                "error": (
+                    f"Optional libraries not installed for model download/convert: {str(ie)}. "
+                    "This endpoint requires extra deps (timm/torch/onnx). "
+                    "Install with: pip install onnx onnx-tool timm torch (may require a supported Python version)."
+                )
             }), 500
         except Exception as download_error:
             import traceback
@@ -570,14 +734,13 @@ def deploy():
         if not artifact:
             # List available models to help debug
             available_models = []
-            if os.path.isdir(MODEL_STORE_DIR):
-                available_models = os.listdir(MODEL_STORE_DIR)
+            available_models = _list_local_artifacts()
             
             return jsonify({
                 "success": False,
                 "error": (
                     f"Không tìm thấy file artifact cho model '{model_name}'. "
-                    f"Hãy download model trước hoặc thêm file .tflite/.onnx vào model_store/. "
+                    f"Hãy import model local dưới dạng .tflite/.onnx hoặc upload qua giao diện deployment. "
                     f"Available models: {', '.join(available_models[:10])}"
                 )
             }), 404
@@ -594,27 +757,12 @@ def deploy():
                 )
             }), 400
 
-        # Tạo URL tải model - sử dụng IP thực tế của server này
-        # Lấy IP của server từ request hoặc socket
-        import socket
-        try:
-            # Thử lấy IP từ request headers (nếu có reverse proxy)
-            pc_ip = request.host.split(':')[0]
-            if pc_ip in ('localhost', '127.0.0.1', '0.0.0.0'):
-                # Lấy IP thực tế của máy trong cùng subnet với BBB
-                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                s.connect((bbb_ip, 80))
-                pc_ip = s.getsockname()[0]
-                s.close()
-        except:
-            # Fallback: giả định cùng subnet, thay .34 -> .36 (hoặc IP mặc định)
-            pc_ip = bbb_ip.rsplit('.', 1)[0] + '.36'
-        
-        model_url = f"http://{pc_ip}:5000/models/{artifact}"
+        controller_base_url = _get_controller_base_url(request, prefer_connect_to_ip=bbb_ip)
+        model_url = f"{controller_base_url}/models/{artifact}"
         log_manager.add_log(
             log_type="info",
             message=f"Model URL: {model_url}",
-            metadata={"pc_ip": pc_ip, "bbb_ip": bbb_ip, "artifact": artifact}
+            metadata={"controller_base_url": controller_base_url, "bbb_ip": bbb_ip, "artifact": artifact}
         )
 
         # Gửi lệnh deploy xuống BBB
@@ -743,9 +891,15 @@ def get_status():
         try:
             resp = requests.get(url, timeout=10)
             resp.raise_for_status()
+            payload = resp.json()
+            if isinstance(payload, dict):
+                model_name = payload.get("model_name") or ((payload.get("model_info") or {}).get("model_name"))
+                latest_energy_report = _get_latest_energy_report(device_id=device_uuid, model_name=model_name)
+                if latest_energy_report:
+                    payload["latest_energy_report"] = latest_energy_report
             return jsonify({
                 "success": True,
-                "status": resp.json()
+                "status": payload
             })
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
             continue
@@ -848,7 +1002,7 @@ def start_device_model():
 @app.route("/api/balena/fleets", methods=["GET"])
 def get_balena_fleets():
     """API: Liệt kê các fleet/application trên Balena Cloud - chỉ fleet có device của user"""
-    token = os.getenv("BALENA_API_TOKEN")
+    token = _get_balena_token()
     if not token:
         return jsonify({
             "success": False,
@@ -923,7 +1077,7 @@ def get_balena_fleets():
 @app.route("/api/balena/devices", methods=["GET"])
 def get_balena_devices():
     """API: Liệt kê các thiết bị Balena Cloud sẵn sàng deploy"""
-    token = os.getenv("BALENA_API_TOKEN")
+    token = _get_balena_token()
     if not token:
         return jsonify({
             "success": False,
@@ -1055,9 +1209,12 @@ def deploy_model():
     try:
         data = request.get_json()
         model_name = data.get("model_name")
+        requested_artifact = data.get("artifact_file") or data.get("artifact")
         device_uuid = data.get("device_uuid")
         device_endpoint = data.get("device_endpoint")
         fleet = data.get("fleet")
+        provided_model_info = data.get("model_info") if isinstance(data.get("model_info"), dict) else {}
+        energy_budget = data.get("energy_budget_mwh")
         
         if not model_name:
             return jsonify({"success": False, "error": "model_name required"}), 400
@@ -1082,12 +1239,30 @@ def deploy_model():
         # Check if model file exists and get model info
         model_path = None
         model_ext = None
-        for ext in [".tflite", ".onnx", ".pth", ".pt"]:
-            potential_path = os.path.join(MODEL_STORE_DIR, f"{model_name}{ext}")
-            if os.path.exists(potential_path):
-                model_path = potential_path
-                model_ext = ext
-                break
+
+        if requested_artifact:
+            safe_artifact = os.path.basename(str(requested_artifact))
+            explicit_path = _find_local_artifact_path(safe_artifact)
+            if explicit_path and os.path.exists(explicit_path):
+                model_path = explicit_path
+                model_ext = os.path.splitext(explicit_path)[1].lower()
+
+        if not model_path:
+            resolved = resolve_model_artifact(model_name)
+            if resolved:
+                resolved_path = _find_local_artifact_path(resolved)
+                if resolved_path:
+                    model_path = resolved_path
+                    model_ext = os.path.splitext(model_path)[1].lower()
+
+        if not model_path:
+            base_name = _sanitize_model_base_name(model_name)
+            for ext in [".tflite", ".onnx", ".pth", ".pt"]:
+                potential_path = _find_local_artifact_path(f"{base_name}{ext}")
+                if potential_path and os.path.exists(potential_path):
+                    model_path = potential_path
+                    model_ext = ext
+                    break
         
         if not model_path:
             log_manager.add_log(
@@ -1117,10 +1292,27 @@ def deploy_model():
                     "energy_avg_mwh": float(row.get('Energy (mWh)', 0)),
                     "latency_avg_s": float(row.get('Latency (s)', 0)),
                     "params": int(row.get('Params', 0)),
-                    "flops": float(row.get('FLOPs (G)', 0))
+                        "flops": float(row.get('FLOPs (G)', 0))
                 }
         except Exception as e:
             print(f"[WARNING] Could not get model info: {e}")
+
+        if provided_model_info:
+            model_info.update(provided_model_info)
+
+        model_info.setdefault("model_name", model_name)
+        if model_ext:
+            model_info.setdefault("artifact_format", model_ext.lstrip("."))
+        model_info.setdefault("artifact_file", os.path.basename(model_path) if model_path else requested_artifact)
+
+        predicted_energy = None
+        for key in ("predicted_energy_mwh", "energy_avg_mwh", "predicted_mwh"):
+            predicted_energy = _safe_float(model_info.get(key))
+            if predicted_energy is not None:
+                break
+        if predicted_energy is not None:
+            model_info["predicted_energy_mwh"] = round(predicted_energy, 4)
+            model_info.setdefault("energy_avg_mwh", round(predicted_energy, 4))
         
         # Deploy to device via HTTP
         # Build list of URLs to try (Public URL first, then local IP)
@@ -1143,25 +1335,9 @@ def deploy_model():
                 "error": "No device endpoint available (missing UUID and IP)"
             }), 400
         
-        # Construct model URL for device to download
-        # Priority: 1) CONTROLLER_PUBLIC_URL env, 2) ngrok URL, 3) local IP
-        import socket
-        
-        public_base_url = os.getenv("CONTROLLER_PUBLIC_URL", "").strip()
-        if public_base_url:
-            # Use configured public URL (ngrok/cloudflare tunnel)
-            model_url = f"{public_base_url.rstrip('/')}/models/{os.path.basename(model_path)}"
-            print(f"[INFO] Using public controller URL: {public_base_url}")
-        else:
-            # Fallback to local IP (may fail for cross-network deployment)
-            controller_ip = socket.gethostbyname(socket.gethostname())
-            controller_port = request.environ.get('SERVER_PORT', '5000')
-            model_filename = os.path.basename(model_path)
-            model_url = f"http://{controller_ip}:{controller_port}/models/{model_filename}"
-            print(f"[WARN] Using local IP for model URL. Set CONTROLLER_PUBLIC_URL env for cross-network deployment")
-        
-        # Get energy budget if specified
-        energy_budget = data.get("energy_budget_mwh")
+        controller_base_url = _get_controller_base_url(request, prefer_connect_to_ip=(device_endpoint or None))
+        model_url = f"{controller_base_url}/models/{os.path.basename(model_path)}"
+        print(f"[INFO] Using controller base URL for model download: {controller_base_url}")
         
         # Prepare deployment payload for device
         deploy_payload = {
@@ -1289,7 +1465,18 @@ def predict_energy():
         for pred in predictions:
             if pred.get("prediction_mwh") is not None:
                 device_type = pred.get("device_type", "unknown")
-                device_key = "jetson_nano" if "jetson" in device_type.lower() else "raspberry_pi5"
+                device_lower = device_type.lower()
+                if any(k in device_lower for k in ["jetson", "nano"]):
+                    device_key = "jetson_nano"
+                elif any(k in device_lower for k in ["raspberry", "rpi", "pi"]):
+                    device_key = "raspberry_pi5"
+                else:
+                    device_key = None
+
+                if device_key is None:
+                    pred["energy_category"] = "unknown"
+                    continue
+
                 thresholds = thresholds_data.get(device_key, {})
                 
                 p25 = thresholds.get("p25", 50)
@@ -1335,22 +1522,23 @@ def predict_energy():
 def download_model(filename):
     """Endpoint để BBB/Jetson/RPi tải model files"""
     try:
-        file_path = os.path.join(MODEL_STORE_DIR, filename)
+        safe_name = os.path.basename(filename)
+        file_path = _find_local_artifact_path(safe_name)
         
-        if not os.path.exists(file_path):
-            return jsonify({"error": f"Model file not found: {filename}"}), 404
+        if not file_path or not os.path.exists(file_path):
+            return jsonify({"error": f"Model file not found: {safe_name}"}), 404
         
-        # Send with proper binary headers to avoid ngrok interference
+        # Send with proper binary headers to avoid proxy/tunnel interference
         response = send_from_directory(
-            MODEL_STORE_DIR, 
-            filename, 
+            os.path.dirname(file_path),
+            os.path.basename(file_path),
             as_attachment=True,  # Force download
             mimetype='application/octet-stream'  # Binary file
         )
         
         # Add headers to prevent caching and ensure binary transfer
         response.headers['Content-Type'] = 'application/octet-stream'
-        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+        response.headers['Content-Disposition'] = f'attachment; filename={os.path.basename(file_path)}'
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
@@ -1411,12 +1599,16 @@ def get_energy_metadata():
                 "success": True,
                 "metadata": {
                     "jetson_model": {
-                        "metrics": {"test_mape": 21.5, "test_r2": 0.96},
-                        "model_name": "Gradient Boosting"
+                        "metrics": {"cv_mape_eps": 21.5, "cv_r2": 0.93},
+                        "model_name": "Extra Trees",
+                        "log_transform_target": True,
+                        "inference_note": "predict() returns log-scale; apply np.expm1() to get mWh"
                     },
                     "rpi5_model": {
-                        "metrics": {"loo_mape": 14.2, "loo_r2": 0.95},
-                        "model_name": "Gradient Boosting"
+                        "metrics": {"cv_mape_eps": 12.8, "cv_r2": 0.956},
+                        "model_name": "Extra Trees",
+                        "log_transform_target": True,
+                        "inference_note": "predict() returns log-scale; apply np.expm1() to get mWh"
                     }
                 },
                 "source": "fallback"
@@ -1432,6 +1624,73 @@ def get_energy_metadata():
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/energy/report", methods=["POST"])
+def report_measured_energy():
+    """Persist measured energy samples from edge agents for later analysis/reporting."""
+    data = request.get_json(force=True, silent=True) or {}
+    actual_energy_mwh = _safe_float(data.get("actual_energy_mwh"))
+    if actual_energy_mwh is None:
+        return jsonify({"success": False, "error": "actual_energy_mwh is required"}), 400
+
+    model_name = data.get("model_name") or "unknown"
+    device_type = data.get("device_type") or "unknown"
+
+    predicted_mwh = None
+    model_info = data.get("model_info")
+    if isinstance(model_info, dict):
+        for key in ("predicted_energy_mwh", "energy_avg_mwh", "predicted_mwh"):
+            predicted_mwh = _safe_float(model_info.get(key))
+            if predicted_mwh is not None:
+                break
+
+    if predicted_mwh is None:
+        predicted_mwh = _safe_float(data.get("predicted_mwh"))
+
+    abs_error_mwh = None
+    pct_error = None
+    if predicted_mwh is not None and predicted_mwh > 0:
+        abs_error_mwh = abs(actual_energy_mwh - predicted_mwh)
+        pct_error = (abs_error_mwh / predicted_mwh) * 100.0
+
+    item = {
+        "timestamp": data.get("timestamp") or datetime.now(timezone.utc).isoformat(),
+        "device_id": data.get("device_id"),
+        "device_type": device_type,
+        "model_name": model_name,
+        "actual_energy_mwh": round(actual_energy_mwh, 4),
+        "predicted_mwh": round(predicted_mwh, 4) if predicted_mwh is not None else None,
+        "abs_error_mwh": round(abs_error_mwh, 4) if abs_error_mwh is not None else None,
+        "pct_error": round(pct_error, 4) if pct_error is not None else None,
+        "avg_power_mw": _safe_float(data.get("avg_power_mw")),
+        "duration_s": _safe_float(data.get("duration_s")),
+        "sensor_type": data.get("sensor_type") or data.get("meter_source") or "unknown",
+        "source": data.get("source") or "edge_agent",
+    }
+
+    items = _load_energy_reports()
+    items.append(item)
+    items = items[-500:]
+    _save_energy_reports(items)
+
+    return jsonify({
+        "success": True,
+        "item": item,
+        "stored": len(items),
+    })
+
+
+@app.route("/api/energy/recent", methods=["GET"])
+def get_recent_energy_reports():
+    limit = max(1, min(request.args.get("n", default=10, type=int), 100))
+    items = _load_energy_reports()
+    recent = list(reversed(items[-limit:]))
+    return jsonify({
+        "success": True,
+        "count": len(recent),
+        "items": recent,
+    })
 
 
 @app.route("/api/models/popular", methods=["GET"])
@@ -1577,7 +1836,12 @@ def predict_energy_for_custom_model():
         
         # Determine device key
         device_type = data["device_type"].lower()
-        device_key = "jetson_nano" if "jetson" in device_type else "raspberry_pi5"
+        if any(k in device_type for k in ["jetson", "nano"]):
+            device_key = "jetson_nano"
+        elif any(k in device_type for k in ["raspberry", "rpi", "pi"]):
+            device_key = "raspberry_pi5"
+        else:
+            device_key = "jetson_nano"
         thresholds = thresholds_data.get(device_key, {})
         
         p25 = thresholds.get("p25", 50)
@@ -1646,6 +1910,92 @@ def predict_energy_for_custom_model():
         import traceback
         traceback.print_exc()
         return jsonify({"success": False, "error": f"Prediction error: {e}"}), 500
+
+
+@app.route("/api/analyze-model-file", methods=["POST"])
+def analyze_model_file():
+    """
+    Upload a model file (.onnx or .tflite) and extract features for energy prediction.
+
+    Multipart form fields:
+        file        — model file (required)
+        device_type — "jetson_nano" or "raspberry_pi5" (default: jetson_nano)
+        input_h     — input height (default: 224)
+        input_w     — input width  (default: 224)
+        input_c     — input channels (default: 3)
+
+    Returns extracted features ready to feed into /api/predict-energy-for-model.
+    """
+    if "file" not in request.files:
+        return jsonify({"success": False, "error": "No file uploaded. Use multipart/form-data with field 'file'."}), 400
+
+    f = request.files["file"]
+    filename = f.filename or "model.onnx"
+
+    # Allow practical ONNX/TFLite uploads while keeping a clear safety cap.
+    MAX_BYTES = MODEL_ANALYZE_MAX_MB * 1024 * 1024
+    file_bytes = f.read(MAX_BYTES + 1)
+    if len(file_bytes) > MAX_BYTES:
+        return jsonify({
+            "success": False,
+            "error": f"File too large (max {MODEL_ANALYZE_MAX_MB} MB)."
+        }), 413
+
+    device_type = request.form.get("device_type", "jetson_nano")
+    try:
+        ih = int(request.form.get("input_h", 224))
+        iw = int(request.form.get("input_w", 224))
+        ic = int(request.form.get("input_c", 3))
+        input_shape = (1, ic, ih, iw)
+    except (ValueError, TypeError):
+        input_shape = None
+
+    try:
+        result = extract_model_features(
+            file_bytes=file_bytes,
+            filename=filename,
+            device_type=device_type,
+            input_shape=input_shape,
+            jetson_csv=CSV_PATH,
+            rpi5_csv=RPI5_CSV_PATH,
+        )
+        return jsonify({"success": True, "filename": filename, "features": result})
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/models/upload", methods=["POST"])
+def upload_custom_model():
+    """Save a user-supplied ONNX/TFLite model into local artifacts for deployment."""
+    if "file" not in request.files:
+        return jsonify({"success": False, "error": "No file uploaded"}), 400
+
+    upload = request.files["file"]
+    original_name = upload.filename or ""
+    ext = os.path.splitext(original_name)[1].lower()
+    if ext not in (".onnx", ".tflite"):
+        return jsonify({
+            "success": False,
+            "error": "Only .onnx and .tflite files are supported"
+        }), 400
+
+    requested_name = request.form.get("model_name") or original_name
+    model_base = _sanitize_model_base_name(requested_name)
+    final_filename = f"{model_base}{ext}"
+    target_path = os.path.join(MODEL_STORE_DIR, final_filename)
+    os.makedirs(MODEL_STORE_DIR, exist_ok=True)
+    upload.save(target_path)
+
+    file_size_mb = round(os.path.getsize(target_path) / (1024 * 1024), 4)
+    return jsonify({
+        "success": True,
+        "model_name": model_base,
+        "artifact_file": final_filename,
+        "path": target_path,
+        "size_mb": file_size_mb,
+        "format": ext.lstrip("."),
+    })
 
 
 @app.route("/api/models/recommended", methods=["GET"])
@@ -1813,51 +2163,114 @@ def get_device_status(device_endpoint):
       - Device UUID (will fetch public URL)
       - IP address (will use http://<ip>:8000/status)
     """
+    device_url = None
     try:
-        device_url = None
-        
+        fallback_ip = (request.args.get("bbb_ip") or "").strip()
+        urls_to_try = []
+
         # Check if device_endpoint looks like a UUID (32+ hex chars)
-        if len(device_endpoint) >= 32 and all(c in "0123456789abcdef" for c in device_endpoint.lower()):
+        looks_like_uuid = (
+            len(device_endpoint) >= 32
+            and all(c in "0123456789abcdef" for c in device_endpoint.lower())
+        )
+
+        if looks_like_uuid:
             # It's a UUID, try to get public URL
-            public_url = get_device_public_url(device_endpoint)
-            if public_url:
-                device_url = f"{public_url}/status"
-            else:
+            token = _get_balena_token()
+            if not token:
                 return jsonify({
                     "success": False,
-                    "error": "Public URL not available for this device"
+                    "error": "BALENA_API_TOKEN is not configured; cannot resolve device Public URL",
                 }), 503
+
+            public_url = get_device_public_url(device_endpoint, token=token)
+            if not public_url:
+                return jsonify({
+                    "success": False,
+                    "error": "Public URL not available for this device (disabled or token lacks access)",
+                }), 503
+
+            urls_to_try.append(f"{public_url}/status")
         else:
             # Treat as IP address
-            device_url = f"http://{device_endpoint}:8000/status"
-        
-        response = requests.get(device_url, timeout=5)
-        
+            urls_to_try.append(f"http://{device_endpoint}:8000/status")
+
+        if fallback_ip:
+            fallback_url = f"http://{fallback_ip}:8000/status"
+            if fallback_url not in urls_to_try:
+                urls_to_try.append(fallback_url)
+
+        response = None
+        last_error = None
+        for candidate_url in urls_to_try:
+            device_url = candidate_url
+            try:
+                response = requests.get(device_url, timeout=5, headers={"Accept": "application/json"})
+                break
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
+                last_error = exc
+                response = None
+                continue
+
+        if response is None:
+            raise last_error or requests.exceptions.ConnectionError("No reachable device URL")
+
         if response.status_code == 200:
+            try:
+                payload = response.json()
+                if isinstance(payload, dict):
+                    model_name = payload.get("model_name") or ((payload.get("model_info") or {}).get("model_name"))
+                    latest_energy_report = _get_latest_energy_report(device_id=device_endpoint if looks_like_uuid else None, model_name=model_name)
+                    if latest_energy_report:
+                        payload["latest_energy_report"] = latest_energy_report
+            except ValueError:
+                body_preview = (response.text or "")[:500]
+                return jsonify({
+                    "success": False,
+                    "error": "Device returned non-JSON response",
+                    "device_url": device_url,
+                    "content_type": response.headers.get("Content-Type"),
+                    "body_preview": body_preview,
+                }), 502
+
             return jsonify({
                 "success": True,
-                "data": response.json()
+                "data": payload,
+                "device_url": device_url,
             })
-        else:
-            return jsonify({
-                "success": False,
-                "error": f"HTTP {response.status_code}"
-            }), response.status_code
-            
+
+        body_preview = (response.text or "")[:500]
+        return jsonify({
+            "success": False,
+            "error": f"HTTP {response.status_code}",
+            "device_url": device_url,
+            "body_preview": body_preview,
+        }), response.status_code
+
     except requests.exceptions.Timeout:
         return jsonify({
             "success": False,
-            "error": "Request timeout"
+            "error": "Request timeout",
+            "device_url": device_url,
         }), 504
+    except requests.exceptions.SSLError as e:
+        return jsonify({
+            "success": False,
+            "error": "SSL error",
+            "details": str(e),
+            "device_url": device_url,
+        }), 502
     except requests.exceptions.ConnectionError:
         return jsonify({
             "success": False,
-            "error": "Connection failed"
+            "error": "Connection failed",
+            "device_url": device_url,
         }), 503
     except Exception as e:
         return jsonify({
             "success": False,
-            "error": str(e)
+            "error": str(e),
+            "device_url": device_url,
         }), 500
 
 

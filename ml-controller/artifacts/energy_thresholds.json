@@ -1,11 +1,11 @@
 {
   "jetson_nano": {
-    "p10": 18.2084545,
-    "p25": 34.5512145,
-    "p50": 104.638656,
-    "p75": 235.255843,
-    "p90": 799.6989706,
-    "recommended_threshold": 34.5512145,
+    "p10": 12.485417400000001,
+    "p25": 29.98996075,
+    "p50": 98.606651,
+    "p75": 226.52004625,
+    "p90": 705.1255773000004,
+    "recommended_threshold": 29.98996075,
     "unit": "mWh",
     "interpretation": "Mô hình dưới P25 thuộc top 25% tiết kiệm năng lượng nhất"
   },
@@ -19,6 +19,6 @@
     "unit": "mWh",
     "interpretation": "Mô hình dưới P25 thuộc top 25% tiết kiệm năng lượng nhất"
   },
-  "methodology": "Percentile thứ 25 (P25) được tính từ dữ liệu benchmark thực tế",
-  "last_updated": "2026-01-22T03:10:24.397267"
+  "methodology": "Percentile tính từ benchmark thực tế theo từng thiết bị",
+  "last_updated": "2026-04-06T15:07:34.323065+00:00"
 }

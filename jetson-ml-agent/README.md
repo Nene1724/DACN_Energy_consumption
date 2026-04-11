@@ -27,3 +27,63 @@ balena push Jetson_Nano
 - `POST /stop` - Stop inference
 - `POST /predict` - Run inference
 - `POST /telemetry` - Report energy metrics
+
+## FNB58 Integration Workflow
+
+### 1. Deploy updated image
+
+```bash
+balena push <your_fleet_name>
+```
+
+### 2. Verify FNB58 on device host OS
+
+```bash
+balena device ssh <device_ip_or_uuid>
+lsusb | grep -i fnirsi
+dmesg | grep -Ei 'fnirsi|hidraw|usb'
+```
+
+### 3. Start telemetry collector in `ml-agent` container
+
+Collector supports any external exporter that can output JSON.
+
+Example payload from exporter command:
+
+```json
+{
+	"energy_wh": 0.0182,
+	"power_w": 2.9,
+	"duration_s": 22.6,
+	"timestamp": "2026-03-30T15:10:00Z"
+}
+```
+
+Run collector:
+
+```bash
+balena device ssh <device_ip_or_uuid> ml-agent
+python3 app/fnb58_telemetry_collector.py \
+	--agent-url http://127.0.0.1:8000 \
+	--json-command "python3 /data/fnb58_exporter.py" \
+	--interval 3 \
+	--source fnb58
+```
+
+Alternative (read from JSON file updated by exporter):
+
+```bash
+python3 app/fnb58_telemetry_collector.py \
+	--agent-url http://127.0.0.1:8000 \
+	--json-file /data/fnb58_latest.json \
+	--interval 3 \
+	--source fnb58
+```
+
+### 4. Run 10-30 inference cycles and compute MAPE
+
+```bash
+python3 app/benchmark_mape.py --runs 30 --delay 2 --csv /data/mape_report.csv
+```
+
+The script reads `predicted_mwh` from deployed model metadata and compares with measured telemetry from `/telemetry` history.

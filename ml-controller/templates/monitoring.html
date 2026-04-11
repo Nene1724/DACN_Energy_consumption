@@ -9,7 +9,7 @@
                     <select id="monitor_device_selector" class="filter-select" style="min-width: 260px;">
                         <option value="">Select a device</option>
                     </select>
-                    <span style="color: var(--muted); font-size: 12px;">• Last update: <span id="monitor_last_update">—</span></span>
+                    <span style="color: var(--muted); font-size: 12px;">| Last update: <span id="monitor_last_update">--</span></span>
                 </p>
             </div>
             <div class="panel-actions">
@@ -24,6 +24,35 @@
                 <div class="service-info">Agent: <span id="service_state">unknown</span></div>
             </div>
             <span class="badge" id="service_badge">Unknown</span>
+        </div>
+
+        <div class="monitor-row" style="margin-top: 10px;">
+            <div class="monitor-card">
+                <h4>Energy Accuracy (Prediction vs FNB Meter)</h4>
+                <div class="metric-list" style="margin-top: 8px;">
+                    <div class="metric-line"><span class="label">Predicted:</span><span class="value" id="compare_predicted_value">N/A</span></div>
+                    <div class="metric-line"><span class="label">Measured:</span><span class="value" id="compare_measured_value">N/A</span></div>
+                    <div class="metric-line"><span class="label">Abs Error:</span><span class="value" id="compare_error_abs">N/A</span></div>
+                    <div class="metric-line"><span class="label">Error %:</span><span class="value" id="compare_error_pct">N/A</span></div>
+                    <div class="metric-line"><span class="label">Accuracy:</span><span class="value" id="compare_accuracy">N/A</span></div>
+                    <div class="metric-line"><span class="label">Meter Source:</span><span class="value" id="compare_source">N/A</span></div>
+                    <div class="metric-line"><span class="label">Updated:</span><span class="value" id="compare_updated">N/A</span></div>
+                    <div class="metric-line"><span class="label">Status:</span><span class="value" id="compare_status_note">Waiting for device data</span></div>
+                </div>
+            </div>
+            <div class="monitor-card">
+                <h4>FNB58 Live Meter</h4>
+                <div class="metric-list" style="margin-top: 8px;">
+                    <div class="metric-line"><span class="label">Connection:</span><span class="value" id="meter_connection_state">N/A</span></div>
+                    <div class="metric-line"><span class="label">Port:</span><span class="value" id="meter_port">N/A</span></div>
+                    <div class="metric-line"><span class="label">Voltage:</span><span class="value" id="meter_voltage">N/A</span></div>
+                    <div class="metric-line"><span class="label">Current:</span><span class="value" id="meter_current">N/A</span></div>
+                    <div class="metric-line"><span class="label">Power:</span><span class="value" id="meter_power">N/A</span></div>
+                    <div class="metric-line"><span class="label">Measured Energy:</span><span class="value" id="meter_energy">N/A</span></div>
+                    <div class="metric-line"><span class="label">Updated:</span><span class="value" id="meter_updated">N/A</span></div>
+                    <div class="metric-line"><span class="label">Last Error:</span><span class="value" id="meter_error">No readings yet</span></div>
+                </div>
+            </div>
         </div>
     </div>
 
