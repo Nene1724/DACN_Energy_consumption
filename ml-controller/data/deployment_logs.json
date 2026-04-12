@@ -209,11 +209,349 @@
         ],
         "last_error": "500 Server Error: INTERNAL SERVER ERROR for url: http://192.168.137.215:8000/deploy"
       }
+    },
+    {
+      "timestamp": "2026-04-12T05:58:38.686793Z",
+      "type": "info",
+      "message": "Starting deployment of 'squeezenet1_1' to device 192.168.137.215",
+      "metadata": {
+        "model_name": "squeezenet1_1",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-04-12T05:58:40.796864Z",
+      "type": "success",
+      "message": "Deploy thành công model 'squeezenet1_1' lên thiết bị 192.168.137.215 (via local URL)",
+      "metadata": {
+        "model_name": "squeezenet1_1",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "model_path": "D:\\KLTN\\DACN_Energy_consumption\\ml-controller\\model_store\\squeezenet1_1.onnx",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": 10.28,
+          "message": "Deployment successful",
+          "model_info": {
+            "artifact_file": "squeezenet1_1.onnx",
+            "artifact_format": "onnx",
+            "device_type": "jetson_nano",
+            "energy_avg_mwh": 10.28,
+            "energy_category": "excellent",
+            "gflops": 0.71495,
+            "gmacs": 0.357475,
+            "input_size": [
+              1,
+              3,
+              224,
+              224
+            ],
+            "latency_avg_s": 0.101435,
+            "model_name": "squeezenet1_1",
+            "params_m": 1.233288,
+            "predicted_energy_mwh": 10.28,
+            "prediction_mape_pct": 21.07900438055828,
+            "prediction_reason": "Energy consumption (10.3 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+            "size_mb": 4.720796,
+            "source_type": "uploaded_custom_model",
+            "throughput_iter_per_s": 16.6489
+          },
+          "model_name": "squeezenet1_1",
+          "model_path": "/data/models/current_model.onnx",
+          "model_size_bytes": 4950113
+        },
+        "used_url_type": "local"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T06:14:49.236506Z",
+      "type": "info",
+      "message": "Starting deployment of 'yolov5nu' to device 192.168.137.215",
+      "metadata": {
+        "model_name": "yolov5nu",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-04-12T06:14:51.878591Z",
+      "type": "success",
+      "message": "Deploy thành công model 'yolov5nu' lên thiết bị 192.168.137.215 (via local URL)",
+      "metadata": {
+        "model_name": "yolov5nu",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "model_path": "D:\\KLTN\\DACN_Energy_consumption\\ml-controller\\model_store\\yolov5nu.onnx",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": 6.39,
+          "message": "Deployment successful",
+          "model_info": {
+            "artifact_file": "yolov5nu.onnx",
+            "artifact_format": "onnx",
+            "device_type": "jetson_nano",
+            "energy_avg_mwh": 6.39,
+            "energy_category": "excellent",
+            "gflops": 0.71495,
+            "gmacs": 0.357475,
+            "input_size": [
+              1,
+              3,
+              224,
+              224
+            ],
+            "latency_avg_s": 0.01,
+            "model_name": "yolov5nu",
+            "params_m": 2.674418,
+            "predicted_energy_mwh": 6.39,
+            "prediction_mape_pct": 21.07900438055828,
+            "prediction_reason": "Energy consumption (6.4 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+            "size_mb": 10.613541,
+            "source_type": "uploaded_custom_model",
+            "throughput_iter_per_s": 100
+          },
+          "model_name": "yolov5nu",
+          "model_path": "/data/models/current_model.onnx",
+          "model_size_bytes": 11129104
+        },
+        "used_url_type": "local"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T06:22:35.447416Z",
+      "type": "info",
+      "message": "Starting deployment of 'yolov5nu_ir9' to device 192.168.137.215",
+      "metadata": {
+        "model_name": "yolov5nu_ir9",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-04-12T06:22:37.798789Z",
+      "type": "success",
+      "message": "Deploy thành công model 'yolov5nu_ir9' lên thiết bị 192.168.137.215 (via local URL)",
+      "metadata": {
+        "model_name": "yolov5nu_ir9",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "model_path": "D:\\KLTN\\DACN_Energy_consumption\\ml-controller\\model_store\\yolov5nu_ir9.onnx",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": 6.39,
+          "message": "Deployment successful",
+          "model_info": {
+            "artifact_file": "yolov5nu_ir9.onnx",
+            "artifact_format": "onnx",
+            "device_type": "jetson_nano",
+            "energy_avg_mwh": 6.39,
+            "energy_category": "excellent",
+            "gflops": 0.71495,
+            "gmacs": 0.357475,
+            "input_size": [
+              1,
+              3,
+              224,
+              224
+            ],
+            "latency_avg_s": 0.01,
+            "model_name": "yolov5nu_ir9",
+            "params_m": 2.674418,
+            "predicted_energy_mwh": 6.39,
+            "prediction_mape_pct": 21.07900438055828,
+            "prediction_reason": "Energy consumption (6.4 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+            "size_mb": 10.613541,
+            "source_type": "uploaded_custom_model",
+            "throughput_iter_per_s": 100
+          },
+          "model_name": "yolov5nu_ir9",
+          "model_path": "/data/models/current_model.onnx",
+          "model_size_bytes": 11129104
+        },
+        "used_url_type": "local"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T06:44:06.519059Z",
+      "type": "info",
+      "message": "Starting deployment of 'yolo11n' to device 192.168.137.215",
+      "metadata": {
+        "model_name": "yolo11n",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-04-12T06:44:09.076621Z",
+      "type": "success",
+      "message": "Deploy thành công model 'yolo11n' lên thiết bị 192.168.137.215 (via local URL)",
+      "metadata": {
+        "model_name": "yolo11n",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "model_path": "D:\\KLTN\\DACN_Energy_consumption\\ml-controller\\model_store\\yolo11n.onnx",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": 6.46,
+          "message": "Deployment successful",
+          "model_info": {
+            "artifact_file": "yolo11n.onnx",
+            "artifact_format": "onnx",
+            "device_type": "jetson_nano",
+            "energy_avg_mwh": 6.46,
+            "energy_category": "excellent",
+            "gflops": 0.71495,
+            "gmacs": 0.357475,
+            "input_size": [
+              1,
+              3,
+              224,
+              224
+            ],
+            "latency_avg_s": 0.01,
+            "model_name": "yolo11n",
+            "params_m": 2.616248,
+            "predicted_energy_mwh": 6.46,
+            "prediction_mape_pct": 21.07900438055828,
+            "prediction_reason": "Energy consumption (6.5 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+            "size_mb": 10.206142,
+            "source_type": "uploaded_custom_model",
+            "throughput_iter_per_s": 100
+          },
+          "model_name": "yolo11n",
+          "model_path": "/data/models/current_model.onnx",
+          "model_size_bytes": 10701916
+        },
+        "used_url_type": "local"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T06:54:00.301766Z",
+      "type": "info",
+      "message": "Starting deployment of 'movenet_singlepose_lightning_f16' to device 192.168.137.215",
+      "metadata": {
+        "model_name": "movenet_singlepose_lightning_f16",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-04-12T06:54:02.121248Z",
+      "type": "success",
+      "message": "Deploy thành công model 'movenet_singlepose_lightning_f16' lên thiết bị 192.168.137.215 (via local URL)",
+      "metadata": {
+        "model_name": "movenet_singlepose_lightning_f16",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "model_path": "D:\\KLTN\\DACN_Energy_consumption\\ml-controller\\model_store\\movenet_singlepose_lightning_f16.tflite",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": 10.29,
+          "message": "Deployment successful",
+          "model_info": {
+            "artifact_file": "movenet_singlepose_lightning_f16.tflite",
+            "artifact_format": "tflite",
+            "camera_device": "/dev/video0",
+            "camera_input": true,
+            "camera_resolution": [
+              640,
+              480
+            ],
+            "device_type": "jetson_nano",
+            "energy_avg_mwh": 10.29,
+            "energy_category": "excellent",
+            "gflops": 0.542697,
+            "gmacs": 0.27055,
+            "input_size": "3x192x192",
+            "latency_avg_s": 0.115195,
+            "model_name": "movenet_singlepose_lightning_f16",
+            "params_m": 2.318094,
+            "pose_model": "movenet_singlepose_lightning",
+            "predicted_energy_mwh": 10.29,
+            "prediction_mape_pct": 21.07900438055828,
+            "prediction_reason": "Energy consumption (10.3 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+            "size_mb": 4.538071,
+            "source_type": "fall_detection_camera_model",
+            "task": "pose_estimation",
+            "throughput_iter_per_s": 14.0306,
+            "use_case": "fall_detection_pose"
+          },
+          "model_name": "movenet_singlepose_lightning_f16",
+          "model_path": "/data/models/current_model.tflite",
+          "model_size_bytes": 4758512
+        },
+        "used_url_type": "local"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T07:47:00.367015Z",
+      "type": "info",
+      "message": "Starting deployment of 'movenet_singlepose_lightning_f16' to device 192.168.137.215",
+      "metadata": {
+        "model_name": "movenet_singlepose_lightning_f16",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-04-12T07:47:02.585565Z",
+      "type": "success",
+      "message": "Deploy thành công model 'movenet_singlepose_lightning_f16' lên thiết bị 192.168.137.215 (via local URL)",
+      "metadata": {
+        "model_name": "movenet_singlepose_lightning_f16",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "model_path": "D:\\KLTN\\DACN_Energy_consumption\\ml-controller\\model_store\\movenet_singlepose_lightning_f16.tflite",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": 10.29,
+          "message": "Deployment successful",
+          "model_info": {
+            "artifact_file": "movenet_singlepose_lightning_f16.tflite",
+            "artifact_format": "tflite",
+            "camera_device": "/dev/video0",
+            "camera_input": true,
+            "camera_resolution": [
+              640,
+              480
+            ],
+            "device_type": "jetson_nano",
+            "energy_avg_mwh": 10.29,
+            "energy_category": "excellent",
+            "gflops": 0.542697,
+            "gmacs": 0.27055,
+            "input_size": "3x192x192",
+            "latency_avg_s": 0.115195,
+            "model_name": "movenet_singlepose_lightning_f16",
+            "params_m": 2.318094,
+            "pose_model": "movenet_singlepose_lightning",
+            "predicted_energy_mwh": 10.29,
+            "prediction_mape_pct": 21.07900438055828,
+            "prediction_reason": "Energy consumption (10.3 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+            "size_mb": 4.538071,
+            "source_type": "fall_detection_camera_model",
+            "task": "pose_estimation",
+            "throughput_iter_per_s": 14.0306,
+            "use_case": "fall_detection_pose"
+          },
+          "model_name": "movenet_singlepose_lightning_f16",
+          "model_path": "/data/models/current_model.tflite",
+          "model_size_bytes": 4758512
+        },
+        "used_url_type": "local"
+      }
     }
   ],
   "metadata": {
     "created_at": "2025-12-13T00:00:00Z",
-    "last_updated": "2026-04-12T04:56:31.148784Z",
-    "total_deployments": 28
+    "last_updated": "2026-04-12T07:47:02.585565Z",
+    "total_deployments": 34
   }
 }

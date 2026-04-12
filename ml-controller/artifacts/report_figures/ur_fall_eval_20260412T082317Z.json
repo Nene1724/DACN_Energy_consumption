@@ -1,0 +1,3449 @@
+{
+  "timestamp": "2026-04-12T08:27:12.460065+00:00",
+  "agent": "http://192.168.137.215:8000",
+  "dataset_base_url": "https://fenix.ur.edu.pl/~mkepski/ds/data/",
+  "selection": {
+    "kind": "all",
+    "camera": "cam1",
+    "start": 1,
+    "end": 40,
+    "duration_s": 4.0,
+    "max_frames": 32
+  },
+  "stats": {
+    "tp": 13,
+    "tn": 29,
+    "fp": 11,
+    "fn": 17,
+    "errors": 0,
+    "total": 70,
+    "accuracy": 0.6,
+    "precision": 0.5417,
+    "recall": 0.4333
+  },
+  "results": [
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 1,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-01-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-01-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.123,
+        "fall_detect": 3.112,
+        "total": 3.234
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982201_9b496f858aff4f1ea2289f0aba951581.mp4",
+        "camera_source": "/data/uploaded_videos/1775982201_9b496f858aff4f1ea2289f0aba951581.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.8508,
+        "label": "fall_detected",
+        "duration_s": 3.08,
+        "details": {
+          "avg_fall_score": 0.4799,
+          "best_frame": {
+            "aspect_ratio": 2.7357,
+            "bbox_height_norm": 0.1934,
+            "bbox_width_norm": 0.5291,
+            "center_y_norm": 0.4608,
+            "fall_detected_frame": true,
+            "fall_score": 0.8508,
+            "frame_index": 22,
+            "head_to_ankle_span_norm": 0.1768,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2682,
+            "torso_angle_deg": 85.05,
+            "torso_vertical_delta": 0.0396,
+            "valid_pose": true,
+            "visible_keypoints": 10
+          },
+          "fall_frame_ratio": 0.2812,
+          "fall_frames": 9,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 3
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 2,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-02-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-02-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.077,
+        "fall_detect": 3.151,
+        "total": 3.227
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982204_49c518cbd97a43dab66545acd1d0bd7b.mp4",
+        "camera_source": "/data/uploaded_videos/1775982204_49c518cbd97a43dab66545acd1d0bd7b.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.8176,
+        "label": "fall_like_posture",
+        "duration_s": 3.116,
+        "details": {
+          "avg_fall_score": 0.4988,
+          "best_frame": {
+            "aspect_ratio": 4.4812,
+            "bbox_height_norm": 0.0861,
+            "bbox_width_norm": 0.3857,
+            "center_y_norm": 0.4852,
+            "fall_detected_frame": true,
+            "fall_score": 0.8176,
+            "frame_index": 20,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.3319,
+            "torso_angle_deg": 81.37,
+            "torso_vertical_delta": 0.0556,
+            "valid_pose": true,
+            "visible_keypoints": 10
+          },
+          "fall_frame_ratio": 0.2812,
+          "fall_frames": 9,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 2
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 3,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-03-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-03-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.195,
+        "fall_detect": 4.053,
+        "total": 4.248
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982207_37519bc2221b46e58818c55c783f1fcf.mp4",
+        "camera_source": "/data/uploaded_videos/1775982207_37519bc2221b46e58818c55c783f1fcf.mp4",
+        "frames_analyzed": 21,
+        "fall_detected": false,
+        "fall_score": 0.8244,
+        "label": "fall_like_posture",
+        "duration_s": 4.031,
+        "details": {
+          "avg_fall_score": 0.3834,
+          "best_frame": {
+            "aspect_ratio": 2.3714,
+            "bbox_height_norm": 0.2235,
+            "bbox_width_norm": 0.5301,
+            "center_y_norm": 0.4707,
+            "fall_detected_frame": true,
+            "fall_score": 0.8244,
+            "frame_index": 11,
+            "head_to_ankle_span_norm": 0.212,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2972,
+            "torso_angle_deg": 84.23,
+            "torso_vertical_delta": 0.0505,
+            "valid_pose": true,
+            "visible_keypoints": 10
+          },
+          "fall_frame_ratio": 0.0476,
+          "fall_frames": 1,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 1
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 4,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-04-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-04-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.091,
+        "fall_detect": 3.166,
+        "total": 3.257
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982211_00d549d8267548bea6c23842af44f145.mp4",
+        "camera_source": "/data/uploaded_videos/1775982211_00d549d8267548bea6c23842af44f145.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.9067,
+        "label": "fall_detected",
+        "duration_s": 3.147,
+        "details": {
+          "avg_fall_score": 0.4696,
+          "best_frame": {
+            "aspect_ratio": 7.8181,
+            "bbox_height_norm": 0.0318,
+            "bbox_width_norm": 0.2488,
+            "center_y_norm": 0.4899,
+            "fall_detected_frame": true,
+            "fall_score": 0.9067,
+            "frame_index": 24,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.3469,
+            "torso_angle_deg": 89.35,
+            "torso_vertical_delta": 0.0026,
+            "valid_pose": true,
+            "visible_keypoints": 10
+          },
+          "fall_frame_ratio": 0.3125,
+          "fall_frames": 10,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 3
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 5,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-05-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-05-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.1,
+        "fall_detect": 3.004,
+        "total": 3.105
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982215_52f3be60fb18406eb701a09fc0ce9825.mp4",
+        "camera_source": "/data/uploaded_videos/1775982215_52f3be60fb18406eb701a09fc0ce9825.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.8629,
+        "label": "fall_detected",
+        "duration_s": 2.974,
+        "details": {
+          "avg_fall_score": 0.4812,
+          "best_frame": {
+            "aspect_ratio": 2.7551,
+            "bbox_height_norm": 0.1904,
+            "bbox_width_norm": 0.5246,
+            "center_y_norm": 0.4754,
+            "fall_detected_frame": true,
+            "fall_score": 0.8629,
+            "frame_index": 20,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2855,
+            "torso_angle_deg": 85.8,
+            "torso_vertical_delta": 0.0365,
+            "valid_pose": true,
+            "visible_keypoints": 11
+          },
+          "fall_frame_ratio": 0.2188,
+          "fall_frames": 7,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 3
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 6,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-06-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-06-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.08,
+        "fall_detect": 3.215,
+        "total": 3.295
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982218_f7c1db4de96b42b283aaf7de35bad69b.mp4",
+        "camera_source": "/data/uploaded_videos/1775982218_f7c1db4de96b42b283aaf7de35bad69b.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.9131,
+        "label": "fall_detected",
+        "duration_s": 3.179,
+        "details": {
+          "avg_fall_score": 0.6695,
+          "best_frame": {
+            "aspect_ratio": 2.7189,
+            "bbox_height_norm": 0.1142,
+            "bbox_width_norm": 0.3106,
+            "center_y_norm": 0.5152,
+            "fall_detected_frame": true,
+            "fall_score": 0.9131,
+            "frame_index": 28,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2831,
+            "torso_angle_deg": 89.23,
+            "torso_vertical_delta": 0.0033,
+            "valid_pose": true,
+            "visible_keypoints": 11
+          },
+          "fall_frame_ratio": 0.5938,
+          "fall_frames": 19,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 13
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 7,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-07-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-07-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.106,
+        "fall_detect": 3.032,
+        "total": 3.137
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982221_c5a29b8423e541e385e5cec9e2564127.mp4",
+        "camera_source": "/data/uploaded_videos/1775982221_c5a29b8423e541e385e5cec9e2564127.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.9183,
+        "label": "fall_detected",
+        "duration_s": 3.013,
+        "details": {
+          "avg_fall_score": 0.7828,
+          "best_frame": {
+            "aspect_ratio": 3.487,
+            "bbox_height_norm": 0.0772,
+            "bbox_width_norm": 0.2693,
+            "center_y_norm": 0.5196,
+            "fall_detected_frame": true,
+            "fall_score": 0.9183,
+            "frame_index": 17,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.3486,
+            "torso_angle_deg": 89.78,
+            "torso_vertical_delta": 0.0009,
+            "valid_pose": true,
+            "visible_keypoints": 13
+          },
+          "fall_frame_ratio": 0.7812,
+          "fall_frames": 25,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 25
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 8,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-08-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-08-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.095,
+        "fall_detect": 3.197,
+        "total": 3.292
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982224_80942054a389475cb3db5e543c9a6b10.mp4",
+        "camera_source": "/data/uploaded_videos/1775982224_80942054a389475cb3db5e543c9a6b10.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.8684,
+        "label": "fall_like_posture",
+        "duration_s": 3.167,
+        "details": {
+          "avg_fall_score": 0.4256,
+          "best_frame": {
+            "aspect_ratio": 3.1387,
+            "bbox_height_norm": 0.2467,
+            "bbox_width_norm": 0.7745,
+            "center_y_norm": 0.4877,
+            "fall_detected_frame": true,
+            "fall_score": 0.8684,
+            "frame_index": 31,
+            "head_to_ankle_span_norm": 0.1832,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2603,
+            "torso_angle_deg": 88.03,
+            "torso_vertical_delta": 0.0087,
+            "valid_pose": true,
+            "visible_keypoints": 12
+          },
+          "fall_frame_ratio": 0.1562,
+          "fall_frames": 5,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 2
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 9,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-09-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-09-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.127,
+        "fall_detect": 3.178,
+        "total": 3.304
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982227_c518935b886443898f3236bb7a8079d4.mp4",
+        "camera_source": "/data/uploaded_videos/1775982227_c518935b886443898f3236bb7a8079d4.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.9022,
+        "label": "fall_detected",
+        "duration_s": 3.158,
+        "details": {
+          "avg_fall_score": 0.4892,
+          "best_frame": {
+            "aspect_ratio": 2.5766,
+            "bbox_height_norm": 0.2015,
+            "bbox_width_norm": 0.5193,
+            "center_y_norm": 0.4823,
+            "fall_detected_frame": true,
+            "fall_score": 0.9022,
+            "frame_index": 21,
+            "head_to_ankle_span_norm": 0.1607,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2504,
+            "torso_angle_deg": 89.17,
+            "torso_vertical_delta": 0.0057,
+            "valid_pose": true,
+            "visible_keypoints": 11
+          },
+          "fall_frame_ratio": 0.4375,
+          "fall_frames": 14,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 4
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 10,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-10-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-10-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.105,
+        "fall_detect": 3.254,
+        "total": 3.359
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982231_11e725afade0430ebdcb6dc8870e0fea.mp4",
+        "camera_source": "/data/uploaded_videos/1775982231_11e725afade0430ebdcb6dc8870e0fea.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.418,
+        "label": "uncertain",
+        "duration_s": 3.234,
+        "details": {
+          "avg_fall_score": 0.367,
+          "best_frame": {
+            "aspect_ratio": 3.0976,
+            "bbox_height_norm": 0.1742,
+            "bbox_width_norm": 0.5395,
+            "center_y_norm": 0.5132,
+            "fall_detected_frame": false,
+            "fall_score": 0.418,
+            "frame_index": 16,
+            "head_to_ankle_span_norm": 0.1742,
+            "label": "uncertain",
+            "pose_confidence": 0.2641,
+            "torso_angle_deg": null,
+            "torso_vertical_delta": null,
+            "valid_pose": true,
+            "visible_keypoints": 6
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 11,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-11-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-11-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.087,
+        "fall_detect": 3.176,
+        "total": 3.263
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982234_e06a7879fcb149c6871a1e47c9d48cb0.mp4",
+        "camera_source": "/data/uploaded_videos/1775982234_e06a7879fcb149c6871a1e47c9d48cb0.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.8099,
+        "label": "fall_detected",
+        "duration_s": 3.131,
+        "details": {
+          "avg_fall_score": 0.4064,
+          "best_frame": {
+            "aspect_ratio": 1.629,
+            "bbox_height_norm": 0.208,
+            "bbox_width_norm": 0.3389,
+            "center_y_norm": 0.4915,
+            "fall_detected_frame": true,
+            "fall_score": 0.8099,
+            "frame_index": 12,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2965,
+            "torso_angle_deg": 79.48,
+            "torso_vertical_delta": 0.0447,
+            "valid_pose": true,
+            "visible_keypoints": 10
+          },
+          "fall_frame_ratio": 0.25,
+          "fall_frames": 8,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 6
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 12,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-12-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-12-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.092,
+        "fall_detect": 3.212,
+        "total": 3.304
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982237_5252f4de6fe04e3faa3ff8cc9b34af22.mp4",
+        "camera_source": "/data/uploaded_videos/1775982237_5252f4de6fe04e3faa3ff8cc9b34af22.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.847,
+        "label": "fall_detected",
+        "duration_s": 3.164,
+        "details": {
+          "avg_fall_score": 0.4677,
+          "best_frame": {
+            "aspect_ratio": 2.489,
+            "bbox_height_norm": 0.1679,
+            "bbox_width_norm": 0.4179,
+            "center_y_norm": 0.4706,
+            "fall_detected_frame": true,
+            "fall_score": 0.847,
+            "frame_index": 19,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.3375,
+            "torso_angle_deg": 83.91,
+            "torso_vertical_delta": 0.0375,
+            "valid_pose": true,
+            "visible_keypoints": 12
+          },
+          "fall_frame_ratio": 0.25,
+          "fall_frames": 8,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 6
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 13,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-13-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-13-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.086,
+        "fall_detect": 3.269,
+        "total": 3.355
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982241_7e22ce292c954bacaf81d863e5600fcc.mp4",
+        "camera_source": "/data/uploaded_videos/1775982241_7e22ce292c954bacaf81d863e5600fcc.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.4168,
+        "label": "uncertain",
+        "duration_s": 3.21,
+        "details": {
+          "avg_fall_score": 0.2393,
+          "best_frame": {
+            "aspect_ratio": 3.0479,
+            "bbox_height_norm": 0.1887,
+            "bbox_width_norm": 0.575,
+            "center_y_norm": 0.5089,
+            "fall_detected_frame": false,
+            "fall_score": 0.4168,
+            "frame_index": 16,
+            "head_to_ankle_span_norm": null,
+            "label": "uncertain",
+            "pose_confidence": 0.2443,
+            "torso_angle_deg": null,
+            "torso_vertical_delta": null,
+            "valid_pose": true,
+            "visible_keypoints": 6
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 14,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-14-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-14-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.07,
+        "fall_detect": 3.243,
+        "total": 3.313
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982244_cd01862b2b934e4c93c9a03b3d1ae403.mp4",
+        "camera_source": "/data/uploaded_videos/1775982244_cd01862b2b934e4c93c9a03b3d1ae403.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.8306,
+        "label": "fall_like_posture",
+        "duration_s": 3.223,
+        "details": {
+          "avg_fall_score": 0.3433,
+          "best_frame": {
+            "aspect_ratio": 2.2993,
+            "bbox_height_norm": 0.2529,
+            "bbox_width_norm": 0.5815,
+            "center_y_norm": 0.4701,
+            "fall_detected_frame": true,
+            "fall_score": 0.8306,
+            "frame_index": 8,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.247,
+            "torso_angle_deg": 85.97,
+            "torso_vertical_delta": 0.0369,
+            "valid_pose": true,
+            "visible_keypoints": 11
+          },
+          "fall_frame_ratio": 0.0312,
+          "fall_frames": 1,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 1
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 15,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-15-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-15-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.078,
+        "fall_detect": 3.158,
+        "total": 3.236
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982247_7d2d1f8b49a742f0a28aaee988f0f009.mp4",
+        "camera_source": "/data/uploaded_videos/1775982247_7d2d1f8b49a742f0a28aaee988f0f009.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.8722,
+        "label": "fall_like_posture",
+        "duration_s": 3.13,
+        "details": {
+          "avg_fall_score": 0.3393,
+          "best_frame": {
+            "aspect_ratio": 2.6041,
+            "bbox_height_norm": 0.2144,
+            "bbox_width_norm": 0.5584,
+            "center_y_norm": 0.4833,
+            "fall_detected_frame": true,
+            "fall_score": 0.8722,
+            "frame_index": 31,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2585,
+            "torso_angle_deg": 86.92,
+            "torso_vertical_delta": 0.0276,
+            "valid_pose": true,
+            "visible_keypoints": 10
+          },
+          "fall_frame_ratio": 0.0312,
+          "fall_frames": 1,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 1
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 16,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-16-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-16-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.077,
+        "fall_detect": 3.143,
+        "total": 3.22
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982250_9d94a69e364f4ee8baf028602f77e81d.mp4",
+        "camera_source": "/data/uploaded_videos/1775982250_9d94a69e364f4ee8baf028602f77e81d.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.8848,
+        "label": "fall_detected",
+        "duration_s": 3.123,
+        "details": {
+          "avg_fall_score": 0.4008,
+          "best_frame": {
+            "aspect_ratio": 1.6352,
+            "bbox_height_norm": 0.1967,
+            "bbox_width_norm": 0.3217,
+            "center_y_norm": 0.4846,
+            "fall_detected_frame": true,
+            "fall_score": 0.8848,
+            "frame_index": 22,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.3429,
+            "torso_angle_deg": 86.55,
+            "torso_vertical_delta": 0.0177,
+            "valid_pose": true,
+            "visible_keypoints": 10
+          },
+          "fall_frame_ratio": 0.0938,
+          "fall_frames": 3,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 3
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 17,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-17-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-17-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.059,
+        "fall_detect": 3.127,
+        "total": 3.187
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982254_1bf1a20f951943d19ad072b3f97f6a8e.mp4",
+        "camera_source": "/data/uploaded_videos/1775982254_1bf1a20f951943d19ad072b3f97f6a8e.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.4124,
+        "label": "uncertain",
+        "duration_s": 3.107,
+        "details": {
+          "avg_fall_score": 0.2023,
+          "best_frame": {
+            "aspect_ratio": 2.8686,
+            "bbox_height_norm": 0.1995,
+            "bbox_width_norm": 0.5723,
+            "center_y_norm": 0.4935,
+            "fall_detected_frame": false,
+            "fall_score": 0.4124,
+            "frame_index": 14,
+            "head_to_ankle_span_norm": null,
+            "label": "uncertain",
+            "pose_confidence": 0.25,
+            "torso_angle_deg": null,
+            "torso_vertical_delta": null,
+            "valid_pose": true,
+            "visible_keypoints": 8
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 18,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-18-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-18-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.071,
+        "fall_detect": 3.16,
+        "total": 3.231
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982257_1ed7096f752d461bbc0b2a0c78f4d8f4.mp4",
+        "camera_source": "/data/uploaded_videos/1775982257_1ed7096f752d461bbc0b2a0c78f4d8f4.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.8963,
+        "label": "fall_detected",
+        "duration_s": 3.135,
+        "details": {
+          "avg_fall_score": 0.3482,
+          "best_frame": {
+            "aspect_ratio": 4.0017,
+            "bbox_height_norm": 0.1979,
+            "bbox_width_norm": 0.7921,
+            "center_y_norm": 0.4806,
+            "fall_detected_frame": true,
+            "fall_score": 0.8963,
+            "frame_index": 21,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2778,
+            "torso_angle_deg": 88.29,
+            "torso_vertical_delta": 0.0078,
+            "valid_pose": true,
+            "visible_keypoints": 10
+          },
+          "fall_frame_ratio": 0.0938,
+          "fall_frames": 3,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 3
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 19,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-19-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-19-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.094,
+        "fall_detect": 3.292,
+        "total": 3.386
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982260_a6aa13ae2b574dcf931229c21660b305.mp4",
+        "camera_source": "/data/uploaded_videos/1775982260_a6aa13ae2b574dcf931229c21660b305.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.4159,
+        "label": "uncertain",
+        "duration_s": 3.257,
+        "details": {
+          "avg_fall_score": 0.2588,
+          "best_frame": {
+            "aspect_ratio": 2.8354,
+            "bbox_height_norm": 0.2005,
+            "bbox_width_norm": 0.5686,
+            "center_y_norm": 0.5068,
+            "fall_detected_frame": false,
+            "fall_score": 0.4159,
+            "frame_index": 13,
+            "head_to_ankle_span_norm": null,
+            "label": "uncertain",
+            "pose_confidence": 0.2507,
+            "torso_angle_deg": null,
+            "torso_vertical_delta": null,
+            "valid_pose": true,
+            "visible_keypoints": 7
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 20,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-20-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-20-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.076,
+        "fall_detect": 3.19,
+        "total": 3.266
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982264_5786167d5a114581a2f972b54d3746d8.mp4",
+        "camera_source": "/data/uploaded_videos/1775982264_5786167d5a114581a2f972b54d3746d8.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.8536,
+        "label": "fall_like_posture",
+        "duration_s": 3.166,
+        "details": {
+          "avg_fall_score": 0.3667,
+          "best_frame": {
+            "aspect_ratio": 1.961,
+            "bbox_height_norm": 0.2294,
+            "bbox_width_norm": 0.4498,
+            "center_y_norm": 0.4732,
+            "fall_detected_frame": true,
+            "fall_score": 0.8536,
+            "frame_index": 16,
+            "head_to_ankle_span_norm": 0.2247,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2862,
+            "torso_angle_deg": 85.59,
+            "torso_vertical_delta": 0.0241,
+            "valid_pose": true,
+            "visible_keypoints": 12
+          },
+          "fall_frame_ratio": 0.0312,
+          "fall_frames": 1,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 1
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 21,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-21-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-21-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.06,
+        "fall_detect": 4.115,
+        "total": 4.175
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982267_fb3a186af9ad4ad09b1e8d52de642337.mp4",
+        "camera_source": "/data/uploaded_videos/1775982267_fb3a186af9ad4ad09b1e8d52de642337.mp4",
+        "frames_analyzed": 20,
+        "fall_detected": false,
+        "fall_score": 0.4125,
+        "label": "uncertain",
+        "duration_s": 4.079,
+        "details": {
+          "avg_fall_score": 0.3246,
+          "best_frame": {
+            "aspect_ratio": 2.661,
+            "bbox_height_norm": 0.2118,
+            "bbox_width_norm": 0.5637,
+            "center_y_norm": 0.5184,
+            "fall_detected_frame": false,
+            "fall_score": 0.4125,
+            "frame_index": 16,
+            "head_to_ankle_span_norm": null,
+            "label": "uncertain",
+            "pose_confidence": 0.2274,
+            "torso_angle_deg": null,
+            "torso_vertical_delta": null,
+            "valid_pose": true,
+            "visible_keypoints": 4
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 22,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-22-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-22-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.053,
+        "fall_detect": 3.087,
+        "total": 3.14
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982271_b6a891ea50234ecd915aaaaf4e9f5f62.mp4",
+        "camera_source": "/data/uploaded_videos/1775982271_b6a891ea50234ecd915aaaaf4e9f5f62.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.9109,
+        "label": "fall_detected",
+        "duration_s": 3.063,
+        "details": {
+          "avg_fall_score": 0.5044,
+          "best_frame": {
+            "aspect_ratio": 4.9437,
+            "bbox_height_norm": 0.1555,
+            "bbox_width_norm": 0.7685,
+            "center_y_norm": 0.4985,
+            "fall_detected_frame": true,
+            "fall_score": 0.9109,
+            "frame_index": 26,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.33,
+            "torso_angle_deg": 89.59,
+            "torso_vertical_delta": 0.0017,
+            "valid_pose": true,
+            "visible_keypoints": 12
+          },
+          "fall_frame_ratio": 0.375,
+          "fall_frames": 12,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 3
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 23,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-23-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-23-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.091,
+        "fall_detect": 3.186,
+        "total": 3.277
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982274_2accb992ec8c484a83ab24bbf2b50abd.mp4",
+        "camera_source": "/data/uploaded_videos/1775982274_2accb992ec8c484a83ab24bbf2b50abd.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.8891,
+        "label": "fall_like_posture",
+        "duration_s": 3.148,
+        "details": {
+          "avg_fall_score": 0.2955,
+          "best_frame": {
+            "aspect_ratio": 2.5751,
+            "bbox_height_norm": 0.2258,
+            "bbox_width_norm": 0.5814,
+            "center_y_norm": 0.4765,
+            "fall_detected_frame": true,
+            "fall_score": 0.8891,
+            "frame_index": 19,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2376,
+            "torso_angle_deg": 89.59,
+            "torso_vertical_delta": 0.0035,
+            "valid_pose": true,
+            "visible_keypoints": 11
+          },
+          "fall_frame_ratio": 0.0938,
+          "fall_frames": 3,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 1
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 24,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-24-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-24-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.278,
+        "fall_detect": 3.244,
+        "total": 3.522
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982277_28384189332b4ae89a232ca66c7a375c.mp4",
+        "camera_source": "/data/uploaded_videos/1775982277_28384189332b4ae89a232ca66c7a375c.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.8804,
+        "label": "fall_like_posture",
+        "duration_s": 3.214,
+        "details": {
+          "avg_fall_score": 0.4353,
+          "best_frame": {
+            "aspect_ratio": 2.7037,
+            "bbox_height_norm": 0.2177,
+            "bbox_width_norm": 0.5887,
+            "center_y_norm": 0.4659,
+            "fall_detected_frame": true,
+            "fall_score": 0.8804,
+            "frame_index": 18,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2835,
+            "torso_angle_deg": 88.15,
+            "torso_vertical_delta": 0.0166,
+            "valid_pose": true,
+            "visible_keypoints": 10
+          },
+          "fall_frame_ratio": 0.1562,
+          "fall_frames": 5,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 1
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 25,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-25-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-25-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.086,
+        "fall_detect": 3.113,
+        "total": 3.199
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982281_48365f279e994cd98d9a4e0c0dd3fbf4.mp4",
+        "camera_source": "/data/uploaded_videos/1775982281_48365f279e994cd98d9a4e0c0dd3fbf4.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.8892,
+        "label": "fall_like_posture",
+        "duration_s": 3.095,
+        "details": {
+          "avg_fall_score": 0.35,
+          "best_frame": {
+            "aspect_ratio": 2.6741,
+            "bbox_height_norm": 0.2156,
+            "bbox_width_norm": 0.5766,
+            "center_y_norm": 0.4832,
+            "fall_detected_frame": true,
+            "fall_score": 0.8892,
+            "frame_index": 10,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2455,
+            "torso_angle_deg": 88.5,
+            "torso_vertical_delta": 0.0133,
+            "valid_pose": true,
+            "visible_keypoints": 12
+          },
+          "fall_frame_ratio": 0.0625,
+          "fall_frames": 2,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 1
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 26,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-26-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-26-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.059,
+        "fall_detect": 3.172,
+        "total": 3.231
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982284_9c3f6d3be19346ce8bd2c2b37d3a4cf7.mp4",
+        "camera_source": "/data/uploaded_videos/1775982284_9c3f6d3be19346ce8bd2c2b37d3a4cf7.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.8655,
+        "label": "fall_detected",
+        "duration_s": 3.136,
+        "details": {
+          "avg_fall_score": 0.3533,
+          "best_frame": {
+            "aspect_ratio": 1.661,
+            "bbox_height_norm": 0.2257,
+            "bbox_width_norm": 0.3749,
+            "center_y_norm": 0.4688,
+            "fall_detected_frame": true,
+            "fall_score": 0.8655,
+            "frame_index": 20,
+            "head_to_ankle_span_norm": 0.2204,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.252,
+            "torso_angle_deg": 86.64,
+            "torso_vertical_delta": 0.0145,
+            "valid_pose": true,
+            "visible_keypoints": 9
+          },
+          "fall_frame_ratio": 0.125,
+          "fall_frames": 4,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 4
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 27,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-27-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-27-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.092,
+        "fall_detect": 3.108,
+        "total": 3.201
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982287_71607455baad47da8ebe94ed69b83f36.mp4",
+        "camera_source": "/data/uploaded_videos/1775982287_71607455baad47da8ebe94ed69b83f36.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.8882,
+        "label": "fall_like_posture",
+        "duration_s": 3.084,
+        "details": {
+          "avg_fall_score": 0.2767,
+          "best_frame": {
+            "aspect_ratio": 2.5628,
+            "bbox_height_norm": 0.2241,
+            "bbox_width_norm": 0.5742,
+            "center_y_norm": 0.4818,
+            "fall_detected_frame": true,
+            "fall_score": 0.8882,
+            "frame_index": 18,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2413,
+            "torso_angle_deg": 89.11,
+            "torso_vertical_delta": 0.0081,
+            "valid_pose": true,
+            "visible_keypoints": 9
+          },
+          "fall_frame_ratio": 0.0625,
+          "fall_frames": 2,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 1
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 28,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-28-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-28-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.093,
+        "fall_detect": 3.164,
+        "total": 3.258
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982291_455381ef59df4beaba72c2ba94089aa6.mp4",
+        "camera_source": "/data/uploaded_videos/1775982291_455381ef59df4beaba72c2ba94089aa6.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.8538,
+        "label": "fall_detected",
+        "duration_s": 3.119,
+        "details": {
+          "avg_fall_score": 0.4452,
+          "best_frame": {
+            "aspect_ratio": 2.3352,
+            "bbox_height_norm": 0.2468,
+            "bbox_width_norm": 0.5764,
+            "center_y_norm": 0.4603,
+            "fall_detected_frame": true,
+            "fall_score": 0.8538,
+            "frame_index": 5,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.259,
+            "torso_angle_deg": 87.4,
+            "torso_vertical_delta": 0.0225,
+            "valid_pose": true,
+            "visible_keypoints": 9
+          },
+          "fall_frame_ratio": 0.2812,
+          "fall_frames": 9,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 3
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 29,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-29-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-29-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.096,
+        "fall_detect": 3.137,
+        "total": 3.233
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982294_6e48e266a5cd4eb6b8cd07ce688e6cc9.mp4",
+        "camera_source": "/data/uploaded_videos/1775982294_6e48e266a5cd4eb6b8cd07ce688e6cc9.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.415,
+        "label": "uncertain",
+        "duration_s": 3.099,
+        "details": {
+          "avg_fall_score": 0.1678,
+          "best_frame": {
+            "aspect_ratio": 2.7603,
+            "bbox_height_norm": 0.2017,
+            "bbox_width_norm": 0.5567,
+            "center_y_norm": 0.506,
+            "fall_detected_frame": false,
+            "fall_score": 0.415,
+            "frame_index": 4,
+            "head_to_ankle_span_norm": null,
+            "label": "uncertain",
+            "pose_confidence": 0.2563,
+            "torso_angle_deg": null,
+            "torso_vertical_delta": null,
+            "valid_pose": true,
+            "visible_keypoints": 6
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 30,
+        "camera": "cam1",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-30-cam1.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-30-cam1.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.052,
+        "fall_detect": 3.116,
+        "total": 3.168
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982297_da894c3df1294bcda3239232feee4ecd.mp4",
+        "camera_source": "/data/uploaded_videos/1775982297_da894c3df1294bcda3239232feee4ecd.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.8808,
+        "label": "fall_like_posture",
+        "duration_s": 3.093,
+        "details": {
+          "avg_fall_score": 0.3765,
+          "best_frame": {
+            "aspect_ratio": 2.5347,
+            "bbox_height_norm": 0.2308,
+            "bbox_width_norm": 0.5849,
+            "center_y_norm": 0.4756,
+            "fall_detected_frame": true,
+            "fall_score": 0.8808,
+            "frame_index": 7,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2784,
+            "torso_angle_deg": 88.89,
+            "torso_vertical_delta": 0.0103,
+            "valid_pose": true,
+            "visible_keypoints": 10
+          },
+          "fall_frame_ratio": 0.125,
+          "fall_frames": 4,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 2
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 1,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-01-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-01-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.096,
+        "fall_detect": 3.207,
+        "total": 3.303
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982300_04ce9c602fb74c8d9fcf96c8a6e76a3a.mp4",
+        "camera_source": "/data/uploaded_videos/1775982300_04ce9c602fb74c8d9fcf96c8a6e76a3a.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.2438,
+        "label": "uncertain",
+        "duration_s": 3.175,
+        "details": {
+          "avg_fall_score": 0.0728,
+          "best_frame": {
+            "aspect_ratio": 0.2479,
+            "bbox_height_norm": 0.0872,
+            "bbox_width_norm": 0.0216,
+            "center_y_norm": 0.5022,
+            "fall_detected_frame": false,
+            "fall_score": 0.2438,
+            "frame_index": 10,
+            "head_to_ankle_span_norm": null,
+            "label": "uncertain",
+            "pose_confidence": 0.2255,
+            "torso_angle_deg": 0.25,
+            "torso_vertical_delta": 0.0453,
+            "valid_pose": true,
+            "visible_keypoints": 12
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 2,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-02-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-02-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.141,
+        "fall_detect": 3.159,
+        "total": 3.3
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982304_2da9d6ed24724c08b787dd6ebe018c73.mp4",
+        "camera_source": "/data/uploaded_videos/1775982304_2da9d6ed24724c08b787dd6ebe018c73.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.0,
+        "label": "insufficient_pose",
+        "duration_s": 3.122,
+        "details": {
+          "avg_fall_score": 0.0,
+          "best_frame": {
+            "fall_detected_frame": false,
+            "fall_score": 0.0,
+            "frame_index": 0,
+            "label": "insufficient_pose",
+            "pose_confidence": 0.11710012704133987,
+            "valid_pose": false,
+            "visible_keypoints": 1
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 3,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-03-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-03-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.114,
+        "fall_detect": 3.152,
+        "total": 3.266
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982307_462699c49c9948168bf46af270519d82.mp4",
+        "camera_source": "/data/uploaded_videos/1775982307_462699c49c9948168bf46af270519d82.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.4,
+        "label": "uncertain",
+        "duration_s": 3.128,
+        "details": {
+          "avg_fall_score": 0.1972,
+          "best_frame": {
+            "aspect_ratio": 2.0029,
+            "bbox_height_norm": 0.0038,
+            "bbox_width_norm": 0.0075,
+            "center_y_norm": 0.4342,
+            "fall_detected_frame": false,
+            "fall_score": 0.4,
+            "frame_index": 13,
+            "head_to_ankle_span_norm": null,
+            "label": "uncertain",
+            "pose_confidence": 0.274,
+            "torso_angle_deg": null,
+            "torso_vertical_delta": null,
+            "valid_pose": true,
+            "visible_keypoints": 5
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 4,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-04-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-04-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.124,
+        "fall_detect": 3.076,
+        "total": 3.2
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982310_0cc0f43262744ec4871fec357fa1a157.mp4",
+        "camera_source": "/data/uploaded_videos/1775982310_0cc0f43262744ec4871fec357fa1a157.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.2391,
+        "label": "uncertain",
+        "duration_s": 3.035,
+        "details": {
+          "avg_fall_score": 0.1887,
+          "best_frame": {
+            "aspect_ratio": 0.1908,
+            "bbox_height_norm": 0.1286,
+            "bbox_width_norm": 0.0245,
+            "center_y_norm": 0.4873,
+            "fall_detected_frame": false,
+            "fall_score": 0.2391,
+            "frame_index": 2,
+            "head_to_ankle_span_norm": 0.1216,
+            "label": "uncertain",
+            "pose_confidence": 0.2605,
+            "torso_angle_deg": 12.12,
+            "torso_vertical_delta": 0.0459,
+            "valid_pose": true,
+            "visible_keypoints": 16
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 5,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-05-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-05-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.121,
+        "fall_detect": 3.136,
+        "total": 3.257
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982313_d3fb8e3de27c4977952dd519753b7444.mp4",
+        "camera_source": "/data/uploaded_videos/1775982313_d3fb8e3de27c4977952dd519753b7444.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.2346,
+        "label": "uncertain",
+        "duration_s": 3.092,
+        "details": {
+          "avg_fall_score": 0.1758,
+          "best_frame": {
+            "aspect_ratio": 0.1388,
+            "bbox_height_norm": 0.1248,
+            "bbox_width_norm": 0.0173,
+            "center_y_norm": 0.4824,
+            "fall_detected_frame": false,
+            "fall_score": 0.2346,
+            "frame_index": 6,
+            "head_to_ankle_span_norm": 0.1235,
+            "label": "uncertain",
+            "pose_confidence": 0.314,
+            "torso_angle_deg": 0.36,
+            "torso_vertical_delta": 0.0496,
+            "valid_pose": true,
+            "visible_keypoints": 17
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 6,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-06-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-06-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.167,
+        "fall_detect": 3.201,
+        "total": 3.368
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982317_9613400322b24e358f632b06eb0705ce.mp4",
+        "camera_source": "/data/uploaded_videos/1775982317_9613400322b24e358f632b06eb0705ce.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.4329,
+        "label": "uncertain",
+        "duration_s": 3.152,
+        "details": {
+          "avg_fall_score": 0.1118,
+          "best_frame": {
+            "aspect_ratio": 4.4882,
+            "bbox_height_norm": 0.1088,
+            "bbox_width_norm": 0.4882,
+            "center_y_norm": 0.565,
+            "fall_detected_frame": false,
+            "fall_score": 0.4329,
+            "frame_index": 2,
+            "head_to_ankle_span_norm": null,
+            "label": "uncertain",
+            "pose_confidence": 0.2212,
+            "torso_angle_deg": null,
+            "torso_vertical_delta": null,
+            "valid_pose": true,
+            "visible_keypoints": 4
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 7,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-07-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-07-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.131,
+        "fall_detect": 3.224,
+        "total": 3.355
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982320_e1d3c5b77e74481693c86340848d4583.mp4",
+        "camera_source": "/data/uploaded_videos/1775982320_e1d3c5b77e74481693c86340848d4583.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.2336,
+        "label": "uncertain",
+        "duration_s": 3.181,
+        "details": {
+          "avg_fall_score": 0.2139,
+          "best_frame": {
+            "aspect_ratio": 0.1835,
+            "bbox_height_norm": 0.1267,
+            "bbox_width_norm": 0.0232,
+            "center_y_norm": 0.4833,
+            "fall_detected_frame": false,
+            "fall_score": 0.2336,
+            "frame_index": 4,
+            "head_to_ankle_span_norm": 0.1249,
+            "label": "uncertain",
+            "pose_confidence": 0.286,
+            "torso_angle_deg": 13.25,
+            "torso_vertical_delta": 0.0511,
+            "valid_pose": true,
+            "visible_keypoints": 17
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 8,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-08-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-08-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.149,
+        "fall_detect": 3.126,
+        "total": 3.275
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982323_42eeb09d623e4faa9429ea4a14bf29b0.mp4",
+        "camera_source": "/data/uploaded_videos/1775982323_42eeb09d623e4faa9429ea4a14bf29b0.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.2336,
+        "label": "uncertain",
+        "duration_s": 3.082,
+        "details": {
+          "avg_fall_score": 0.0638,
+          "best_frame": {
+            "aspect_ratio": 0.154,
+            "bbox_height_norm": 0.128,
+            "bbox_width_norm": 0.0197,
+            "center_y_norm": 0.4853,
+            "fall_detected_frame": false,
+            "fall_score": 0.2336,
+            "frame_index": 23,
+            "head_to_ankle_span_norm": 0.1261,
+            "label": "uncertain",
+            "pose_confidence": 0.2628,
+            "torso_angle_deg": 9.86,
+            "torso_vertical_delta": 0.0518,
+            "valid_pose": true,
+            "visible_keypoints": 15
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 9,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-09-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-09-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.166,
+        "fall_detect": 4.131,
+        "total": 4.297
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982327_71083eccdc9a42be8e011a9829aa783b.mp4",
+        "camera_source": "/data/uploaded_videos/1775982327_71083eccdc9a42be8e011a9829aa783b.mp4",
+        "frames_analyzed": 22,
+        "fall_detected": false,
+        "fall_score": 0.2324,
+        "label": "uncertain",
+        "duration_s": 4.096,
+        "details": {
+          "avg_fall_score": 0.1989,
+          "best_frame": {
+            "aspect_ratio": 0.1282,
+            "bbox_height_norm": 0.1512,
+            "bbox_width_norm": 0.0194,
+            "center_y_norm": 0.4863,
+            "fall_detected_frame": false,
+            "fall_score": 0.2324,
+            "frame_index": 14,
+            "head_to_ankle_span_norm": 0.15,
+            "label": "uncertain",
+            "pose_confidence": 0.2301,
+            "torso_angle_deg": 11.83,
+            "torso_vertical_delta": 0.0535,
+            "valid_pose": true,
+            "visible_keypoints": 10
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 10,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-10-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-10-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.201,
+        "fall_detect": 3.253,
+        "total": 3.454
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982331_7481531bf5234b2fa7bf78cd8ceed6d7.mp4",
+        "camera_source": "/data/uploaded_videos/1775982331_7481531bf5234b2fa7bf78cd8ceed6d7.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.4,
+        "label": "uncertain",
+        "duration_s": 3.223,
+        "details": {
+          "avg_fall_score": 0.2096,
+          "best_frame": {
+            "aspect_ratio": 1.9349,
+            "bbox_height_norm": 0.0068,
+            "bbox_width_norm": 0.0131,
+            "center_y_norm": 0.4357,
+            "fall_detected_frame": false,
+            "fall_score": 0.4,
+            "frame_index": 30,
+            "head_to_ankle_span_norm": null,
+            "label": "uncertain",
+            "pose_confidence": 0.217,
+            "torso_angle_deg": null,
+            "torso_vertical_delta": null,
+            "valid_pose": true,
+            "visible_keypoints": 5
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 11,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-11-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-11-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.278,
+        "fall_detect": 3.162,
+        "total": 3.44
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982334_be68b77a05c3468e8518cee007fe0d82.mp4",
+        "camera_source": "/data/uploaded_videos/1775982334_be68b77a05c3468e8518cee007fe0d82.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.2436,
+        "label": "uncertain",
+        "duration_s": 3.14,
+        "details": {
+          "avg_fall_score": 0.1804,
+          "best_frame": {
+            "aspect_ratio": 0.2408,
+            "bbox_height_norm": 0.1165,
+            "bbox_width_norm": 0.0281,
+            "center_y_norm": 0.4903,
+            "fall_detected_frame": false,
+            "fall_score": 0.2436,
+            "frame_index": 12,
+            "head_to_ankle_span_norm": 0.1099,
+            "label": "uncertain",
+            "pose_confidence": 0.2419,
+            "torso_angle_deg": 3.43,
+            "torso_vertical_delta": 0.0415,
+            "valid_pose": true,
+            "visible_keypoints": 14
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 12,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-12-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-12-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.196,
+        "fall_detect": 3.071,
+        "total": 3.267
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982338_d4c1822e2dec4e6fab30cd3363fb361c.mp4",
+        "camera_source": "/data/uploaded_videos/1775982338_d4c1822e2dec4e6fab30cd3363fb361c.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.9232,
+        "label": "fall_detected",
+        "duration_s": 3.049,
+        "details": {
+          "avg_fall_score": 0.5635,
+          "best_frame": {
+            "aspect_ratio": 3.2533,
+            "bbox_height_norm": 0.1372,
+            "bbox_width_norm": 0.4463,
+            "center_y_norm": 0.5622,
+            "fall_detected_frame": true,
+            "fall_score": 0.9232,
+            "frame_index": 11,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2442,
+            "torso_angle_deg": 88.78,
+            "torso_vertical_delta": 0.0075,
+            "valid_pose": true,
+            "visible_keypoints": 10
+          },
+          "fall_frame_ratio": 0.3125,
+          "fall_frames": 10,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 4
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 13,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-13-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-13-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.179,
+        "fall_detect": 3.185,
+        "total": 3.364
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982341_53fc4b89cc784ca9a8b9a35491ae9016.mp4",
+        "camera_source": "/data/uploaded_videos/1775982341_53fc4b89cc784ca9a8b9a35491ae9016.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.9234,
+        "label": "fall_detected",
+        "duration_s": 3.165,
+        "details": {
+          "avg_fall_score": 0.6282,
+          "best_frame": {
+            "aspect_ratio": 2.6581,
+            "bbox_height_norm": 0.1512,
+            "bbox_width_norm": 0.4018,
+            "center_y_norm": 0.5529,
+            "fall_detected_frame": true,
+            "fall_score": 0.9234,
+            "frame_index": 25,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.24,
+            "torso_angle_deg": 89.18,
+            "torso_vertical_delta": 0.005,
+            "valid_pose": true,
+            "visible_keypoints": 8
+          },
+          "fall_frame_ratio": 0.5,
+          "fall_frames": 16,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 4
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 14,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-14-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-14-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.132,
+        "fall_detect": 3.186,
+        "total": 3.319
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982344_e5f08415816f4412ad48c88dbef27e7e.mp4",
+        "camera_source": "/data/uploaded_videos/1775982344_e5f08415816f4412ad48c88dbef27e7e.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.9285,
+        "label": "fall_detected",
+        "duration_s": 3.167,
+        "details": {
+          "avg_fall_score": 0.5445,
+          "best_frame": {
+            "aspect_ratio": 9.5159,
+            "bbox_height_norm": 0.0416,
+            "bbox_width_norm": 0.3956,
+            "center_y_norm": 0.5561,
+            "fall_detected_frame": true,
+            "fall_score": 0.9285,
+            "frame_index": 31,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.259,
+            "torso_angle_deg": 89.76,
+            "torso_vertical_delta": 0.0015,
+            "valid_pose": true,
+            "visible_keypoints": 9
+          },
+          "fall_frame_ratio": 0.3438,
+          "fall_frames": 11,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 3
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 15,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-15-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-15-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.196,
+        "fall_detect": 3.124,
+        "total": 3.32
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982348_c7f566fddafb4c3a84745ea1cf063ae0.mp4",
+        "camera_source": "/data/uploaded_videos/1775982348_c7f566fddafb4c3a84745ea1cf063ae0.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.928,
+        "label": "fall_detected",
+        "duration_s": 3.095,
+        "details": {
+          "avg_fall_score": 0.7713,
+          "best_frame": {
+            "aspect_ratio": 3.6641,
+            "bbox_height_norm": 0.1292,
+            "bbox_width_norm": 0.4732,
+            "center_y_norm": 0.5496,
+            "fall_detected_frame": true,
+            "fall_score": 0.928,
+            "frame_index": 23,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2601,
+            "torso_angle_deg": 89.94,
+            "torso_vertical_delta": 0.0003,
+            "valid_pose": true,
+            "visible_keypoints": 8
+          },
+          "fall_frame_ratio": 0.7188,
+          "fall_frames": 23,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 5
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 16,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-16-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-16-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.359,
+        "fall_detect": 3.189,
+        "total": 3.547
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982351_56bd0e4bcf3b453cb96122ca9203fb16.mp4",
+        "camera_source": "/data/uploaded_videos/1775982351_56bd0e4bcf3b453cb96122ca9203fb16.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.9228,
+        "label": "fall_detected",
+        "duration_s": 3.163,
+        "details": {
+          "avg_fall_score": 0.6654,
+          "best_frame": {
+            "aspect_ratio": 3.6882,
+            "bbox_height_norm": 0.1256,
+            "bbox_width_norm": 0.4632,
+            "center_y_norm": 0.5633,
+            "fall_detected_frame": true,
+            "fall_score": 0.9228,
+            "frame_index": 15,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.264,
+            "torso_angle_deg": 88.69,
+            "torso_vertical_delta": 0.0086,
+            "valid_pose": true,
+            "visible_keypoints": 9
+          },
+          "fall_frame_ratio": 0.5625,
+          "fall_frames": 18,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 5
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 17,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-17-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-17-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.153,
+        "fall_detect": 3.23,
+        "total": 3.383
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982355_01233521bc174f3c9dd8e8847ea68730.mp4",
+        "camera_source": "/data/uploaded_videos/1775982355_01233521bc174f3c9dd8e8847ea68730.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.9225,
+        "label": "fall_detected",
+        "duration_s": 3.19,
+        "details": {
+          "avg_fall_score": 0.6101,
+          "best_frame": {
+            "aspect_ratio": 12.7194,
+            "bbox_height_norm": 0.0299,
+            "bbox_width_norm": 0.3801,
+            "center_y_norm": 0.5509,
+            "fall_detected_frame": true,
+            "fall_score": 0.9225,
+            "frame_index": 10,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2617,
+            "torso_angle_deg": 89.13,
+            "torso_vertical_delta": 0.0049,
+            "valid_pose": true,
+            "visible_keypoints": 8
+          },
+          "fall_frame_ratio": 0.4375,
+          "fall_frames": 14,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 4
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 18,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-18-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-18-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.182,
+        "fall_detect": 3.039,
+        "total": 3.222
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982358_5cf3580111f3462f8d49e12ffecc3f4e.mp4",
+        "camera_source": "/data/uploaded_videos/1775982358_5cf3580111f3462f8d49e12ffecc3f4e.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.9246,
+        "label": "fall_like_posture",
+        "duration_s": 3.013,
+        "details": {
+          "avg_fall_score": 0.5302,
+          "best_frame": {
+            "aspect_ratio": 3.2456,
+            "bbox_height_norm": 0.1297,
+            "bbox_width_norm": 0.4209,
+            "center_y_norm": 0.5512,
+            "fall_detected_frame": true,
+            "fall_score": 0.9246,
+            "frame_index": 29,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2648,
+            "torso_angle_deg": 89.41,
+            "torso_vertical_delta": 0.0036,
+            "valid_pose": true,
+            "visible_keypoints": 8
+          },
+          "fall_frame_ratio": 0.3125,
+          "fall_frames": 10,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 2
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 19,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-19-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-19-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.197,
+        "fall_detect": 3.02,
+        "total": 3.217
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982361_1748f69cda8c4feb8c05da92aee73bfd.mp4",
+        "camera_source": "/data/uploaded_videos/1775982361_1748f69cda8c4feb8c05da92aee73bfd.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.9273,
+        "label": "fall_detected",
+        "duration_s": 2.998,
+        "details": {
+          "avg_fall_score": 0.5823,
+          "best_frame": {
+            "aspect_ratio": 3.083,
+            "bbox_height_norm": 0.1306,
+            "bbox_width_norm": 0.4027,
+            "center_y_norm": 0.5485,
+            "fall_detected_frame": true,
+            "fall_score": 0.9273,
+            "frame_index": 26,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2438,
+            "torso_angle_deg": 89.89,
+            "torso_vertical_delta": 0.0007,
+            "valid_pose": true,
+            "visible_keypoints": 8
+          },
+          "fall_frame_ratio": 0.375,
+          "fall_frames": 12,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 3
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 20,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-20-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-20-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.169,
+        "fall_detect": 3.141,
+        "total": 3.311
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982364_c199331631a9437c81f6af843ac522df.mp4",
+        "camera_source": "/data/uploaded_videos/1775982364_c199331631a9437c81f6af843ac522df.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.9254,
+        "label": "fall_detected",
+        "duration_s": 3.108,
+        "details": {
+          "avg_fall_score": 0.5383,
+          "best_frame": {
+            "aspect_ratio": 18.4795,
+            "bbox_height_norm": 0.0194,
+            "bbox_width_norm": 0.3581,
+            "center_y_norm": 0.5397,
+            "fall_detected_frame": true,
+            "fall_score": 0.9254,
+            "frame_index": 25,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2714,
+            "torso_angle_deg": 89.96,
+            "torso_vertical_delta": 0.0002,
+            "valid_pose": true,
+            "visible_keypoints": 8
+          },
+          "fall_frame_ratio": 0.3438,
+          "fall_frames": 11,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 4
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 21,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-21-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-21-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.169,
+        "fall_detect": 3.254,
+        "total": 3.423
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982368_048a052a65a44babab7ec6fd2584e677.mp4",
+        "camera_source": "/data/uploaded_videos/1775982368_048a052a65a44babab7ec6fd2584e677.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.927,
+        "label": "fall_detected",
+        "duration_s": 3.214,
+        "details": {
+          "avg_fall_score": 0.5418,
+          "best_frame": {
+            "aspect_ratio": 27.3471,
+            "bbox_height_norm": 0.0127,
+            "bbox_width_norm": 0.346,
+            "center_y_norm": 0.5459,
+            "fall_detected_frame": true,
+            "fall_score": 0.927,
+            "frame_index": 14,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2867,
+            "torso_angle_deg": 89.95,
+            "torso_vertical_delta": 0.0003,
+            "valid_pose": true,
+            "visible_keypoints": 7
+          },
+          "fall_frame_ratio": 0.3125,
+          "fall_frames": 10,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 3
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 22,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-22-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-22-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.208,
+        "fall_detect": 3.068,
+        "total": 3.277
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982371_3ba4edc4eb404980b7e38be9db88dc7a.mp4",
+        "camera_source": "/data/uploaded_videos/1775982371_3ba4edc4eb404980b7e38be9db88dc7a.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.9241,
+        "label": "fall_detected",
+        "duration_s": 3.04,
+        "details": {
+          "avg_fall_score": 0.6003,
+          "best_frame": {
+            "aspect_ratio": 11.8726,
+            "bbox_height_norm": 0.0354,
+            "bbox_width_norm": 0.4208,
+            "center_y_norm": 0.5579,
+            "fall_detected_frame": true,
+            "fall_score": 0.9241,
+            "frame_index": 8,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2399,
+            "torso_angle_deg": 89.07,
+            "torso_vertical_delta": 0.0053,
+            "valid_pose": true,
+            "visible_keypoints": 9
+          },
+          "fall_frame_ratio": 0.4062,
+          "fall_frames": 13,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 3
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 23,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-23-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-23-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.157,
+        "fall_detect": 3.12,
+        "total": 3.277
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982374_1b817d4964d64474a5517cd33c4a2937.mp4",
+        "camera_source": "/data/uploaded_videos/1775982374_1b817d4964d64474a5517cd33c4a2937.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": true,
+        "fall_score": 0.9248,
+        "label": "fall_detected",
+        "duration_s": 3.085,
+        "details": {
+          "avg_fall_score": 0.6088,
+          "best_frame": {
+            "aspect_ratio": 3.6226,
+            "bbox_height_norm": 0.1328,
+            "bbox_width_norm": 0.4812,
+            "center_y_norm": 0.5497,
+            "fall_detected_frame": true,
+            "fall_score": 0.9248,
+            "frame_index": 14,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2539,
+            "torso_angle_deg": 89.49,
+            "torso_vertical_delta": 0.0031,
+            "valid_pose": true,
+            "visible_keypoints": 11
+          },
+          "fall_frame_ratio": 0.4375,
+          "fall_frames": 14,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 3
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 24,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-24-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-24-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.077,
+        "fall_detect": 3.202,
+        "total": 3.279
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982378_dd971373c9e3449dba41c0d104db3a8e.mp4",
+        "camera_source": "/data/uploaded_videos/1775982378_dd971373c9e3449dba41c0d104db3a8e.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.2672,
+        "label": "uncertain",
+        "duration_s": 3.183,
+        "details": {
+          "avg_fall_score": 0.2545,
+          "best_frame": {
+            "aspect_ratio": 0.3211,
+            "bbox_height_norm": 0.1075,
+            "bbox_width_norm": 0.0345,
+            "center_y_norm": 0.5466,
+            "fall_detected_frame": false,
+            "fall_score": 0.2672,
+            "frame_index": 27,
+            "head_to_ankle_span_norm": 0.1057,
+            "label": "uncertain",
+            "pose_confidence": 0.4527,
+            "torso_angle_deg": 0.88,
+            "torso_vertical_delta": 0.0324,
+            "valid_pose": true,
+            "visible_keypoints": 17
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 25,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-25-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-25-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.083,
+        "fall_detect": 3.194,
+        "total": 3.277
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982381_6c7c731a644344f1a29183b2817e4c96.mp4",
+        "camera_source": "/data/uploaded_videos/1775982381_6c7c731a644344f1a29183b2817e4c96.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.2454,
+        "label": "uncertain",
+        "duration_s": 3.158,
+        "details": {
+          "avg_fall_score": 0.2318,
+          "best_frame": {
+            "aspect_ratio": 0.1531,
+            "bbox_height_norm": 0.132,
+            "bbox_width_norm": 0.0202,
+            "center_y_norm": 0.4934,
+            "fall_detected_frame": false,
+            "fall_score": 0.2454,
+            "frame_index": 31,
+            "head_to_ankle_span_norm": 0.1285,
+            "label": "uncertain",
+            "pose_confidence": 0.3697,
+            "torso_angle_deg": 2.12,
+            "torso_vertical_delta": 0.0405,
+            "valid_pose": true,
+            "visible_keypoints": 17
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 26,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-26-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-26-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.069,
+        "fall_detect": 3.087,
+        "total": 3.156
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982384_41fc578ec8674b34a6794bdac79a18ce.mp4",
+        "camera_source": "/data/uploaded_videos/1775982384_41fc578ec8674b34a6794bdac79a18ce.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.2265,
+        "label": "uncertain",
+        "duration_s": 3.068,
+        "details": {
+          "avg_fall_score": 0.2129,
+          "best_frame": {
+            "aspect_ratio": 0.3541,
+            "bbox_height_norm": 0.1932,
+            "bbox_width_norm": 0.0684,
+            "center_y_norm": 0.5112,
+            "fall_detected_frame": false,
+            "fall_score": 0.2265,
+            "frame_index": 31,
+            "head_to_ankle_span_norm": 0.1896,
+            "label": "uncertain",
+            "pose_confidence": 0.4638,
+            "torso_angle_deg": 1.72,
+            "torso_vertical_delta": 0.0692,
+            "valid_pose": true,
+            "visible_keypoints": 17
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 27,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-27-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-27-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.091,
+        "fall_detect": 4.096,
+        "total": 4.187
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982387_ee340b6a7696416e9266fcc06db8eaae.mp4",
+        "camera_source": "/data/uploaded_videos/1775982387_ee340b6a7696416e9266fcc06db8eaae.mp4",
+        "frames_analyzed": 20,
+        "fall_detected": false,
+        "fall_score": 0.2323,
+        "label": "uncertain",
+        "duration_s": 4.017,
+        "details": {
+          "avg_fall_score": 0.2225,
+          "best_frame": {
+            "aspect_ratio": 0.2083,
+            "bbox_height_norm": 0.1607,
+            "bbox_width_norm": 0.0335,
+            "center_y_norm": 0.4733,
+            "fall_detected_frame": false,
+            "fall_score": 0.2323,
+            "frame_index": 18,
+            "head_to_ankle_span_norm": 0.1595,
+            "label": "uncertain",
+            "pose_confidence": 0.4015,
+            "torso_angle_deg": 1.45,
+            "torso_vertical_delta": 0.0493,
+            "valid_pose": true,
+            "visible_keypoints": 17
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 28,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-28-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-28-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.076,
+        "fall_detect": 3.307,
+        "total": 3.384
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982392_66fffd8416b24ebb8138ff58d20e6925.mp4",
+        "camera_source": "/data/uploaded_videos/1775982392_66fffd8416b24ebb8138ff58d20e6925.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.2519,
+        "label": "uncertain",
+        "duration_s": 3.277,
+        "details": {
+          "avg_fall_score": 0.231,
+          "best_frame": {
+            "aspect_ratio": 0.1096,
+            "bbox_height_norm": 0.1205,
+            "bbox_width_norm": 0.0132,
+            "center_y_norm": 0.5212,
+            "fall_detected_frame": false,
+            "fall_score": 0.2519,
+            "frame_index": 31,
+            "head_to_ankle_span_norm": 0.1189,
+            "label": "uncertain",
+            "pose_confidence": 0.4101,
+            "torso_angle_deg": 3.14,
+            "torso_vertical_delta": 0.0422,
+            "valid_pose": true,
+            "visible_keypoints": 17
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 29,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-29-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-29-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.202,
+        "fall_detect": 3.219,
+        "total": 3.42
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982395_16dd787bde434e50a8838e273504f506.mp4",
+        "camera_source": "/data/uploaded_videos/1775982395_16dd787bde434e50a8838e273504f506.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.2335,
+        "label": "uncertain",
+        "duration_s": 3.173,
+        "details": {
+          "avg_fall_score": 0.2249,
+          "best_frame": {
+            "aspect_ratio": 0.1866,
+            "bbox_height_norm": 0.161,
+            "bbox_width_norm": 0.0301,
+            "center_y_norm": 0.4844,
+            "fall_detected_frame": false,
+            "fall_score": 0.2335,
+            "frame_index": 29,
+            "head_to_ankle_span_norm": 0.1598,
+            "label": "uncertain",
+            "pose_confidence": 0.4242,
+            "torso_angle_deg": 16.77,
+            "torso_vertical_delta": 0.0516,
+            "valid_pose": true,
+            "visible_keypoints": 17
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 30,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-30-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-30-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.382,
+        "fall_detect": 3.113,
+        "total": 3.495
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982399_baaa16617bc44f2796bc804651e2cc0a.mp4",
+        "camera_source": "/data/uploaded_videos/1775982399_baaa16617bc44f2796bc804651e2cc0a.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.4,
+        "label": "uncertain",
+        "duration_s": 3.07,
+        "details": {
+          "avg_fall_score": 0.0125,
+          "best_frame": {
+            "aspect_ratio": 4.894,
+            "bbox_height_norm": 0.1386,
+            "bbox_width_norm": 0.6784,
+            "center_y_norm": 0.414,
+            "fall_detected_frame": false,
+            "fall_score": 0.4,
+            "frame_index": 0,
+            "head_to_ankle_span_norm": null,
+            "label": "uncertain",
+            "pose_confidence": 0.2579,
+            "torso_angle_deg": null,
+            "torso_vertical_delta": null,
+            "valid_pose": true,
+            "visible_keypoints": 5
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 31,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-31-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-31-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.165,
+        "fall_detect": 3.216,
+        "total": 3.381
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982402_adfce614e7714aceb8602de62fbc28ab.mp4",
+        "camera_source": "/data/uploaded_videos/1775982402_adfce614e7714aceb8602de62fbc28ab.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.2342,
+        "label": "uncertain",
+        "duration_s": 3.197,
+        "details": {
+          "avg_fall_score": 0.232,
+          "best_frame": {
+            "aspect_ratio": 0.3215,
+            "bbox_height_norm": 0.1828,
+            "bbox_width_norm": 0.0588,
+            "center_y_norm": 0.5225,
+            "fall_detected_frame": false,
+            "fall_score": 0.2342,
+            "frame_index": 0,
+            "head_to_ankle_span_norm": 0.1767,
+            "label": "uncertain",
+            "pose_confidence": 0.4086,
+            "torso_angle_deg": 1.36,
+            "torso_vertical_delta": 0.0638,
+            "valid_pose": true,
+            "visible_keypoints": 17
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 32,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-32-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-32-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.162,
+        "fall_detect": 3.143,
+        "total": 3.305
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982405_ac89d2689b7a434584aca6a8b13638c7.mp4",
+        "camera_source": "/data/uploaded_videos/1775982405_ac89d2689b7a434584aca6a8b13638c7.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.2348,
+        "label": "uncertain",
+        "duration_s": 3.12,
+        "details": {
+          "avg_fall_score": 0.2303,
+          "best_frame": {
+            "aspect_ratio": 0.328,
+            "bbox_height_norm": 0.1759,
+            "bbox_width_norm": 0.0577,
+            "center_y_norm": 0.524,
+            "fall_detected_frame": false,
+            "fall_score": 0.2348,
+            "frame_index": 30,
+            "head_to_ankle_span_norm": 0.1715,
+            "label": "uncertain",
+            "pose_confidence": 0.4011,
+            "torso_angle_deg": 0.15,
+            "torso_vertical_delta": 0.0636,
+            "valid_pose": true,
+            "visible_keypoints": 17
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 33,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-33-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-33-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.192,
+        "fall_detect": 3.201,
+        "total": 3.394
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982409_f56b7ab8c26e4cd9830b26bdfe988a79.mp4",
+        "camera_source": "/data/uploaded_videos/1775982409_f56b7ab8c26e4cd9830b26bdfe988a79.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.2338,
+        "label": "uncertain",
+        "duration_s": 3.171,
+        "details": {
+          "avg_fall_score": 0.2329,
+          "best_frame": {
+            "aspect_ratio": 0.173,
+            "bbox_height_norm": 0.1749,
+            "bbox_width_norm": 0.0303,
+            "center_y_norm": 0.5168,
+            "fall_detected_frame": false,
+            "fall_score": 0.2338,
+            "frame_index": 30,
+            "head_to_ankle_span_norm": 0.1741,
+            "label": "uncertain",
+            "pose_confidence": 0.4037,
+            "torso_angle_deg": 5.37,
+            "torso_vertical_delta": 0.0624,
+            "valid_pose": true,
+            "visible_keypoints": 17
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 34,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-34-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-34-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.213,
+        "fall_detect": 3.128,
+        "total": 3.341
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982412_c304955772934e4f885696af9c173183.mp4",
+        "camera_source": "/data/uploaded_videos/1775982412_c304955772934e4f885696af9c173183.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.2758,
+        "label": "uncertain",
+        "duration_s": 3.099,
+        "details": {
+          "avg_fall_score": 0.2499,
+          "best_frame": {
+            "aspect_ratio": 0.2156,
+            "bbox_height_norm": 0.1062,
+            "bbox_width_norm": 0.0229,
+            "center_y_norm": 0.5888,
+            "fall_detected_frame": false,
+            "fall_score": 0.2758,
+            "frame_index": 31,
+            "head_to_ankle_span_norm": 0.1039,
+            "label": "uncertain",
+            "pose_confidence": 0.3142,
+            "torso_angle_deg": 0.32,
+            "torso_vertical_delta": 0.0366,
+            "valid_pose": true,
+            "visible_keypoints": 16
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 35,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-35-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-35-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.178,
+        "fall_detect": 3.196,
+        "total": 3.374
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982415_c83cbc9257ec422fa792668e20a04945.mp4",
+        "camera_source": "/data/uploaded_videos/1775982415_c83cbc9257ec422fa792668e20a04945.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.2707,
+        "label": "uncertain",
+        "duration_s": 3.16,
+        "details": {
+          "avg_fall_score": 0.2479,
+          "best_frame": {
+            "aspect_ratio": 0.2971,
+            "bbox_height_norm": 0.1127,
+            "bbox_width_norm": 0.0335,
+            "center_y_norm": 0.5776,
+            "fall_detected_frame": false,
+            "fall_score": 0.2707,
+            "frame_index": 31,
+            "head_to_ankle_span_norm": 0.1087,
+            "label": "uncertain",
+            "pose_confidence": 0.3625,
+            "torso_angle_deg": 1.65,
+            "torso_vertical_delta": 0.0389,
+            "valid_pose": true,
+            "visible_keypoints": 17
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 36,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-36-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-36-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.239,
+        "fall_detect": 3.25,
+        "total": 3.49
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982419_9c6f0a02a4fc4da1a2e668a36ed87736.mp4",
+        "camera_source": "/data/uploaded_videos/1775982419_9c6f0a02a4fc4da1a2e668a36ed87736.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.9182,
+        "label": "fall_like_posture",
+        "duration_s": 3.207,
+        "details": {
+          "avg_fall_score": 0.1025,
+          "best_frame": {
+            "aspect_ratio": 8.0809,
+            "bbox_height_norm": 0.0233,
+            "bbox_width_norm": 0.1886,
+            "center_y_norm": 0.5209,
+            "fall_detected_frame": true,
+            "fall_score": 0.9182,
+            "frame_index": 27,
+            "head_to_ankle_span_norm": null,
+            "label": "fall_like_posture",
+            "pose_confidence": 0.2246,
+            "torso_angle_deg": 89.72,
+            "torso_vertical_delta": 0.0007,
+            "valid_pose": true,
+            "visible_keypoints": 4
+          },
+          "fall_frame_ratio": 0.0625,
+          "fall_frames": 2,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 1
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 37,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-37-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-37-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.258,
+        "fall_detect": 3.074,
+        "total": 3.332
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982422_8fa59d6194cf41e18384d54b23d4ef06.mp4",
+        "camera_source": "/data/uploaded_videos/1775982422_8fa59d6194cf41e18384d54b23d4ef06.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.4209,
+        "label": "uncertain",
+        "duration_s": 3.051,
+        "details": {
+          "avg_fall_score": 0.0132,
+          "best_frame": {
+            "aspect_ratio": 2.9578,
+            "bbox_height_norm": 0.018,
+            "bbox_width_norm": 0.0532,
+            "center_y_norm": 0.5233,
+            "fall_detected_frame": false,
+            "fall_score": 0.4209,
+            "frame_index": 31,
+            "head_to_ankle_span_norm": null,
+            "label": "uncertain",
+            "pose_confidence": 0.2505,
+            "torso_angle_deg": null,
+            "torso_vertical_delta": null,
+            "valid_pose": true,
+            "visible_keypoints": 4
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 38,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-38-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-38-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.225,
+        "fall_detect": 3.206,
+        "total": 3.432
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982426_34301615609c4e8697f2e6b078ab4af4.mp4",
+        "camera_source": "/data/uploaded_videos/1775982426_34301615609c4e8697f2e6b078ab4af4.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.4203,
+        "label": "uncertain",
+        "duration_s": 3.172,
+        "details": {
+          "avg_fall_score": 0.0525,
+          "best_frame": {
+            "aspect_ratio": 10.4357,
+            "bbox_height_norm": 0.0249,
+            "bbox_width_norm": 0.2601,
+            "center_y_norm": 0.5212,
+            "fall_detected_frame": false,
+            "fall_score": 0.4203,
+            "frame_index": 30,
+            "head_to_ankle_span_norm": null,
+            "label": "uncertain",
+            "pose_confidence": 0.2136,
+            "torso_angle_deg": null,
+            "torso_vertical_delta": null,
+            "valid_pose": true,
+            "visible_keypoints": 4
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 39,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-39-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-39-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.176,
+        "fall_detect": 3.083,
+        "total": 3.259
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982429_a2d443e758a8485390803e57c0c6236d.mp4",
+        "camera_source": "/data/uploaded_videos/1775982429_a2d443e758a8485390803e57c0c6236d.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.422,
+        "label": "uncertain",
+        "duration_s": 3.051,
+        "details": {
+          "avg_fall_score": 0.0132,
+          "best_frame": {
+            "aspect_ratio": 1.9384,
+            "bbox_height_norm": 0.1157,
+            "bbox_width_norm": 0.2242,
+            "center_y_norm": 0.5272,
+            "fall_detected_frame": false,
+            "fall_score": 0.422,
+            "frame_index": 3,
+            "head_to_ankle_span_norm": 0.1157,
+            "label": "uncertain",
+            "pose_confidence": 0.2225,
+            "torso_angle_deg": null,
+            "torso_vertical_delta": null,
+            "valid_pose": true,
+            "visible_keypoints": 5
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 40,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-40-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-40-cam0.mp4",
+      "success": true,
+      "timing_s": {
+        "download": 0.0,
+        "upload": 0.219,
+        "fall_detect": 3.064,
+        "total": 3.283
+      },
+      "agent": {
+        "video_path": "/data/uploaded_videos/1775982432_5b0d8625530342c9baa005413dde7341.mp4",
+        "camera_source": "/data/uploaded_videos/1775982432_5b0d8625530342c9baa005413dde7341.mp4",
+        "frames_analyzed": 32,
+        "fall_detected": false,
+        "fall_score": 0.4,
+        "label": "uncertain",
+        "duration_s": 3.032,
+        "details": {
+          "avg_fall_score": 0.0125,
+          "best_frame": {
+            "aspect_ratio": 4.8232,
+            "bbox_height_norm": 0.1397,
+            "bbox_width_norm": 0.6737,
+            "center_y_norm": 0.4102,
+            "fall_detected_frame": false,
+            "fall_score": 0.4,
+            "frame_index": 24,
+            "head_to_ankle_span_norm": null,
+            "label": "uncertain",
+            "pose_confidence": 0.2536,
+            "torso_angle_deg": null,
+            "torso_vertical_delta": null,
+            "valid_pose": true,
+            "visible_keypoints": 5
+          },
+          "fall_frame_ratio": 0.0,
+          "fall_frames": 0,
+          "last_frame_error": null,
+          "max_consecutive_fall_frames": 0
+        }
+      }
+    }
+  ]
+}

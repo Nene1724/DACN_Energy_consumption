@@ -76,6 +76,29 @@
         .panel { background: linear-gradient(180deg, #ffffff 0%, #f3f7ff 100%); border: 1px solid var(--border); border-radius: 18px; padding: 16px; box-shadow: 0 14px 30px rgba(15,23,42,0.06); margin-bottom: 14px; }
         .panel-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
         .panel-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+        .medical-actions-fixed {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(160px, 1fr));
+            gap: 10px;
+            align-items: stretch;
+            width: min(100%, 920px);
+        }
+        .medical-actions-fixed .btn {
+            width: 100%;
+            min-height: 48px;
+        }
+        @media (max-width: 1280px) {
+            .medical-actions-fixed { grid-template-columns: repeat(3, minmax(160px, 1fr)); }
+        }
+        @media (max-width: 860px) {
+            .medical-actions-fixed {
+                grid-template-columns: repeat(2, minmax(140px, 1fr));
+                width: 100%;
+            }
+        }
+        @media (max-width: 520px) {
+            .medical-actions-fixed { grid-template-columns: 1fr; }
+        }
         .panel-header h3 { font-size: 18px; }
         .panel-header .muted { color: var(--muted); font-size: 13px; }
         .form-grid { display: grid; gap: 14px; }
@@ -433,6 +456,7 @@
         let medicalCameraPollInterval = null;
         let medicalCameraRequestInFlight = false;
         let currentMedicalCameraObjectUrl = null;
+        let medicalStreamActive = false;
         let medicalEventPollInterval = null;
         let medicalWatchInterval = null;
         let medicalWatchActive = false;
@@ -445,6 +469,7 @@
             
             const deploymentView = document.getElementById('deployment_view');
             const monitoringView = document.getElementById('monitoring_view');
+            const medicalView = document.getElementById('medical_view');
             const viewTabs = document.getElementById('view_tabs');
 
             console.log('Found elements:', {
@@ -461,6 +486,7 @@
             }
             if (deploymentView) deploymentView.classList.toggle('hidden', view !== 'deployment');
             if (monitoringView) monitoringView.classList.toggle('hidden', view !== 'monitoring');
+            if (medicalView) medicalView.classList.toggle('hidden', view !== 'medical');
 
             if (view === 'deployment') {
                 console.log('Deployment view activated');
@@ -478,7 +504,7 @@
                 stopMedicalPolling();
             } else if (view === 'monitoring') {
                 startMetricsPolling();
-                startCameraPolling();
+                stopCameraPolling();
                 stopMedicalPolling();
                 renderMonitoringTab('trends');
             } else if (view === 'medical') {
@@ -501,6 +527,8 @@
                 initial = 'monitoring';
             } else if (path.includes('/deployment')) {
                 initial = 'deployment';
+            } else if (path.includes('/medical')) {
+                initial = 'medical';
             }
             setActiveView(initial);
             
@@ -1499,11 +1527,14 @@
                         } else {
                             // Handle device offline/error gracefully
                             const deviceStatus = document.getElementById('device_status');
+                            if (!deviceStatus) return;
+                            const statusValueEl = deviceStatus.querySelector('.status-value');
+                            if (!statusValueEl) return;
                             if (data.device_offline || data.device_timeout) {
-                                deviceStatus.querySelector('.status-value').innerHTML = 
+                                statusValueEl.innerHTML = 
                                     `<span class="dot error"></span>Offline`;
                             } else {
-                                deviceStatus.querySelector('.status-value').innerHTML = 
+                                statusValueEl.innerHTML = 
                                     `<span class="dot error"></span>Connection error`;
                             }
                         }
@@ -1512,8 +1543,10 @@
                         // Network error - show device as offline
                         const deviceStatus = document.getElementById('device_status');
                         if (deviceStatus) {
-                            deviceStatus.querySelector('.status-value').innerHTML = 
-                                `<span class="dot error"></span>Unavailable`;
+                            const statusValueEl = deviceStatus.querySelector('.status-value');
+                            if (statusValueEl) {
+                                statusValueEl.innerHTML = `<span class="dot error"></span>Unavailable`;
+                            }
                         }
                     });
             }, 5000);
@@ -1525,11 +1558,19 @@
             const modelStatus = document.getElementById('model_status');
             const normalized = (status && status.status) ? status.status : 'idle';
             const statusClass = ['idle', 'downloading', 'ready', 'running', 'error'].includes(normalized) ? normalized : 'idle';
-            deviceStatus.querySelector('.status-value').innerHTML = `<span class="dot ${statusClass}"></span>${normalized.toUpperCase()}`;
-            if (status && status.model_name) {
-                modelStatus.querySelector('.status-value').textContent = status.model_name;
-            } else {
-                modelStatus.querySelector('.status-value').textContent = 'No model';
+
+            if (deviceStatus) {
+                const statusValueEl = deviceStatus.querySelector('.status-value');
+                if (statusValueEl) {
+                    statusValueEl.innerHTML = `<span class="dot ${statusClass}"></span>${normalized.toUpperCase()}`;
+                }
+            }
+
+            if (modelStatus) {
+                const modelValueEl = modelStatus.querySelector('.status-value');
+                if (modelValueEl) {
+                    modelValueEl.textContent = (status && status.model_name) ? status.model_name : 'No model';
+                }
             }
             const energyMetrics = status ? status.energy_metrics : null;
             const modelInfo = status ? status.model_info : null;
@@ -1563,7 +1604,6 @@
             const historyEl = document.getElementById('energy_history_list');
             
             if (!budgetEl || !latestEl || !avgEl || !badge || !historyEl) {
-                console.warn('Energy metrics elements not found - skipping render');
                 return;
             }
             
@@ -1806,6 +1846,11 @@
             const image = document.getElementById('camera_monitor_image');
             const errorEl = document.getElementById('camera_error');
 
+            // Monitoring camera UI may be removed; keep this function safe.
+            if (!image) {
+                return;
+            }
+
             if (!bbbIp && !deviceUuid) {
                 updateCameraPlaceholder('Select a device to load the latest USB camera frame.');
                 return;
@@ -1946,9 +1991,11 @@
         function getSelectedMedicalDeviceContext() {
             const selector = document.getElementById('medical_device_selector');
             const selectedOption = selector?.selectedOptions?.[0] || null;
+            const bbbIp = (selector?.value || '').trim();
+            const deviceUuid = (selectedOption?.dataset?.uuid || '').trim();
             return {
-                bbbIp: document.getElementById('bbb_ip')?.value || selector?.value || '',
-                deviceUuid: document.getElementById('device_uuid')?.value || selectedOption?.dataset?.uuid || '',
+                bbbIp,
+                deviceUuid,
                 deviceName: selectedOption?.textContent || 'Medical device'
             };
         }
@@ -2018,8 +2065,12 @@
             }
 
             const params = new URLSearchParams();
-            if (deviceUuid) params.append('device_uuid', deviceUuid);
-            if (bbbIp) params.append('bbb_ip', bbbIp);
+            // Prefer stable device UUID for filtering. IPs can change or be stale across tabs.
+            if (deviceUuid) {
+                params.append('device_uuid', deviceUuid);
+            } else if (bbbIp) {
+                params.append('bbb_ip', bbbIp);
+            }
             params.append('limit', '12');
 
             try {
@@ -2136,6 +2187,11 @@
             const { bbbIp, deviceUuid } = getSelectedMedicalDeviceContext();
             const image = document.getElementById('medical_camera_image');
 
+            // If we're streaming, do not fight the <img src>.
+            if (medicalStreamActive) {
+                return;
+            }
+
             if (!bbbIp && !deviceUuid) {
                 updateMedicalCameraPlaceholder('Select a device to load the clinical camera stream.');
                 return;
@@ -2186,6 +2242,68 @@
             }
         }
 
+        function startMedicalCameraStream(options = {}) {
+            const { bbbIp, deviceUuid } = getSelectedMedicalDeviceContext();
+            const image = document.getElementById('medical_camera_image');
+
+            if (!image) return;
+            if (!bbbIp && !deviceUuid) {
+                updateMedicalCameraPlaceholder('Select a device to load the clinical camera stream.');
+                return;
+            }
+
+            // Stop snapshot polling when using stream.
+            if (medicalCameraPollInterval) {
+                clearInterval(medicalCameraPollInterval);
+                medicalCameraPollInterval = null;
+            }
+
+            const params = new URLSearchParams();
+            if (deviceUuid) params.append('device_uuid', deviceUuid);
+            if (bbbIp) params.append('bbb_ip', bbbIp);
+            params.append('annotate', '1');
+            params.append('fps', String(options.fps || 5));
+            params.append('quality', String(options.quality || 70));
+            params.append('_ts', String(Date.now()));
+
+            medicalStreamActive = true;
+            revokeMedicalCameraObjectUrl();
+
+            const placeholder = document.getElementById('medical_camera_placeholder');
+            if (placeholder) {
+                placeholder.style.display = 'none';
+            }
+            image.style.display = 'block';
+            image.src = `/api/device/camera-stream?${params.toString()}`;
+
+            // One-shot fallback if the stream endpoint is unavailable.
+            image.onerror = () => {
+                if (!medicalStreamActive) return;
+                medicalStreamActive = false;
+                image.onerror = null;
+                image.removeAttribute('src');
+                updateMedicalCameraPlaceholder('Live stream unavailable. Falling back to snapshots.', true);
+                refreshMedicalCameraSnapshot({ silent: true, force: true });
+                medicalCameraPollInterval = setInterval(() => {
+                    refreshMedicalCameraSnapshot({ silent: true });
+                }, 1200);
+            };
+        }
+
+        function stopMedicalCameraStream() {
+            const image = document.getElementById('medical_camera_image');
+            medicalStreamActive = false;
+            if (image) {
+                image.onerror = null;
+                image.removeAttribute('src');
+                try {
+                    image.src = '';
+                } catch (_) {
+                    // ignore
+                }
+            }
+        }
+
         function setMedicalWatchState(active) {
             medicalWatchActive = Boolean(active);
             const btn = document.getElementById('medical_watch_toggle_btn');
@@ -2216,6 +2334,10 @@
                 if (btn && !options.background) {
                     btn.disabled = true;
                     btn.textContent = 'Running...';
+                }
+
+                if (!options.silent) {
+                    updateMedicalBanner('Checking', 'Info', 'Running fall detection on the selected device camera...', 'watch');
                 }
 
                 const response = await fetch('/api/device/camera/fall-detect', {
@@ -2390,9 +2512,9 @@
         function startMedicalPolling() {
             stopMedicalPolling();
             refreshMedicalView({ silent: true, forceCamera: true });
-            medicalCameraPollInterval = setInterval(() => {
-                refreshMedicalCameraSnapshot({ silent: true });
-            }, 2000);
+
+            // Prefer real-time MJPEG stream; fallback logic inside startMedicalCameraStream.
+            startMedicalCameraStream({ fps: 5, quality: 70 });
             medicalEventPollInterval = setInterval(() => {
                 loadMedicalFallEvents({ silent: true }).then(() => renderMedicalWatch(lastDeviceStatus, lastDeviceMetrics));
             }, 5000);
@@ -2407,6 +2529,7 @@
                 clearInterval(medicalEventPollInterval);
                 medicalEventPollInterval = null;
             }
+            stopMedicalCameraStream();
             stopMedicalWatchLoop();
         }
 
@@ -3327,8 +3450,22 @@
 
         function showAlert(type, message) {
             const container = document.getElementById('alert_container');
-            container.innerHTML = `<div class="alert ${type}">${message}</div>`;
-            setTimeout(() => { container.innerHTML = ''; }, 5000);
+            if (container) {
+                container.innerHTML = `<div class="alert ${type}">${message}</div>`;
+                setTimeout(() => { container.innerHTML = ''; }, 5000);
+            }
+
+            // When the Medical view is active, also surface feedback in the Medical banner
+            // so users don't miss alerts that render in another tab.
+            const medicalView = document.getElementById('medical_view');
+            const isMedicalActive = medicalView && !medicalView.classList.contains('hidden');
+            if (isMedicalActive && typeof updateMedicalBanner === 'function') {
+                const normalized = String(type || '').toLowerCase();
+                const mode = normalized === 'error' ? 'alert' : (normalized === 'info' ? 'watch' : 'safe');
+                const severity = normalized === 'error' ? 'High' : (normalized === 'info' ? 'Info' : 'Normal');
+                const state = normalized === 'error' ? 'Attention' : (normalized === 'info' ? 'Notice' : 'OK');
+                updateMedicalBanner(state, severity, message, mode);
+            }
         }
 
         function showLoading() {
