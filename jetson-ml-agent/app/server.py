@@ -2,7 +2,7 @@ import os
 import threading
 from datetime import datetime, timezone
 from urllib.parse import urlparse
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 import requests
 
 import shutil
@@ -67,6 +67,23 @@ try:
 except ImportError:
     FNB58ExporterReader = None
 
+try:
+    from movenet_fall_detection import (
+        analyze_pose,
+        capture_camera_snapshot,
+        extract_keypoints,
+        open_camera,
+        preprocess_frame_bgr,
+        summarize_detection_window,
+    )
+except ImportError:
+    analyze_pose = None
+    capture_camera_snapshot = None
+    extract_keypoints = None
+    open_camera = None
+    preprocess_frame_bgr = None
+    summarize_detection_window = None
+
 app = Flask(__name__)
 
 # Persistent storage on Raspberry Pi (allow override for local testing on Windows)
@@ -79,6 +96,11 @@ CONTROLLER_URL = os.getenv("CONTROLLER_URL", "")
 FNB58_AUTO_START = (os.getenv("FNB58_AUTO_START", "true").strip().lower() in ("1", "true", "yes", "on"))
 FNB58_PORT = (os.getenv("FNB58_PORT") or "").strip()
 FNB58_RETRY_INTERVAL_S = max(2.0, float(os.getenv("FNB58_RETRY_INTERVAL_S", "5")))
+CAMERA_DEVICE = (os.getenv("CAMERA_DEVICE") or "/dev/video0").strip()
+CAMERA_WIDTH = int(os.getenv("CAMERA_WIDTH", "640") or "640")
+CAMERA_HEIGHT = int(os.getenv("CAMERA_HEIGHT", "480") or "480")
+FALL_DETECT_DURATION_S = max(0.5, float(os.getenv("FALL_DETECT_DURATION_S", "2.5")))
+FALL_DETECT_MAX_FRAMES = max(4, int(os.getenv("FALL_DETECT_MAX_FRAMES", "16") or "16"))
 
 # Used only for simulated fallback telemetry when the OS doesn't expose temp sensors.
 _SIM_TEMP_START_TS = time.time()
@@ -162,6 +184,39 @@ def _create_meter_metrics():
     }
 
 
+def _create_fall_detection_metrics():
+    return {
+        "enabled": False,
+        "camera_device": CAMERA_DEVICE,
+        "camera_source": None,
+        "camera_ready": False,
+        "fall_detected": None,
+        "fall_score": None,
+        "label": None,
+        "frames_analyzed": 0,
+        "updated_at": None,
+        "last_error": None,
+        "details": {},
+    }
+
+
+def _create_benchmark_metrics():
+    return {
+        "status": "idle",
+        "runtime": None,
+        "warmup_runs": 0,
+        "benchmark_runs": 0,
+        "latency_avg_s": None,
+        "latency_std_s": None,
+        "latency_p50_s": None,
+        "latency_p95_s": None,
+        "throughput_iter_per_s": None,
+        "iterations": 0,
+        "updated_at": None,
+        "last_error": None,
+    }
+
+
 STATE = {
     "model_name": None,
     "artifact_path": None,
@@ -174,6 +229,8 @@ STATE = {
     "inference_active": False,
     "energy_metrics": _create_energy_metrics(),
     "meter_metrics": _create_meter_metrics(),
+    "fall_detection": _create_fall_detection_metrics(),
+    "benchmark_metrics": _create_benchmark_metrics(),
 }
 
 # In-memory runtime cache
@@ -187,6 +244,7 @@ LOADED_INPUT_LAYOUT = None
 LOADED_INPUT_META = None
 LOADED_AT = None
 MODEL_LOCK = threading.RLock()
+CAMERA_LOCK = threading.RLock()
 FNB58_MONITOR = {"reader": None, "thread": None}
 FNB58_RETRY_LOOP = {"thread": None}
 
@@ -634,6 +692,259 @@ def stop_fnb58_monitor():
     FNB58_MONITOR["thread"] = None
 
 
+def _normalized_text(value):
+    return str(value or "").strip().lower()
+
+
+def _is_fall_detection_model_info(model_info=None):
+    info = model_info if isinstance(model_info, dict) else (STATE.get("model_info") or {})
+    markers = {
+        _normalized_text(info.get("use_case")),
+        _normalized_text(info.get("task")),
+        _normalized_text(info.get("task_type")),
+        _normalized_text(info.get("source_type")),
+        _normalized_text(info.get("model_name")),
+        _normalized_text(info.get("artifact_file")),
+        _normalized_text(info.get("pose_model")),
+    }
+
+    for marker in markers:
+        if not marker:
+            continue
+        if marker in {"fall_detection_pose", "fall_detection", "camera_fall_detection"}:
+            return True
+        if "movenet" in marker:
+            return True
+    return False
+
+
+def _update_fall_detection_snapshot(result=None, *, error=None):
+    metrics = STATE.get("fall_detection") or _create_fall_detection_metrics()
+    metrics["enabled"] = _is_fall_detection_model_info()
+    metrics["camera_device"] = CAMERA_DEVICE
+    metrics["updated_at"] = _now_iso()
+
+    if result:
+        metrics["camera_source"] = result.get("camera_source")
+        metrics["camera_ready"] = bool(result.get("camera_ready", True))
+        metrics["fall_detected"] = result.get("fall_detected")
+        metrics["fall_score"] = result.get("fall_score")
+        metrics["label"] = result.get("label")
+        metrics["frames_analyzed"] = result.get("frames_analyzed", 0)
+        metrics["details"] = result.get("details") or {}
+        metrics["last_error"] = None
+
+    if error is not None:
+        metrics["camera_ready"] = False
+        metrics["last_error"] = str(error)
+
+    STATE["fall_detection"] = metrics
+
+
+def reset_fall_detection_metrics(error=None):
+    metrics = _create_fall_detection_metrics()
+    metrics["enabled"] = _is_fall_detection_model_info()
+    metrics["camera_device"] = CAMERA_DEVICE
+    metrics["updated_at"] = _now_iso()
+    metrics["last_error"] = str(error) if error else None
+    STATE["fall_detection"] = metrics
+
+
+def _update_benchmark_snapshot(result=None, *, status=None, error=None):
+    metrics = STATE.get("benchmark_metrics") or _create_benchmark_metrics()
+    if status is not None:
+        metrics["status"] = status
+    if error is not None:
+        metrics["last_error"] = str(error)
+    metrics["updated_at"] = _now_iso()
+
+    if result:
+        for key in (
+            "runtime",
+            "warmup_runs",
+            "benchmark_runs",
+            "latency_avg_s",
+            "latency_std_s",
+            "latency_p50_s",
+            "latency_p95_s",
+            "throughput_iter_per_s",
+            "iterations",
+        ):
+            if key in result:
+                metrics[key] = result.get(key)
+        if error is None:
+            metrics["last_error"] = None
+
+    STATE["benchmark_metrics"] = metrics
+
+
+def reset_benchmark_metrics(error=None):
+    metrics = _create_benchmark_metrics()
+    metrics["runtime"] = STATE.get("runtime")
+    metrics["updated_at"] = _now_iso()
+    metrics["last_error"] = str(error) if error else None
+    STATE["benchmark_metrics"] = metrics
+
+
+def _mark_camera_ready(camera_source=None):
+    metrics = STATE.get("fall_detection") or _create_fall_detection_metrics()
+    metrics["enabled"] = _is_fall_detection_model_info()
+    metrics["camera_device"] = CAMERA_DEVICE
+    metrics["camera_source"] = str(camera_source) if camera_source is not None else metrics.get("camera_source")
+    metrics["camera_ready"] = True
+    metrics["updated_at"] = _now_iso()
+    if metrics.get("last_error") == "Camera frame read failed":
+        metrics["last_error"] = None
+    STATE["fall_detection"] = metrics
+
+
+def _build_camera_overlay_lines():
+    fall_metrics = STATE.get("fall_detection") or {}
+    lines = [
+        f"Model: {STATE.get('model_name') or 'none'}",
+        f"Device: {CAMERA_DEVICE}",
+    ]
+    label = fall_metrics.get("label")
+    score = _safe_float(fall_metrics.get("fall_score"))
+    if label:
+        if score is not None:
+            lines.append(f"Fall: {label} ({score:.2f})")
+        else:
+            lines.append(f"Fall: {label}")
+    return lines
+
+
+def _capture_camera_snapshot_result(camera_source=None, annotate=True):
+    if capture_camera_snapshot is None:
+        raise RuntimeError("Camera snapshot helper is not available in the agent image.")
+
+    overlay_lines = _build_camera_overlay_lines() if annotate else None
+    with CAMERA_LOCK:
+        frame_bytes, actual_source = capture_camera_snapshot(
+            camera_source=camera_source or CAMERA_DEVICE,
+            width=CAMERA_WIDTH,
+            height=CAMERA_HEIGHT,
+            jpeg_quality=85,
+            overlay_lines=overlay_lines,
+        )
+    _mark_camera_ready(actual_source)
+    return frame_bytes, actual_source
+
+
+def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=None):
+    if not _is_fall_detection_model_info():
+        return {
+            "success": False,
+            "error": "Current deployed model is not configured for camera fall detection.",
+        }, 400
+
+    if open_camera is None or preprocess_frame_bgr is None or extract_keypoints is None or analyze_pose is None:
+        return {
+            "success": False,
+            "error": "MoveNet fall-detection helpers are not available in the agent image.",
+        }, 500
+
+    with MODEL_LOCK:
+        runtime = LOADED_RUNTIME
+        interpreter = LOADED_INTERPRETER
+        input_meta = LOADED_INPUT_META
+        input_size = LOADED_INPUT_SIZE
+
+    if runtime != "tflite" or interpreter is None or input_size is None:
+        return {
+            "success": False,
+            "error": "Fall detection currently requires a loaded TFLite MoveNet model.",
+        }, 400
+
+    duration_s = max(0.5, float(duration_s if duration_s is not None else FALL_DETECT_DURATION_S))
+    max_frames = max(4, int(max_frames if max_frames is not None else FALL_DETECT_MAX_FRAMES))
+    requested_source = camera_source or CAMERA_DEVICE
+    c, h, w = input_size
+    target_size = int(max(h, w))
+
+    frame_results = []
+    frame_count = 0
+    start_ts = time.time()
+    last_error = None
+    actual_source = requested_source
+
+    try:
+        with CAMERA_LOCK:
+            cap, actual_source = open_camera(requested_source, CAMERA_WIDTH, CAMERA_HEIGHT)
+            try:
+                warmup_reads = 0
+                while warmup_reads < 2:
+                    ok, _ = cap.read()
+                    if not ok:
+                        break
+                    warmup_reads += 1
+
+                while (time.time() - start_ts) < duration_s and frame_count < max_frames:
+                    ok, frame_bgr = cap.read()
+                    if not ok:
+                        last_error = "Camera frame read failed"
+                        time.sleep(0.05)
+                        continue
+
+                    input_details = input_meta if isinstance(input_meta, dict) else interpreter.get_input_details()[0]
+                    output_details = interpreter.get_output_details()[0]
+                    input_dtype = input_details.get("dtype", np.uint8)
+
+                    with MODEL_LOCK:
+                        input_tensor, _ = preprocess_frame_bgr(frame_bgr, target_size, input_dtype=input_dtype)
+                        interpreter.set_tensor(input_details["index"], input_tensor)
+                        interpreter.invoke()
+                        output = interpreter.get_tensor(output_details["index"])
+
+                    keypoints = extract_keypoints(output)
+                    pose_result = analyze_pose(keypoints, min_score=0.2)
+                    pose_result["frame_index"] = frame_count
+                    frame_results.append(pose_result)
+                    frame_count += 1
+            finally:
+                try:
+                    cap.release()
+                except Exception:
+                    pass
+    except Exception as exc:
+        reset_fall_detection_metrics(error=exc)
+        return {
+            "success": False,
+            "error": f"Unable to open camera: {exc}",
+        }, 500
+
+    summary = summarize_detection_window(frame_results) if summarize_detection_window is not None else {
+        "frames_analyzed": len(frame_results),
+        "fall_detected": False,
+        "fall_score": 0.0,
+        "label": "unsupported",
+    }
+    result = {
+        "success": True,
+        "timestamp": _now_iso(),
+        "model": STATE.get("model_name"),
+        "runtime": runtime,
+        "camera_source": str(actual_source),
+        "camera_ready": True,
+        "duration_s": round(time.time() - start_ts, 3),
+        "frames_requested": max_frames,
+        "frames_analyzed": summary.get("frames_analyzed", len(frame_results)),
+        "fall_detected": summary.get("fall_detected", False),
+        "fall_score": summary.get("fall_score", 0.0),
+        "label": summary.get("label"),
+        "details": {
+            "avg_fall_score": summary.get("avg_fall_score"),
+            "fall_frames": summary.get("fall_frames"),
+            "fall_frame_ratio": summary.get("fall_frame_ratio"),
+            "max_consecutive_fall_frames": summary.get("max_consecutive_fall_frames"),
+            "best_frame": summary.get("best_frame"),
+            "last_frame_error": last_error,
+        },
+    }
+    _update_fall_detection_snapshot(result)
+    return result, 200
+
+
 def _fnb58_retry_loop():
     while True:
         try:
@@ -1029,6 +1340,8 @@ def status():
         "onnx_available": ONNX_AVAILABLE,
         "numpy_available": np is not None
     }
+    response["fall_detection"]["enabled"] = _is_fall_detection_model_info()
+    response["benchmark_metrics"]["runtime"] = STATE.get("runtime")
     return jsonify(response)
 
 
@@ -1064,6 +1377,26 @@ def metrics():
             "power_mw": STATE.get("meter_metrics", {}).get("power_mw"),
             "measured_energy_mwh": STATE.get("meter_metrics", {}).get("measured_energy_mwh"),
             "updated_at": STATE.get("meter_metrics", {}).get("updated_at"),
+        },
+        "fall_detection": {
+            "enabled": STATE.get("fall_detection", {}).get("enabled"),
+            "camera_ready": STATE.get("fall_detection", {}).get("camera_ready"),
+            "camera_source": STATE.get("fall_detection", {}).get("camera_source"),
+            "fall_detected": STATE.get("fall_detection", {}).get("fall_detected"),
+            "fall_score": STATE.get("fall_detection", {}).get("fall_score"),
+            "label": STATE.get("fall_detection", {}).get("label"),
+            "updated_at": STATE.get("fall_detection", {}).get("updated_at"),
+            "last_error": STATE.get("fall_detection", {}).get("last_error"),
+        },
+        "benchmark": {
+            "status": STATE.get("benchmark_metrics", {}).get("status"),
+            "runtime": STATE.get("benchmark_metrics", {}).get("runtime"),
+            "latency_avg_s": STATE.get("benchmark_metrics", {}).get("latency_avg_s"),
+            "latency_p95_s": STATE.get("benchmark_metrics", {}).get("latency_p95_s"),
+            "throughput_iter_per_s": STATE.get("benchmark_metrics", {}).get("throughput_iter_per_s"),
+            "benchmark_runs": STATE.get("benchmark_metrics", {}).get("benchmark_runs"),
+            "updated_at": STATE.get("benchmark_metrics", {}).get("updated_at"),
+            "last_error": STATE.get("benchmark_metrics", {}).get("last_error"),
         },
     })
 
@@ -1129,6 +1462,8 @@ def deploy():
             inference_active=False,
             energy_metrics=STATE["energy_metrics"]
         )
+        reset_fall_detection_metrics()
+        reset_benchmark_metrics()
 
         # Download model from controller
         log(f"Downloading from: {model_url}")
@@ -1158,6 +1493,8 @@ def deploy():
             error=None,
             energy_metrics=STATE["energy_metrics"]
         )
+        reset_fall_detection_metrics()
+        reset_benchmark_metrics()
 
         if FNB58_AUTO_START:
             start_fnb58_monitor()
@@ -1208,6 +1545,63 @@ def stop_inference():
     return jsonify({"error": "Inference not running"}), 400
 
 
+@app.route("/camera/fall-detect", methods=["POST"])
+def camera_fall_detect():
+    """Run MoveNet-based fall detection on live webcam frames."""
+    data = request.get_json(silent=True) or {}
+    result, status_code = _run_camera_fall_detection(
+        duration_s=data.get("duration_s"),
+        max_frames=data.get("max_frames"),
+        camera_source=data.get("camera_device") or data.get("camera_source"),
+    )
+    return jsonify(result), status_code
+
+
+@app.route("/camera/snapshot", methods=["GET"])
+def camera_snapshot():
+    """Return a JPEG snapshot from the USB camera for monitoring."""
+    try:
+        annotate = str(request.args.get("annotate", "1")).strip().lower() not in {"0", "false", "no", "off"}
+        frame_bytes, actual_source = _capture_camera_snapshot_result(
+            camera_source=request.args.get("camera_device") or request.args.get("camera_source") or CAMERA_DEVICE,
+            annotate=annotate,
+        )
+        response = Response(frame_bytes, mimetype="image/jpeg")
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["X-Camera-Source"] = str(actual_source)
+        return response
+    except Exception as exc:
+        reset_fall_detection_metrics(error=exc)
+        return jsonify({
+            "success": False,
+            "error": f"Unable to capture camera snapshot: {exc}",
+        }), 500
+
+
+@app.route("/benchmark", methods=["POST"])
+def benchmark_model():
+    """Benchmark the currently deployed model on this edge device."""
+    data = request.get_json(silent=True) or {}
+
+    try:
+        warmup_runs = int(data.get("warmup_runs", 5))
+        benchmark_runs = int(data.get("benchmark_runs", 30))
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "error": "warmup_runs and benchmark_runs must be numeric"}), 400
+
+    try:
+        _update_benchmark_snapshot(status="running", error=None)
+        result = benchmark_loaded_model(warmup_runs=warmup_runs, benchmark_runs=benchmark_runs)
+        return jsonify(result)
+    except Exception as exc:
+        _update_benchmark_snapshot(status="error", error=exc)
+        return jsonify({
+            "success": False,
+            "error": f"Unable to benchmark current model: {exc}",
+        }), 500
+
+
 @app.route("/predict", methods=["POST"])
 def predict():
     """
@@ -1215,6 +1609,15 @@ def predict():
     """
     if STATE.get("status") not in ("running", "ready"):
         return jsonify({"error": "Model not running"}), 400
+
+    if _is_fall_detection_model_info():
+        data = request.get_json(silent=True) or {}
+        result, status_code = _run_camera_fall_detection(
+            duration_s=data.get("duration_s"),
+            max_frames=data.get("max_frames"),
+            camera_source=data.get("camera_device") or data.get("camera_source"),
+        )
+        return jsonify(result), status_code
 
     _ensure_numpy()
 
@@ -1338,6 +1741,112 @@ def _build_dummy_input(layout, input_size, shape=None, dtype=np.float32):
             dim_value = 1
         normalized_shape.append(dim_value if dim_value > 0 else 1)
     return np.random.rand(*normalized_shape).astype(dtype)
+
+
+def _run_loaded_model_once_locked(runtime, interpreter, session, input_size, input_layout, input_meta, dummy_input=None):
+    if runtime == "onnx":
+        if session is None or input_meta is None:
+            raise RuntimeError("ONNX session is not loaded")
+        actual_input = dummy_input
+        if actual_input is None:
+            actual_input = _build_dummy_input(input_layout or "nchw", input_size, getattr(input_meta, "shape", None), np.float32)
+        outputs = session.run(None, {input_meta.name: actual_input})
+        return outputs[0] if outputs else None
+
+    if interpreter is None:
+        raise RuntimeError("TFLite interpreter is not loaded")
+    input_details = interpreter.get_input_details()[0]
+    actual_input = dummy_input
+    if actual_input is None:
+        actual_input = _build_dummy_input(input_layout or "nhwc", input_size, input_details.get("shape"), input_details.get("dtype", np.float32))
+    interpreter.set_tensor(input_details["index"], actual_input)
+    interpreter.invoke()
+    output_details = interpreter.get_output_details()[0]
+    return interpreter.get_tensor(output_details["index"])
+
+
+def benchmark_loaded_model(warmup_runs: int = 5, benchmark_runs: int = 30):
+    """
+    Benchmark the currently loaded model on-device using the exact runtime in memory.
+    """
+    _ensure_numpy()
+
+    warmup_runs = max(1, int(warmup_runs))
+    benchmark_runs = max(4, int(benchmark_runs))
+
+    if STATE.get("status") not in ("running", "ready"):
+        raise RuntimeError("Model is not ready for benchmarking")
+
+    with MODEL_LOCK:
+        runtime = LOADED_RUNTIME
+        interpreter = LOADED_INTERPRETER
+        session = LOADED_ONNX_SESSION
+        input_size = LOADED_INPUT_SIZE
+        input_layout = LOADED_INPUT_LAYOUT
+        input_meta = LOADED_INPUT_META
+
+        if input_size is None or (interpreter is None and session is None):
+            raise RuntimeError("No loaded model is available for benchmarking")
+
+        if runtime == "onnx":
+            dummy_input = _build_dummy_input(input_layout or "nchw", input_size, getattr(input_meta, "shape", None), np.float32)
+        else:
+            input_details = interpreter.get_input_details()[0]
+            dummy_input = _build_dummy_input(
+                input_layout or "nhwc",
+                input_size,
+                input_details.get("shape"),
+                input_details.get("dtype", np.float32),
+            )
+
+        for _ in range(warmup_runs):
+            _run_loaded_model_once_locked(runtime, interpreter, session, input_size, input_layout, input_meta, dummy_input)
+
+        samples_s = []
+        for _ in range(benchmark_runs):
+            started = time.perf_counter()
+            _run_loaded_model_once_locked(runtime, interpreter, session, input_size, input_layout, input_meta, dummy_input)
+            ended = time.perf_counter()
+            samples_s.append(max(ended - started, 0.0))
+
+    if not samples_s:
+        raise RuntimeError("Benchmark produced no samples")
+
+    lat_avg = float(np.mean(samples_s))
+    lat_std = float(np.std(samples_s))
+    lat_p50 = float(np.percentile(samples_s, 50))
+    lat_p95 = float(np.percentile(samples_s, 95))
+    throughput = float(1.0 / lat_avg) if lat_avg > 0 else None
+
+    result = {
+        "success": True,
+        "timestamp": _now_iso(),
+        "model_name": STATE.get("model_name"),
+        "runtime": runtime,
+        "warmup_runs": warmup_runs,
+        "benchmark_runs": benchmark_runs,
+        "iterations": len(samples_s),
+        "latency_avg_s": round(lat_avg, 6),
+        "latency_std_s": round(lat_std, 6),
+        "latency_p50_s": round(lat_p50, 6),
+        "latency_p95_s": round(lat_p95, 6),
+        "throughput_iter_per_s": round(throughput, 4) if throughput is not None else None,
+        "input_size": list(input_size),
+        "input_layout": input_layout,
+        "sample_latencies_ms": [round(sample * 1000.0, 3) for sample in samples_s[: min(10, len(samples_s))]],
+    }
+
+    model_info = STATE.get("model_info") or {}
+    if isinstance(model_info, dict):
+        model_info["measured_latency_avg_s"] = result["latency_avg_s"]
+        model_info["measured_latency_p95_s"] = result["latency_p95_s"]
+        model_info["measured_throughput_iter_per_s"] = result["throughput_iter_per_s"]
+        model_info["benchmark_runs"] = result["benchmark_runs"]
+        model_info["benchmark_updated_at"] = result["timestamp"]
+        set_state(model_info=model_info)
+
+    _update_benchmark_snapshot(result, status="completed", error=None)
+    return result
 
 
 def _load_tflite_model(model_path, input_size):
@@ -1788,6 +2297,8 @@ def start_model_inference():
             LOADED_AT = _now_iso()
 
         set_state(status="running", inference_active=True, runtime=LOADED_RUNTIME, artifact_path=model_path, error=None)
+        reset_fall_detection_metrics()
+        reset_benchmark_metrics()
 
         log(f"Model '{STATE['model_name']}' is now running (runtime: {LOADED_RUNTIME})")
         log(f"Estimated energy draw: {STATE['model_info'].get('energy_avg_mwh', 'N/A')} mWh")
@@ -1819,6 +2330,8 @@ if __name__ == "__main__":
         log(f"Found existing model: {size} bytes")
         if STATE.get("model_name"):
             log(f"Current model: {STATE['model_name']}")
+    reset_fall_detection_metrics()
+    reset_benchmark_metrics()
 
     if FNB58_AUTO_START:
         start_fnb58_monitor()

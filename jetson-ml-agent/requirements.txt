@@ -3,5 +3,6 @@ requests==2.32.3
 numpy>=1.21.2,<2.0
 tensorflow==2.13.1
 onnxruntime>=1.16,<1.19
+opencv-python-headless>=4.8,<4.14
 pyserial>=3.5
 pyusb==1.2.1

@@ -47,6 +47,8 @@ CSV_PATH = os.path.join(DATA_DIR, "360_models_benchmark_jetson.csv")
 RPI5_CSV_PATH = os.path.join(DATA_DIR, "253_models_benchmark_rpi5.csv")  
 LOG_FILE_PATH = os.path.join(DATA_DIR, "deployment_logs.json")
 ENERGY_REPORTS_PATH = os.path.join(DATA_DIR, "energy_measurements.json")
+BENCHMARK_REPORTS_PATH = os.path.join(DATA_DIR, "benchmark_reports.json")
+FALL_EVENTS_PATH = os.path.join(DATA_DIR, "fall_detection_events.json")
 PREFERRED_ARTIFACT_EXTS = [".tflite", ".onnx", ".pth", ".pt", ".bin"]
 BALENA_API_BASE = os.getenv("BALENA_API_BASE", "https://api.balena-cloud.com")
 BALENA_DEFAULT_TIMEOUT = int(os.getenv("BALENA_API_TIMEOUT", "30"))
@@ -218,6 +220,125 @@ def _sanitize_model_base_name(value: str) -> str:
     return sanitized or f"custom_model_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
 
 
+def _build_device_urls(bbb_ip: Optional[str], device_uuid: Optional[str], suffix: str):
+    suffix = suffix if suffix.startswith("/") else f"/{suffix}"
+    urls_to_try = []
+    if device_uuid:
+        public_url = get_device_public_url(device_uuid)
+        if public_url:
+            urls_to_try.append(("public", f"{public_url}{suffix}"))
+    if bbb_ip:
+        urls_to_try.append(("local", f"http://{bbb_ip}:8000{suffix}"))
+    return urls_to_try
+
+
+def _normalize_device_key(device_type: str) -> str:
+    device_lower = str(device_type or "").lower()
+    if any(k in device_lower for k in ["jetson", "nano"]):
+        return "jetson_nano"
+    if any(k in device_lower for k in ["raspberry", "rpi", "pi"]):
+        return "raspberry_pi5"
+    return "jetson_nano"
+
+
+def _load_energy_thresholds():
+    thresholds_path = os.path.join(ARTIFACTS_DIR, "energy_thresholds.json")
+    if not os.path.exists(thresholds_path):
+        return {}
+    try:
+        with open(thresholds_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _build_prediction_result(model_name: str, device_type: str, pred: dict, payload: dict):
+    thresholds_data = _load_energy_thresholds()
+    device_key = _normalize_device_key(device_type)
+    thresholds = thresholds_data.get(device_key, {})
+
+    p25 = thresholds.get("p25", 50)
+    p50 = thresholds.get("p50", 85)
+    p75 = thresholds.get("p75", 150)
+    energy = float(pred["prediction_mwh"])
+
+    if energy < p25:
+        energy_category = "excellent"
+        recommendation = "deploy"
+        reason = f"Energy consumption ({energy:.1f} mWh) is within excellent range (< {p25} mWh) for {device_type}"
+    elif energy < p50:
+        energy_category = "good"
+        recommendation = "deploy"
+        reason = f"Energy consumption ({energy:.1f} mWh) is good ({p25}-{p50} mWh) for {device_type}"
+    elif energy < p75:
+        energy_category = "acceptable"
+        recommendation = "deploy_with_caution"
+        reason = f"Energy consumption ({energy:.1f} mWh) is acceptable ({p50}-{p75} mWh) for {device_type}. Consider optimization."
+    else:
+        energy_category = "high"
+        recommendation = "not_recommend"
+        reason = f"Energy consumption ({energy:.1f} mWh) is high (> {p75} mWh) for {device_type}. Not recommended for deployment."
+
+    return {
+        "model_name": model_name,
+        "device_type": device_type,
+        "predicted_energy_mwh": round(energy, 2),
+        "ci_lower_mwh": round(pred.get("ci_lower_mwh", 0), 2),
+        "ci_upper_mwh": round(pred.get("ci_upper_mwh", 0), 2),
+        "energy_category": energy_category,
+        "recommendation": recommendation,
+        "reason": reason,
+        "thresholds": {
+            "p25": p25,
+            "p50": p50,
+            "p75": p75,
+        },
+        "model_info": {
+            "params_m": payload.get("params_m"),
+            "gflops": payload.get("gflops"),
+            "size_mb": payload.get("size_mb"),
+            "latency_avg_s": payload.get("latency_avg_s"),
+            "throughput_iter_per_s": payload.get("throughput_iter_per_s"),
+        },
+        "model_used_for_prediction": pred.get("model_used"),
+        "prediction_mape_pct": pred.get("mape_pct"),
+    }
+
+
+def _predict_energy_for_payload(data: dict):
+    required_fields = ["device_type", "params_m", "gflops", "gmacs", "size_mb", "latency_avg_s", "throughput_iter_per_s"]
+    missing_fields = [field for field in required_fields if data.get(field) is None]
+    if missing_fields:
+        raise ValueError(f"Missing required fields: {', '.join(missing_fields)}")
+
+    payload = {
+        "device_type": data["device_type"],
+        "params_m": float(data["params_m"]),
+        "gflops": float(data["gflops"]),
+        "gmacs": float(data["gmacs"]),
+        "size_mb": float(data["size_mb"]),
+        "latency_avg_s": float(data["latency_avg_s"]),
+        "throughput_iter_per_s": float(data["throughput_iter_per_s"]),
+    }
+    predictions = predictor_service.predict([payload])
+    if not predictions or predictions[0].get("prediction_mwh") is None:
+        error_msg = predictions[0].get("error", "Unknown error") if predictions else "No predictions returned"
+        raise RuntimeError(f"Energy prediction failed: {error_msg}")
+
+    pred = predictions[0]
+    model_name = data.get("model_name", "unknown")
+    result = _build_prediction_result(model_name=model_name, device_type=data["device_type"], pred=pred, payload=payload)
+
+    if model_name and model_name != "unknown":
+        artifact = resolve_model_artifact(model_name)
+        result["model_downloaded"] = artifact is not None
+    else:
+        result["model_downloaded"] = False
+
+    return result, pred, payload
+
+
 def _load_energy_reports():
     if not os.path.exists(ENERGY_REPORTS_PATH):
         return []
@@ -257,6 +378,201 @@ def _get_latest_energy_report(device_id=None, model_name=None):
                 return item
 
     return None
+
+
+def _load_json_list(path: str):
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _save_json_list(path: str, items):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(items, f, ensure_ascii=False, indent=2)
+
+
+def _load_benchmark_reports():
+    return _load_json_list(BENCHMARK_REPORTS_PATH)
+
+
+def _save_benchmark_reports(items):
+    _save_json_list(BENCHMARK_REPORTS_PATH, items)
+
+
+def _get_latest_benchmark_report(device_id=None, device_ip=None, model_name=None):
+    items = _load_benchmark_reports()
+    normalized_device_id = str(device_id or "").strip()
+    normalized_device_ip = str(device_ip or "").strip()
+    normalized_model_name = str(model_name or "").strip().lower()
+
+    for item in reversed(items):
+        if normalized_device_id and str(item.get("device_id") or "").strip() != normalized_device_id:
+            continue
+        if normalized_device_ip and str(item.get("device_ip") or "").strip() != normalized_device_ip:
+            continue
+        if normalized_model_name and str(item.get("model_name") or "").strip().lower() != normalized_model_name:
+            continue
+        return item
+    return None
+
+
+def _load_fall_events():
+    return _load_json_list(FALL_EVENTS_PATH)
+
+
+def _save_fall_events(items):
+    _save_json_list(FALL_EVENTS_PATH, items)
+
+
+def _get_latest_fall_event(device_id=None, device_ip=None):
+    items = _load_fall_events()
+    normalized_device_id = str(device_id or "").strip()
+    normalized_device_ip = str(device_ip or "").strip()
+    for item in reversed(items):
+        if normalized_device_id and str(item.get("device_id") or "").strip() != normalized_device_id:
+            continue
+        if normalized_device_ip and str(item.get("device_ip") or "").strip() != normalized_device_ip:
+            continue
+        return item
+    return None
+
+
+def _append_benchmark_report(item: dict):
+    items = _load_benchmark_reports()
+    items.append(item)
+    items = items[-500:]
+    _save_benchmark_reports(items)
+    return item
+
+
+def _append_fall_event(item: dict):
+    items = _load_fall_events()
+    items.append(item)
+    items = items[-500:]
+    _save_fall_events(items)
+    return item
+
+
+def _wait_for_device_ready_for_benchmark(bbb_ip=None, device_uuid=None, timeout_s: float = 75.0):
+    started = datetime.now(timezone.utc).timestamp()
+    last_status = None
+    while (datetime.now(timezone.utc).timestamp() - started) < timeout_s:
+        for _, url in _build_device_urls(bbb_ip, device_uuid, "/status"):
+            try:
+                resp = requests.get(url, timeout=12)
+                resp.raise_for_status()
+                payload = resp.json()
+                if isinstance(payload, dict):
+                    last_status = payload
+                    status_value = str(payload.get("status") or "").lower()
+                    if status_value == "running":
+                        return payload
+                    if status_value == "error":
+                        return payload
+            except Exception:
+                continue
+        import time
+        time.sleep(2.0)
+    return last_status
+
+
+def _benchmark_and_repredict_device(
+    *,
+    bbb_ip=None,
+    device_uuid=None,
+    device_name=None,
+    device_type=None,
+    model_name=None,
+    model_info=None,
+    warmup_runs: int = 5,
+    benchmark_runs: int = 30,
+):
+    urls_to_try = _build_device_urls(bbb_ip, device_uuid, "/benchmark")
+    if not urls_to_try:
+        raise ValueError("No valid endpoint available")
+
+    benchmark_payload = {
+        "warmup_runs": int(warmup_runs),
+        "benchmark_runs": int(benchmark_runs),
+    }
+
+    last_error = None
+    benchmark_result = None
+    used_url_type = None
+    for url_type, url in urls_to_try:
+        try:
+            resp = requests.post(url, json=benchmark_payload, timeout=120)
+            resp.raise_for_status()
+            benchmark_result = resp.json()
+            used_url_type = url_type
+            break
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
+            last_error = str(exc)
+            continue
+        except Exception as exc:
+            last_error = str(exc)
+            continue
+
+    if not benchmark_result:
+        raise RuntimeError(last_error or "Unable to benchmark model on device")
+
+    merged_model_info = {}
+    if isinstance(model_info, dict):
+        merged_model_info.update(model_info)
+
+    status_payload = _wait_for_device_ready_for_benchmark(bbb_ip=bbb_ip, device_uuid=device_uuid, timeout_s=20.0)
+    if isinstance(status_payload, dict) and isinstance(status_payload.get("model_info"), dict):
+        merged_model_info = {**merged_model_info, **status_payload["model_info"]}
+
+    inferred_device_type = (
+        device_type
+        or merged_model_info.get("device_type")
+        or merged_model_info.get("device")
+        or "jetson_nano"
+    )
+    effective_model_name = model_name or merged_model_info.get("model_name") or benchmark_result.get("model_name") or "unknown"
+
+    predictor_input = {
+        "model_name": effective_model_name,
+        "device_type": inferred_device_type,
+        "params_m": _safe_float(merged_model_info.get("params_m")),
+        "gflops": _safe_float(merged_model_info.get("gflops")),
+        "gmacs": _safe_float(merged_model_info.get("gmacs")),
+        "size_mb": _safe_float(merged_model_info.get("size_mb")),
+        "latency_avg_s": _safe_float(benchmark_result.get("latency_avg_s")),
+        "throughput_iter_per_s": _safe_float(benchmark_result.get("throughput_iter_per_s")),
+    }
+
+    adjusted_prediction = None
+    prediction_error = None
+    if all(predictor_input.get(key) is not None for key in ("params_m", "gflops", "gmacs", "size_mb", "latency_avg_s", "throughput_iter_per_s")):
+        try:
+            adjusted_prediction, _, _ = _predict_energy_for_payload(predictor_input)
+        except Exception as exc:
+            prediction_error = str(exc)
+    else:
+        prediction_error = "Missing model features required for calibrated prediction"
+
+    report_item = {
+        "timestamp": benchmark_result.get("timestamp") or datetime.now(timezone.utc).isoformat(),
+        "device_id": device_uuid,
+        "device_ip": bbb_ip,
+        "device_name": device_name,
+        "model_name": effective_model_name,
+        "device_type": inferred_device_type,
+        "benchmark": benchmark_result,
+        "prediction": adjusted_prediction,
+        "prediction_error": prediction_error,
+        "used_url_type": used_url_type,
+    }
+    _append_benchmark_report(report_item)
+    return report_item
 
 
 def _sanitize_filter_value(value: str) -> str:
@@ -897,6 +1213,12 @@ def get_status():
                 latest_energy_report = _get_latest_energy_report(device_id=device_uuid, model_name=model_name)
                 if latest_energy_report:
                     payload["latest_energy_report"] = latest_energy_report
+                latest_benchmark_report = _get_latest_benchmark_report(device_id=device_uuid, device_ip=bbb_ip, model_name=model_name)
+                if latest_benchmark_report:
+                    payload["latest_benchmark_report"] = latest_benchmark_report
+                latest_fall_event = _get_latest_fall_event(device_id=device_uuid, device_ip=bbb_ip)
+                if latest_fall_event:
+                    payload["latest_fall_event"] = latest_fall_event
             return jsonify({
                 "success": True,
                 "status": payload
@@ -959,6 +1281,154 @@ def get_device_metrics():
         "error": f"Unable to connect to device",
         "device_offline": True
     }), 200
+
+
+@app.route("/api/device/camera-frame", methods=["GET"])
+def get_device_camera_frame():
+    """
+    Proxy a JPEG camera snapshot from the selected edge device.
+    Accepts: bbb_ip (IP address) or device_uuid (UUID for public URL)
+    """
+    bbb_ip = request.args.get("bbb_ip")
+    device_uuid = request.args.get("device_uuid")
+    annotate = request.args.get("annotate", "1")
+
+    if not bbb_ip and not device_uuid:
+        return jsonify({"success": False, "error": "bbb_ip or device_uuid is required"}), 400
+
+    urls_to_try = []
+    if device_uuid:
+        public_url = get_device_public_url(device_uuid)
+        if public_url:
+            urls_to_try.append(f"{public_url}/camera/snapshot?annotate={annotate}")
+    if bbb_ip:
+        urls_to_try.append(f"http://{bbb_ip}:8000/camera/snapshot?annotate={annotate}")
+
+    if not urls_to_try:
+        return jsonify({"success": False, "error": "No valid endpoint available"}), 400
+
+    for url in urls_to_try:
+        try:
+            resp = requests.get(url, timeout=20)
+            resp.raise_for_status()
+
+            response = make_response(resp.content)
+            response.headers["Content-Type"] = resp.headers.get("Content-Type", "image/jpeg")
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            camera_source = resp.headers.get("X-Camera-Source")
+            if camera_source:
+                response.headers["X-Camera-Source"] = camera_source
+            return response
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            continue
+        except Exception:
+            continue
+
+    return jsonify({
+        "success": False,
+        "error": "Unable to capture camera frame from device",
+        "device_offline": True
+    }), 502
+
+
+@app.route("/api/device/camera/fall-detect", methods=["POST"])
+def run_device_camera_fall_detect():
+    """Proxy a live fall-detection request to the selected edge device."""
+    data = request.get_json(force=True, silent=True) or {}
+    bbb_ip = data.get("bbb_ip")
+    device_uuid = data.get("device_uuid")
+
+    if not bbb_ip and not device_uuid:
+        return jsonify({"success": False, "error": "bbb_ip or device_uuid is required"}), 400
+
+    payload = {
+        "duration_s": data.get("duration_s"),
+        "max_frames": data.get("max_frames"),
+        "camera_device": data.get("camera_device"),
+    }
+
+    urls_to_try = []
+    if device_uuid:
+        public_url = get_device_public_url(device_uuid)
+        if public_url:
+            urls_to_try.append(f"{public_url}/camera/fall-detect")
+    if bbb_ip:
+        urls_to_try.append(f"http://{bbb_ip}:8000/camera/fall-detect")
+
+    if not urls_to_try:
+        return jsonify({"success": False, "error": "No valid endpoint available"}), 400
+
+    last_error = None
+    for url in urls_to_try:
+        try:
+            resp = requests.post(url, json=payload, timeout=60)
+            response_payload = resp.json()
+            if resp.status_code < 400 and isinstance(response_payload, dict) and response_payload.get("success"):
+                event_item = {
+                    "event_id": f"fall-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}",
+                    "timestamp": response_payload.get("timestamp") or datetime.now(timezone.utc).isoformat(),
+                    "device_id": device_uuid,
+                    "device_ip": bbb_ip,
+                    "device_name": data.get("device_name"),
+                    "model_name": response_payload.get("model"),
+                    "camera_source": response_payload.get("camera_source"),
+                    "camera_ready": response_payload.get("camera_ready"),
+                    "fall_detected": bool(response_payload.get("fall_detected")),
+                    "fall_score": _safe_float(response_payload.get("fall_score")),
+                    "label": response_payload.get("label"),
+                    "frames_analyzed": response_payload.get("frames_analyzed"),
+                    "severity": "critical" if response_payload.get("fall_detected") else "normal",
+                    "acknowledged": False,
+                    "source": "controller_proxy",
+                    "details": response_payload.get("details") or {},
+                }
+                _append_fall_event(event_item)
+                response_payload["event"] = event_item
+            return jsonify(response_payload), resp.status_code
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
+            last_error = str(exc)
+            continue
+        except Exception as exc:
+            last_error = str(exc)
+            continue
+
+    return jsonify({
+        "success": False,
+        "error": last_error or "Unable to run fall detection on device",
+        "device_offline": True
+    }), 502
+
+
+@app.route("/api/device/benchmark", methods=["POST"])
+def run_device_benchmark():
+    """Run inference benchmarking on the selected edge device and recalibrate prediction."""
+    data = request.get_json(force=True, silent=True) or {}
+    bbb_ip = data.get("bbb_ip")
+    device_uuid = data.get("device_uuid")
+
+    if not bbb_ip and not device_uuid:
+        return jsonify({"success": False, "error": "bbb_ip or device_uuid is required"}), 400
+
+    try:
+        report_item = _benchmark_and_repredict_device(
+            bbb_ip=bbb_ip,
+            device_uuid=device_uuid,
+            device_name=data.get("device_name"),
+            device_type=data.get("device_type"),
+            model_name=data.get("model_name"),
+            model_info=data.get("model_info"),
+            warmup_runs=int(data.get("warmup_runs", 5)),
+            benchmark_runs=int(data.get("benchmark_runs", 30)),
+        )
+        return jsonify({
+            "success": True,
+            "report": report_item,
+        })
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 502
 
 
 @app.route("/api/device/start", methods=["POST"])
@@ -1215,6 +1685,9 @@ def deploy_model():
         fleet = data.get("fleet")
         provided_model_info = data.get("model_info") if isinstance(data.get("model_info"), dict) else {}
         energy_budget = data.get("energy_budget_mwh")
+        auto_benchmark_after_deploy = data.get("auto_benchmark_after_deploy", True)
+        warmup_runs = data.get("warmup_runs", 5)
+        benchmark_runs = data.get("benchmark_runs", 30)
         
         if not model_name:
             return jsonify({"success": False, "error": "model_name required"}), 400
@@ -1382,6 +1855,31 @@ def deploy_model():
                     }
                 )
                 
+                benchmark_report = None
+                benchmark_warning = None
+                if auto_benchmark_after_deploy:
+                    try:
+                        status_payload = _wait_for_device_ready_for_benchmark(
+                            bbb_ip=device_endpoint,
+                            device_uuid=device_uuid,
+                            timeout_s=90.0,
+                        )
+                        if isinstance(status_payload, dict) and str(status_payload.get("status") or "").lower() == "running":
+                            benchmark_report = _benchmark_and_repredict_device(
+                                bbb_ip=device_endpoint,
+                                device_uuid=device_uuid,
+                                device_name=device_display,
+                                device_type=model_info.get("device_type"),
+                                model_name=model_name,
+                                model_info=model_info,
+                                warmup_runs=int(warmup_runs),
+                                benchmark_runs=int(benchmark_runs),
+                            )
+                        else:
+                            benchmark_warning = "Device did not reach running state in time for automatic benchmark"
+                    except Exception as benchmark_exc:
+                        benchmark_warning = str(benchmark_exc)
+
                 return jsonify({
                     "success": True,
                     "message": f"Model {model_name} deployed successfully",
@@ -1390,7 +1888,9 @@ def deploy_model():
                     "model_path": model_path,
                     "model_url": model_url,
                     "device_response": device_response,
-                    "used_url_type": url_type
+                    "used_url_type": url_type,
+                    "benchmark": benchmark_report,
+                    "benchmark_warning": benchmark_warning
                 })
                 
             except requests.exceptions.RequestException as e:
@@ -1693,6 +2193,52 @@ def get_recent_energy_reports():
     })
 
 
+@app.route("/api/medical/fall-events", methods=["GET"])
+def get_medical_fall_events():
+    limit = max(1, min(request.args.get("limit", default=20, type=int), 100))
+    device_uuid = request.args.get("device_uuid")
+    device_ip = request.args.get("bbb_ip")
+    items = _load_fall_events()
+
+    filtered = []
+    for item in reversed(items):
+        if device_uuid and str(item.get("device_id") or "").strip() != str(device_uuid).strip():
+            continue
+        if device_ip and str(item.get("device_ip") or "").strip() != str(device_ip).strip():
+            continue
+        filtered.append(item)
+        if len(filtered) >= limit:
+            break
+
+    return jsonify({
+        "success": True,
+        "count": len(filtered),
+        "items": filtered,
+    })
+
+
+@app.route("/api/medical/fall-events/<event_id>/ack", methods=["POST"])
+def acknowledge_medical_fall_event(event_id):
+    items = _load_fall_events()
+    updated_item = None
+    for item in items:
+        if str(item.get("event_id")) != str(event_id):
+            continue
+        item["acknowledged"] = True
+        item["acknowledged_at"] = datetime.now(timezone.utc).isoformat()
+        updated_item = item
+        break
+
+    if not updated_item:
+        return jsonify({"success": False, "error": "Event not found"}), 404
+
+    _save_fall_events(items)
+    return jsonify({
+        "success": True,
+        "item": updated_item,
+    })
+
+
 @app.route("/api/models/popular", methods=["GET"])
 def get_popular_models():
     """API: Lấy danh sách popular models phù hợp với edge devices"""
@@ -1791,119 +2337,12 @@ def predict_energy_for_custom_model():
     if not data:
         return jsonify({"success": False, "error": "Empty payload"}), 400
     
-    # Validate required fields
-    required_fields = ["device_type", "params_m", "gflops", "gmacs", "size_mb", 
-                      "latency_avg_s", "throughput_iter_per_s"]
-    missing_fields = [field for field in required_fields if field not in data]
-    if missing_fields:
-        return jsonify({
-            "success": False,
-            "error": f"Missing required fields: {', '.join(missing_fields)}"
-        }), 400
-    
     try:
-        # Prepare payload for energy predictor
-        payload = {
-            "device_type": data["device_type"],
-            "params_m": float(data["params_m"]),
-            "gflops": float(data["gflops"]),
-            "gmacs": float(data["gmacs"]),
-            "size_mb": float(data["size_mb"]),
-            "latency_avg_s": float(data["latency_avg_s"]),
-            "throughput_iter_per_s": float(data["throughput_iter_per_s"])
-        }
-        
-        # Predict energy
-        predictions = predictor_service.predict([payload])
-        
-        if not predictions or predictions[0].get("prediction_mwh") is None:
-            error_msg = predictions[0].get("error", "Unknown error") if predictions else "No predictions returned"
-            print(f"[ERROR] Energy prediction failed: {error_msg}")
-            print(f"[DEBUG] Payload: {payload}")
-            return jsonify({
-                "success": False,
-                "error": f"Energy prediction failed: {error_msg}"
-            }), 500
-        
-        pred = predictions[0]
-        
-        # Load thresholds for categorization
-        thresholds_path = os.path.join(ARTIFACTS_DIR, "energy_thresholds.json")
-        thresholds_data = {}
-        if os.path.exists(thresholds_path):
-            with open(thresholds_path, 'r', encoding='utf-8') as f:
-                thresholds_data = json.load(f)
-        
-        # Determine device key
-        device_type = data["device_type"].lower()
-        if any(k in device_type for k in ["jetson", "nano"]):
-            device_key = "jetson_nano"
-        elif any(k in device_type for k in ["raspberry", "rpi", "pi"]):
-            device_key = "raspberry_pi5"
-        else:
-            device_key = "jetson_nano"
-        thresholds = thresholds_data.get(device_key, {})
-        
-        p25 = thresholds.get("p25", 50)
-        p50 = thresholds.get("p50", 85)
-        p75 = thresholds.get("p75", 150)
-        
-        # Categorize energy
-        energy = pred["prediction_mwh"]
-        if energy < p25:
-            energy_category = "excellent"
-            recommendation = "deploy"
-            reason = f"Energy consumption ({energy:.1f} mWh) is within excellent range (< {p25} mWh) for {device_type}"
-        elif energy < p50:
-            energy_category = "good"
-            recommendation = "deploy"
-            reason = f"Energy consumption ({energy:.1f} mWh) is good ({p25}-{p50} mWh) for {device_type}"
-        elif energy < p75:
-            energy_category = "acceptable"
-            recommendation = "deploy_with_caution"
-            reason = f"Energy consumption ({energy:.1f} mWh) is acceptable ({p50}-{p75} mWh) for {device_type}. Consider optimization."
-        else:
-            energy_category = "high"
-            recommendation = "not_recommend"
-            reason = f"Energy consumption ({energy:.1f} mWh) is high (> {p75} mWh) for {device_type}. Not recommended for deployment."
-        
-        # Check if model is downloaded
-        model_name = data.get("model_name", "unknown")
-        model_downloaded = False
-        if model_name and model_name != "unknown":
-            artifact = resolve_model_artifact(model_name)
-            model_downloaded = artifact is not None
-        
-        result = {
-            "model_name": model_name,
-            "device_type": data["device_type"],
-            "predicted_energy_mwh": round(energy, 2),
-            "ci_lower_mwh": round(pred.get("ci_lower_mwh", 0), 2),
-            "ci_upper_mwh": round(pred.get("ci_upper_mwh", 0), 2),
-            "energy_category": energy_category,
-            "recommendation": recommendation,
-            "reason": reason,
-            "thresholds": {
-                "p25": p25,
-                "p50": p50,
-                "p75": p75
-            },
-            "model_info": {
-                "params_m": data["params_m"],
-                "gflops": data["gflops"],
-                "size_mb": data["size_mb"],
-                "latency_avg_s": data["latency_avg_s"]
-            },
-            "model_downloaded": model_downloaded,
-            "model_used_for_prediction": pred.get("model_used"),
-            "prediction_mape_pct": pred.get("mape_pct")
-        }
-        
+        result, _, _ = _predict_energy_for_payload(data)
         return jsonify({
             "success": True,
             "prediction": result
         })
-        
     except ValueError as e:
         return jsonify({"success": False, "error": str(e)}), 400
     except Exception as e:

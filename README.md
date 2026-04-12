@@ -63,6 +63,17 @@ The Jetson agent lives in `jetson-ml-agent/`.
 - See `jetson-ml-agent/README.md` for Balena deployment instructions and the agent API endpoints.
 - Local development is available via the `jetson-ml-agent/docker-compose.yml`.
 
+## Ready-to-deploy camera fall model
+
+An official TensorFlow Hub MoveNet TFLite model is bundled for Jetson Nano fall
+detection experiments:
+
+- `ml-controller/new_models/movenet_singlepose_lightning_f16.tflite`
+
+Use the deployment UI to upload this file and deploy it to Jetson. The agent
+will treat MoveNet uploads as `fall_detection_pose` models and expose live
+camera inference through `/predict` and `/camera/fall-detect`.
+
 ## Repo structure
 
 - `ml-controller/python/`: Flask app (`app.py`) + services

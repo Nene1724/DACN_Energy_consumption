@@ -1,0 +1,121 @@
+<div id="medical_view" class="hidden">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h3>Medical Safety Watch</h3>
+                <p class="muted" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                    <span>Clinical device:</span>
+                    <select id="medical_device_selector" class="filter-select" style="min-width: 280px;">
+                        <option value="">Select a device</option>
+                    </select>
+                    <span style="color: var(--muted); font-size: 12px;">| Last update: <span id="medical_last_update">--</span></span>
+                </p>
+            </div>
+            <div class="panel-actions">
+                <button class="btn ghost" id="medical_refresh_btn" type="button">Refresh</button>
+                <button class="btn ghost" id="medical_benchmark_btn" type="button">Benchmark Energy</button>
+                <button class="btn ghost" id="medical_ack_btn" type="button">Acknowledge Alert</button>
+                <button class="btn primary" id="medical_run_check_btn" type="button">Run Fall Check</button>
+                <button class="btn primary" id="medical_watch_toggle_btn" type="button">Start Clinical Watch</button>
+            </div>
+        </div>
+
+        <div id="medical_alert_banner" class="medical-banner medical-banner-safe">
+            <div>
+                <div class="medical-banner-title">System ready for patient safety monitoring</div>
+                <div class="medical-banner-text" id="medical_alert_text">Select a Jetson device and start the clinical watch to monitor fall events.</div>
+            </div>
+            <div class="medical-banner-meta">
+                <span><strong>State:</strong> <span id="medical_alert_state">Idle</span></span>
+                <span><strong>Severity:</strong> <span id="medical_alert_severity">Normal</span></span>
+                <span><strong>Watch:</strong> <span id="medical_watch_state">Stopped</span></span>
+            </div>
+        </div>
+
+        <div class="monitor-row" style="margin-top: 16px;">
+            <div class="monitor-card" style="flex: 1.5;">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap;">
+                    <h4 style="margin: 0;">Live Patient Camera</h4>
+                    <div class="chip-row" style="margin: 0;">
+                        <span class="chip">USB Camera</span>
+                        <span class="chip">MoveNet Fall Detection</span>
+                        <span class="chip">Jetson Edge Inference</span>
+                    </div>
+                </div>
+                <div class="medical-live-shell">
+                    <img id="medical_camera_image" alt="Medical camera feed"
+                         style="display:none; width:100%; height:100%; min-height:420px; object-fit:cover; background:#020617;">
+                    <div id="medical_camera_placeholder" class="medical-camera-placeholder">
+                        Select a device to load the clinical camera stream.
+                    </div>
+                </div>
+            </div>
+
+            <div class="monitor-card">
+                <h4>Clinical Snapshot</h4>
+                <div class="metric-list" style="margin-top: 8px;">
+                    <div class="metric-line"><span class="label">Camera:</span><span class="value" id="medical_camera_state">N/A</span></div>
+                    <div class="metric-line"><span class="label">Source:</span><span class="value" id="medical_camera_source">N/A</span></div>
+                    <div class="metric-line"><span class="label">Mode:</span><span class="value" id="medical_model_mode">N/A</span></div>
+                    <div class="metric-line"><span class="label">Latest Label:</span><span class="value" id="medical_fall_label">N/A</span></div>
+                    <div class="metric-line"><span class="label">Fall Score:</span><span class="value" id="medical_fall_score">N/A</span></div>
+                    <div class="metric-line"><span class="label">Frames:</span><span class="value" id="medical_frames_analyzed">N/A</span></div>
+                    <div class="metric-line"><span class="label">Last Check:</span><span class="value" id="medical_last_check">N/A</span></div>
+                    <div class="metric-line"><span class="label">Last Error:</span><span class="value" id="medical_camera_error">No camera activity yet</span></div>
+                </div>
+
+                <div class="medical-stat-grid">
+                    <div class="medical-stat-card">
+                        <small>CPU</small>
+                        <strong id="medical_cpu_value">N/A</strong>
+                    </div>
+                    <div class="medical-stat-card">
+                        <small>Temperature</small>
+                        <strong id="medical_temp_value">N/A</strong>
+                    </div>
+                    <div class="medical-stat-card">
+                        <small>Memory</small>
+                        <strong id="medical_mem_value">N/A</strong>
+                    </div>
+                    <div class="medical-stat-card">
+                        <small>Storage</small>
+                        <strong id="medical_storage_value">N/A</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="monitor-row" style="margin-top: 16px;">
+            <div class="monitor-card">
+                <h4>Benchmark-Calibrated Energy</h4>
+                <div class="metric-list" style="margin-top: 8px;">
+                    <div class="metric-line"><span class="label">Latency Avg:</span><span class="value" id="medical_benchmark_latency">N/A</span></div>
+                    <div class="metric-line"><span class="label">Latency P95:</span><span class="value" id="medical_benchmark_p95">N/A</span></div>
+                    <div class="metric-line"><span class="label">Throughput:</span><span class="value" id="medical_benchmark_throughput">N/A</span></div>
+                    <div class="metric-line"><span class="label">Predicted Energy:</span><span class="value" id="medical_benchmark_energy">N/A</span></div>
+                    <div class="metric-line"><span class="label">Benchmark Time:</span><span class="value" id="medical_benchmark_updated">N/A</span></div>
+                    <div class="metric-line"><span class="label">Benchmark Note:</span><span class="value" id="medical_benchmark_note">Waiting for on-device benchmark</span></div>
+                </div>
+            </div>
+
+            <div class="monitor-card">
+                <h4>Operator Guidance</h4>
+                <div id="medical_response_guidance" style="color: var(--muted); font-size: 13px; line-height: 1.65;">
+                    Keep the camera view visible and enable Clinical Watch for periodic fall checks. When an alert is raised, review the live frame, acknowledge the event, and dispatch a caregiver if needed.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h3>Fall Event Timeline</h3>
+                <p class="muted">Recent detections and acknowledgements for the selected medical device</p>
+            </div>
+        </div>
+        <div id="medical_event_list" class="medical-event-list">
+            <div class="timeline-empty">No fall detection events recorded yet.</div>
+        </div>
+    </div>
+</div>

@@ -11,6 +11,8 @@ seaborn>=0.13
 # Model feature extraction (optional but recommended)
 onnx>=1.14.0
 onnx-tool>=0.8.0
+flatbuffers>=24.3
+tflite==2.18.0
 
 # Optional (only needed for /api/models/download timm->onnx conversion)
 # NOTE: torch/timm may not have wheels for newest Python versions.

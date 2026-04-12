@@ -26,7 +26,47 @@ balena push Jetson_Nano
 - `POST /start` - Start inference
 - `POST /stop` - Stop inference
 - `POST /predict` - Run inference
+- `POST /camera/fall-detect` - Run live webcam fall detection when a MoveNet fall model is deployed
 - `POST /telemetry` - Report energy metrics
+
+## Camera Fall Detection Model
+
+The repo now includes a ready-to-deploy official TensorFlow Hub pose model:
+
+- `ml-controller/new_models/movenet_singlepose_lightning_f16.tflite`
+
+This model is intended for Jetson Nano webcam fall detection. During deploy, the
+controller tags MoveNet uploads with `use_case=fall_detection_pose`, so the
+agent automatically switches `/predict` into camera mode instead of dummy-input
+mode.
+
+### Expected camera behavior
+
+- Input source: USB webcam on `/dev/video0`
+- Default capture size: `640x480`
+- Default detection window: `2.5s`
+- Default max frames per request: `16`
+
+### Quick test after deploy
+
+```bash
+curl http://127.0.0.1:8000/status
+
+curl -X POST http://127.0.0.1:8000/camera/fall-detect \
+  -H "Content-Type: application/json" \
+  -d '{"duration_s": 2.5, "max_frames": 16}'
+```
+
+You can also call:
+
+```bash
+curl -X POST http://127.0.0.1:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"duration_s": 2.5}'
+```
+
+When the deployed model is MoveNet, `/predict` will return `fall_detected`,
+`fall_score`, and pose-window statistics from the webcam.
 
 ## FNB58 Integration Workflow
 

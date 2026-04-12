@@ -341,7 +341,26 @@
         .metric-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: #ffffff; }
         .metric-card h4 { font-size: 12px; color: var(--muted); margin: 0 0 8px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
         .metric-value { font-size: 24px; font-weight: 700; color: var(--text); margin: 0; }
-    </style>
+        .medical-banner { display:flex; justify-content:space-between; align-items:center; gap:16px; border-radius:16px; padding:16px 18px; border:1px solid transparent; flex-wrap:wrap; }
+        .medical-banner-title { font-size:18px; font-weight:800; margin-bottom:4px; }
+        .medical-banner-text { font-size:14px; line-height:1.6; max-width:820px; }
+        .medical-banner-meta { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--text); }
+        .medical-banner-safe { background: linear-gradient(135deg, rgba(22,163,74,0.12), rgba(16,185,129,0.08)); border-color: rgba(22,163,74,0.24); }
+        .medical-banner-watch { background: linear-gradient(135deg, rgba(245,158,11,0.12), rgba(251,191,36,0.08)); border-color: rgba(245,158,11,0.24); }
+        .medical-banner-alert { background: linear-gradient(135deg, rgba(220,38,38,0.14), rgba(248,113,113,0.1)); border-color: rgba(220,38,38,0.26); }
+        .medical-live-shell { position:relative; border-radius:16px; overflow:hidden; background:#0f172a; min-height:420px; border:1px solid rgba(148,163,184,0.22); }
+        .medical-camera-placeholder { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; color:#cbd5e1; padding:24px; font-size:14px; line-height:1.6; }
+        .medical-stat-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; margin-top:14px; }
+        .medical-stat-card { border:1px solid var(--border); border-radius:12px; padding:12px; background:#ffffff; }
+        .medical-stat-card small { display:block; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; }
+        .medical-stat-card strong { font-size:18px; color:var(--text); }
+        .medical-event-list { display:flex; flex-direction:column; gap:10px; }
+        .medical-event { border:1px solid var(--border); border-radius:14px; padding:14px; background:#ffffff; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+        .medical-event-critical { border-color: rgba(220,38,38,0.28); background: linear-gradient(135deg, rgba(220,38,38,0.08), rgba(255,255,255,0.92)); }
+        .medical-event-normal { border-color: rgba(22,163,74,0.2); }
+        .medical-event-meta { font-size:12px; color:var(--muted); display:flex; gap:12px; flex-wrap:wrap; margin-top:6px; }
+        .medical-event-status { font-weight:700; font-size:12px; letter-spacing:0.04em; text-transform:uppercase; }
+        </style>
 </head>
 <body>
     <div class="shell">
@@ -353,6 +372,7 @@
         <div class="view-tabs" id="view_tabs">
             <button class="view-tab" data-view="deployment">Deployment</button>
             <button class="view-tab" data-view="monitoring">Monitoring</button>
+            <button class="view-tab" data-view="medical">Medical Watch</button>
         </div>
 
         <!-- Hidden fields to store current device endpoint/IP and UUID for polling -->
@@ -361,6 +381,7 @@
 
         {% include 'deployment.html' %}
         {% include 'monitoring.html' %}
+        {% include 'medical.html' %}
 
     </div> <!-- end shell -->
     <script>
@@ -378,6 +399,7 @@
         const MAX_METRIC_POINTS = 120;
         let deviceMetricsHistory = [];
         let lastDeviceMetrics = null;
+        let lastDeviceStatus = null;
         let metricsPollInterval = null;
         let deployMetricsPollInterval = null;
         let logPollInterval = null;
@@ -405,6 +427,18 @@
         let selectedTimeRange = '5m'; // Default 5 minutes
         let chartViewMode = 'gauges'; // 'gauges', 'trends', 'distribution'
         let chartsInitialized = false;
+        let cameraFramePollInterval = null;
+        let cameraFrameRequestInFlight = false;
+        let currentCameraObjectUrl = null;
+        let medicalCameraPollInterval = null;
+        let medicalCameraRequestInFlight = false;
+        let currentMedicalCameraObjectUrl = null;
+        let medicalEventPollInterval = null;
+        let medicalWatchInterval = null;
+        let medicalWatchActive = false;
+        let medicalWatchRequestInFlight = false;
+        let medicalLastAnnouncedEventId = null;
+        let medicalLatestEvents = [];
 
         function setActiveView(view) {
             console.log('Switching to view:', view);
@@ -431,6 +465,8 @@
             if (view === 'deployment') {
                 console.log('Deployment view activated');
                 loadDeploymentLogs();
+                stopMetricsPolling();
+                stopCameraPolling();
                 
                 // Ensure fleets and devices are populated
                 if (balenaFleetsLoaded) {
@@ -439,11 +475,20 @@
                 if (balenaDevicesLoaded) {
                     populateDeviceSelectors(balenaDevices);
                 }
+                stopMedicalPolling();
             } else if (view === 'monitoring') {
                 startMetricsPolling();
+                startCameraPolling();
+                stopMedicalPolling();
                 renderMonitoringTab('trends');
+            } else if (view === 'medical') {
+                startMetricsPolling();
+                stopCameraPolling();
+                startMedicalPolling();
             } else {
                 stopMetricsPolling();
+                stopCameraPolling();
+                stopMedicalPolling();
             }
 
             console.log('View switched to:', view);
@@ -483,6 +528,41 @@
             const monitorRefreshBtn = document.getElementById('monitor_refresh_btn');
             if (monitorRefreshBtn) {
                 monitorRefreshBtn.addEventListener('click', () => refreshDeviceMetrics());
+            }
+
+            const cameraRefreshBtn = document.getElementById('camera_refresh_btn');
+            if (cameraRefreshBtn) {
+                cameraRefreshBtn.addEventListener('click', () => refreshCameraSnapshot({ force: true, silent: false }));
+            }
+
+            const cameraRunDetectionBtn = document.getElementById('camera_run_detection_btn');
+            if (cameraRunDetectionBtn) {
+                cameraRunDetectionBtn.addEventListener('click', () => runCameraFallDetection());
+            }
+
+            const medicalRefreshBtn = document.getElementById('medical_refresh_btn');
+            if (medicalRefreshBtn) {
+                medicalRefreshBtn.addEventListener('click', () => refreshMedicalView({ silent: false, withMetrics: true }));
+            }
+
+            const medicalRunCheckBtn = document.getElementById('medical_run_check_btn');
+            if (medicalRunCheckBtn) {
+                medicalRunCheckBtn.addEventListener('click', () => runMedicalFallDetection());
+            }
+
+            const medicalAckBtn = document.getElementById('medical_ack_btn');
+            if (medicalAckBtn) {
+                medicalAckBtn.addEventListener('click', () => acknowledgeLatestMedicalAlert());
+            }
+
+            const medicalBenchmarkBtn = document.getElementById('medical_benchmark_btn');
+            if (medicalBenchmarkBtn) {
+                medicalBenchmarkBtn.addEventListener('click', () => runMedicalBenchmark());
+            }
+
+            const medicalWatchToggleBtn = document.getElementById('medical_watch_toggle_btn');
+            if (medicalWatchToggleBtn) {
+                medicalWatchToggleBtn.addEventListener('click', () => toggleMedicalWatch());
             }
 
             renderMonitoringTab('trends');
@@ -559,6 +639,19 @@
                     const selectedIp = selectedOption?.value || '';
                     const selectedUuid = selectedOption?.dataset?.uuid || '';
                     
+                    if (selectedIp) {
+                        selectMonitoringDevice({ endpoint: selectedIp, uuid: selectedUuid }, { refresh: true });
+                    }
+                });
+            }
+
+            const medicalDeviceSelector = document.getElementById('medical_device_selector');
+            if (medicalDeviceSelector) {
+                medicalDeviceSelector.addEventListener('change', (e) => {
+                    const selectedOption = e.target.selectedOptions[0];
+                    const selectedIp = selectedOption?.value || '';
+                    const selectedUuid = selectedOption?.dataset?.uuid || '';
+
                     if (selectedIp) {
                         selectMonitoringDevice({ endpoint: selectedIp, uuid: selectedUuid }, { refresh: true });
                     }
@@ -1348,6 +1441,25 @@
                 if (preferredValue) monitorSelector.value = preferredValue;
                 console.log('Populated monitor_device_selector with', devices.length, 'devices');
             }
+
+            const medicalSelector = document.getElementById('medical_device_selector');
+            if (medicalSelector) {
+                const currentValue = medicalSelector.value;
+                medicalSelector.innerHTML = '<option value="">Select a device</option>';
+                devices.forEach(dev => {
+                    if (dev.endpoint) {
+                        const opt = document.createElement('option');
+                        opt.value = dev.endpoint;
+                        if (dev.uuid) {
+                            opt.dataset.uuid = dev.uuid;
+                        }
+                        opt.textContent = `${dev.name || 'Device'} (${dev.endpoint}) ${dev.is_online ? 'CARE READY' : 'OFFLINE'}`;
+                        medicalSelector.appendChild(opt);
+                    }
+                });
+                const preferredValue = currentValue || document.getElementById('bbb_ip')?.value || '';
+                if (preferredValue) medicalSelector.value = preferredValue;
+            }
         }
 
         function useBalenaEndpoint(endpoint, name) {
@@ -1408,6 +1520,7 @@
         }
 
         function updateDeviceStatus(status) {
+            lastDeviceStatus = status || null;
             const deviceStatus = document.getElementById('device_status');
             const modelStatus = document.getElementById('model_status');
             const normalized = (status && status.status) ? status.status : 'idle';
@@ -1421,7 +1534,9 @@
             const energyMetrics = status ? status.energy_metrics : null;
             const modelInfo = status ? status.model_info : null;
             renderEnergyMetrics(energyMetrics, modelInfo);
-            renderEnergyComparison(modelInfo, energyMetrics, status ? status.meter_metrics : null);
+            renderEnergyComparison(modelInfo, energyMetrics, status ? status.meter_metrics : null, status ? status.latest_energy_report : null, status ? status.latest_benchmark_report : null);
+            renderCameraMonitor(status, null);
+            renderMedicalWatch(status, null);
         }
 
         function displayStats(stats) {
@@ -1497,7 +1612,7 @@
             return null;
         }
 
-        function renderEnergyComparison(modelInfo, energyMetrics, meterMetrics = null, latestEnergyReport = null) {
+        function renderEnergyComparison(modelInfo, energyMetrics, meterMetrics = null, latestEnergyReport = null, latestBenchmarkReport = null) {
             const predictedEl = document.getElementById('compare_predicted_value');
             const measuredEl = document.getElementById('compare_measured_value');
             const absErrEl = document.getElementById('compare_error_abs');
@@ -1517,8 +1632,11 @@
             const reportedMeasured = latestEnergyReport && latestEnergyReport.actual_energy_mwh != null
                 ? Number(latestEnergyReport.actual_energy_mwh)
                 : null;
+            const benchmarkPredicted = latestBenchmarkReport?.prediction?.predicted_energy_mwh != null
+                ? Number(latestBenchmarkReport.prediction.predicted_energy_mwh)
+                : null;
 
-            const predicted = reportedPredicted ?? extractPredictedEnergyMwh(modelInfo)
+            const predicted = reportedPredicted ?? benchmarkPredicted ?? extractPredictedEnergyMwh(modelInfo)
                 ?? (energyMetrics && energyMetrics.predicted_mwh != null ? Number(energyMetrics.predicted_mwh) : null);
             const measured = reportedMeasured;
 
@@ -1561,6 +1679,8 @@
 
             if (Number.isFinite(predicted) && Number.isFinite(measured) && latestEnergyReport) {
                 noteEl.textContent = 'Using the latest controlled FNB58 measurement reported by the device.';
+            } else if (Number.isFinite(predicted) && latestBenchmarkReport?.prediction) {
+                noteEl.textContent = 'Prediction has been recalibrated from an on-device benchmark on the edge device.';
             } else if (Number.isFinite(predicted) && meterMetrics && meterMetrics.connected) {
                 noteEl.textContent = 'FNB58 live meter is connected. Run a timed measurement to compute accuracy.';
             } else if (Number.isFinite(predicted) && meterMetrics && meterMetrics.error) {
@@ -1623,6 +1743,671 @@
             energyEl.textContent = Number.isFinite(energyMwh) ? `${formatMetric(energyMwh, 2)} mWh` : 'N/A';
             updatedEl.textContent = meter.updated_at ? formatTimestamp(meter.updated_at) : 'N/A';
             errorEl.textContent = meter.error || (connected ? 'Streaming' : 'No live readings yet');
+        }
+
+        function updateCameraPlaceholder(message, isError = false) {
+            const placeholder = document.getElementById('camera_monitor_placeholder');
+            const image = document.getElementById('camera_monitor_image');
+            if (!placeholder || !image) return;
+            placeholder.textContent = message || 'No camera frame available.';
+            placeholder.style.display = 'flex';
+            placeholder.style.color = isError ? '#fecaca' : '#cbd5e1';
+            image.style.display = 'none';
+        }
+
+        function revokeCameraObjectUrl() {
+            if (currentCameraObjectUrl) {
+                URL.revokeObjectURL(currentCameraObjectUrl);
+                currentCameraObjectUrl = null;
+            }
+        }
+
+        function renderCameraMonitor(status = null, fallbackMetrics = null) {
+            const stateEl = document.getElementById('camera_state');
+            const sourceEl = document.getElementById('camera_source');
+            const modeEl = document.getElementById('camera_mode');
+            const detectedEl = document.getElementById('camera_fall_detected');
+            const scoreEl = document.getElementById('camera_fall_score');
+            const labelEl = document.getElementById('camera_fall_label');
+            const framesEl = document.getElementById('camera_frames_analyzed');
+            const updatedEl = document.getElementById('camera_updated');
+            const errorEl = document.getElementById('camera_error');
+
+            if (!stateEl || !sourceEl || !modeEl || !detectedEl || !scoreEl || !labelEl || !framesEl || !updatedEl || !errorEl) {
+                return;
+            }
+
+            const fall = status?.fall_detection || fallbackMetrics?.fall_detection || null;
+            const modelInfo = status?.model_info || {};
+            const enabled = Boolean(fall?.enabled || modelInfo?.use_case === 'fall_detection_pose' || modelInfo?.camera_input);
+            const cameraReady = fall?.camera_ready === true;
+
+            stateEl.textContent = cameraReady ? 'Ready' : (enabled ? 'Waiting for camera inference' : 'Viewer available');
+            sourceEl.textContent = fall?.camera_source || fall?.camera_device || modelInfo?.camera_device || '/dev/video0';
+            modeEl.textContent = enabled ? 'MoveNet fall detection' : 'Snapshot viewer';
+
+            if (typeof fall?.fall_detected === 'boolean') {
+                detectedEl.textContent = fall.fall_detected ? 'Yes' : 'No';
+            } else {
+                detectedEl.textContent = 'N/A';
+            }
+
+            const score = Number(fall?.fall_score);
+            scoreEl.textContent = Number.isFinite(score) ? score.toFixed(3) : 'N/A';
+            labelEl.textContent = fall?.label || 'N/A';
+            framesEl.textContent = Number.isFinite(Number(fall?.frames_analyzed)) ? String(fall.frames_analyzed) : 'N/A';
+            updatedEl.textContent = fall?.updated_at ? formatTimestamp(fall.updated_at) : 'N/A';
+            errorEl.textContent = fall?.last_error || (cameraReady ? 'Camera ready' : 'No camera activity yet');
+        }
+
+        async function refreshCameraSnapshot(options = {}) {
+            const bbbIp = document.getElementById('bbb_ip')?.value || document.getElementById('monitor_device_selector')?.value;
+            const deviceUuid = document.getElementById('device_uuid')?.value || '';
+            const image = document.getElementById('camera_monitor_image');
+            const errorEl = document.getElementById('camera_error');
+
+            if (!bbbIp && !deviceUuid) {
+                updateCameraPlaceholder('Select a device to load the latest USB camera frame.');
+                return;
+            }
+
+            if (cameraFrameRequestInFlight && !options.force) {
+                return;
+            }
+
+            const params = new URLSearchParams();
+            if (deviceUuid) params.append('device_uuid', deviceUuid);
+            if (bbbIp) params.append('bbb_ip', bbbIp);
+            params.append('annotate', '1');
+            params.append('_ts', String(Date.now()));
+
+            cameraFrameRequestInFlight = true;
+            try {
+                const response = await fetch(`/api/device/camera-frame?${params.toString()}`, { cache: 'no-store' });
+                if (!response.ok) {
+                    let errText = `Camera snapshot failed (${response.status})`;
+                    try {
+                        const errJson = await response.json();
+                        errText = errJson.error || errText;
+                    } catch (_) {
+                        const text = await response.text();
+                        if (text) errText = text;
+                    }
+                    throw new Error(errText);
+                }
+
+                const blob = await response.blob();
+                revokeCameraObjectUrl();
+                currentCameraObjectUrl = URL.createObjectURL(blob);
+                image.src = currentCameraObjectUrl;
+                image.style.display = 'block';
+                const placeholder = document.getElementById('camera_monitor_placeholder');
+                if (placeholder) {
+                    placeholder.style.display = 'none';
+                }
+                if (errorEl && !errorEl.textContent) {
+                    errorEl.textContent = 'Snapshot streaming';
+                }
+            } catch (err) {
+                console.error('Camera snapshot error:', err);
+                updateCameraPlaceholder(err.message || 'Unable to load camera frame.', true);
+                if (errorEl) {
+                    errorEl.textContent = err.message || 'Unable to load camera frame.';
+                }
+                if (!options.silent) {
+                    showAlert('error', err.message || 'Unable to load camera frame.');
+                }
+            } finally {
+                cameraFrameRequestInFlight = false;
+            }
+        }
+
+        function startCameraPolling() {
+            stopCameraPolling();
+            refreshCameraSnapshot({ silent: true });
+            cameraFramePollInterval = setInterval(() => {
+                refreshCameraSnapshot({ silent: true });
+            }, 1800);
+        }
+
+        function stopCameraPolling() {
+            if (cameraFramePollInterval) {
+                clearInterval(cameraFramePollInterval);
+                cameraFramePollInterval = null;
+            }
+        }
+
+        async function runCameraFallDetection() {
+            const bbbIp = document.getElementById('bbb_ip')?.value || document.getElementById('monitor_device_selector')?.value;
+            const deviceUuid = document.getElementById('device_uuid')?.value || '';
+            const btn = document.getElementById('camera_run_detection_btn');
+
+            if (!bbbIp && !deviceUuid) {
+                showAlert('error', 'Please select a device first.');
+                return;
+            }
+
+            try {
+                if (btn) {
+                    btn.disabled = true;
+                    btn.textContent = 'Running...';
+                }
+
+                const response = await fetch('/api/device/camera/fall-detect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        bbb_ip: bbbIp || null,
+                        device_uuid: deviceUuid || null,
+                        duration_s: 2.5,
+                        max_frames: 12
+                    })
+                });
+
+                const payload = await response.json();
+                if (!response.ok || !payload.success) {
+                    throw new Error(payload.error || 'Fall detection request failed.');
+                }
+
+                const detected = payload.fall_detected === true ? 'fall-like posture detected' : 'no fall detected';
+                const score = Number(payload.fall_score);
+                const suffix = Number.isFinite(score) ? ` (score ${score.toFixed(3)})` : '';
+                showAlert('success', `Camera check completed: ${detected}${suffix}.`);
+                refreshDeviceMetrics({ silent: true });
+                refreshCameraSnapshot({ force: true, silent: true });
+            } catch (err) {
+                console.error('Camera fall detection error:', err);
+                showAlert('error', err.message || 'Unable to run fall detection.');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Run Fall Check';
+                }
+            }
+        }
+
+        function updateMedicalCameraPlaceholder(message, isError = false) {
+            const placeholder = document.getElementById('medical_camera_placeholder');
+            const image = document.getElementById('medical_camera_image');
+            if (!placeholder || !image) return;
+            placeholder.textContent = message || 'No medical camera frame available.';
+            placeholder.style.display = 'flex';
+            placeholder.style.color = isError ? '#fecaca' : '#cbd5e1';
+            image.style.display = 'none';
+        }
+
+        function revokeMedicalCameraObjectUrl() {
+            if (currentMedicalCameraObjectUrl) {
+                URL.revokeObjectURL(currentMedicalCameraObjectUrl);
+                currentMedicalCameraObjectUrl = null;
+            }
+        }
+
+        function getSelectedMedicalDeviceContext() {
+            const selector = document.getElementById('medical_device_selector');
+            const selectedOption = selector?.selectedOptions?.[0] || null;
+            return {
+                bbbIp: document.getElementById('bbb_ip')?.value || selector?.value || '',
+                deviceUuid: document.getElementById('device_uuid')?.value || selectedOption?.dataset?.uuid || '',
+                deviceName: selectedOption?.textContent || 'Medical device'
+            };
+        }
+
+        function updateMedicalBanner(state, severity, text, mode = 'safe') {
+            const banner = document.getElementById('medical_alert_banner');
+            const stateEl = document.getElementById('medical_alert_state');
+            const severityEl = document.getElementById('medical_alert_severity');
+            const textEl = document.getElementById('medical_alert_text');
+            if (!banner || !stateEl || !severityEl || !textEl) return;
+
+            banner.classList.remove('medical-banner-safe', 'medical-banner-watch', 'medical-banner-alert');
+            banner.classList.add(mode === 'alert' ? 'medical-banner-alert' : (mode === 'watch' ? 'medical-banner-watch' : 'medical-banner-safe'));
+            stateEl.textContent = state || 'Idle';
+            severityEl.textContent = severity || 'Normal';
+            textEl.textContent = text || 'Medical watch idle.';
+        }
+
+        function renderMedicalFallEvents(items = []) {
+            const list = document.getElementById('medical_event_list');
+            if (!list) return;
+
+            if (!Array.isArray(items) || !items.length) {
+                list.innerHTML = '<div class="timeline-empty">No fall detection events recorded yet.</div>';
+                return;
+            }
+
+            list.innerHTML = items.map(item => {
+                const critical = item.fall_detected === true;
+                const score = Number(item.fall_score);
+                return `
+                    <div class="medical-event ${critical ? 'medical-event-critical' : 'medical-event-normal'}">
+                        <div>
+                            <div style="font-weight: 700; color: var(--text);">
+                                ${critical ? 'Potential fall detected' : 'Normal posture check'}
+                            </div>
+                            <div style="color: var(--muted); font-size: 13px; margin-top: 4px; line-height: 1.6;">
+                                ${item.label || 'No label'}${Number.isFinite(score) ? ` • score ${score.toFixed(3)}` : ''}${item.device_name ? ` • ${item.device_name}` : ''}
+                            </div>
+                            <div class="medical-event-meta">
+                                <span>${formatTimestamp(item.timestamp)}</span>
+                                <span>${item.camera_source || '/dev/video0'}</span>
+                                <span>${item.frames_analyzed != null ? `${item.frames_analyzed} frames` : 'frames N/A'}</span>
+                                <span>${item.acknowledged ? 'Acknowledged' : 'Awaiting acknowledgement'}</span>
+                            </div>
+                        </div>
+                        <div class="medical-event-status" style="color:${critical ? 'var(--danger)' : 'var(--success)'};">
+                            ${critical ? 'Critical' : 'Normal'}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            const latestCritical = items.find(item => item.fall_detected === true && !item.acknowledged);
+            if (latestCritical && latestCritical.event_id && latestCritical.event_id !== medicalLastAnnouncedEventId) {
+                medicalLastAnnouncedEventId = latestCritical.event_id;
+                showAlert('error', `Medical alert: potential fall detected${latestCritical.device_name ? ` on ${latestCritical.device_name}` : ''}.`);
+            }
+        }
+
+        async function loadMedicalFallEvents(options = {}) {
+            const { bbbIp, deviceUuid } = getSelectedMedicalDeviceContext();
+            if (!bbbIp && !deviceUuid) {
+                medicalLatestEvents = [];
+                renderMedicalFallEvents([]);
+                return [];
+            }
+
+            const params = new URLSearchParams();
+            if (deviceUuid) params.append('device_uuid', deviceUuid);
+            if (bbbIp) params.append('bbb_ip', bbbIp);
+            params.append('limit', '12');
+
+            try {
+                const response = await fetch(`/api/medical/fall-events?${params.toString()}`);
+                const payload = await response.json();
+                if (!response.ok || !payload.success) {
+                    throw new Error(payload.error || 'Unable to load fall events');
+                }
+                medicalLatestEvents = Array.isArray(payload.items) ? payload.items : [];
+                renderMedicalFallEvents(medicalLatestEvents);
+                return medicalLatestEvents;
+            } catch (err) {
+                console.error('Failed to load medical fall events:', err);
+                if (!options.silent) {
+                    showAlert('error', err.message || 'Unable to load fall events.');
+                }
+                return [];
+            }
+        }
+
+        function renderMedicalWatch(status = null, fallbackMetrics = null) {
+            const fall = status?.fall_detection || fallbackMetrics?.fall_detection || null;
+            const latestEvent = medicalLatestEvents[0] || status?.latest_fall_event || null;
+            const activeEvent = medicalLatestEvents.find(item => item.fall_detected === true && !item.acknowledged)
+                || ((status?.latest_fall_event?.fall_detected && !status?.latest_fall_event?.acknowledged) ? status.latest_fall_event : null);
+            const benchmarkReport = status?.latest_benchmark_report || null;
+            const benchmarkMetrics = benchmarkReport?.benchmark || status?.benchmark_metrics || fallbackMetrics?.benchmark || null;
+            const benchmarkPrediction = benchmarkReport?.prediction || null;
+
+            const setText = (id, value) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = value;
+            };
+
+            const cameraReady = fall?.camera_ready === true;
+            setText('medical_camera_state', cameraReady ? 'Ready' : 'Waiting');
+            setText('medical_camera_source', fall?.camera_source || fall?.camera_device || '/dev/video0');
+            setText('medical_model_mode', fall?.enabled ? 'MoveNet fall detection' : 'Snapshot viewer');
+            setText('medical_fall_label', latestEvent?.label || fall?.label || 'N/A');
+            const score = Number(latestEvent?.fall_score ?? fall?.fall_score);
+            setText('medical_fall_score', Number.isFinite(score) ? score.toFixed(3) : 'N/A');
+            setText('medical_frames_analyzed', fall?.frames_analyzed != null ? String(fall.frames_analyzed) : 'N/A');
+            setText('medical_last_check', formatTimestamp(latestEvent?.timestamp || fall?.updated_at || null));
+            setText('medical_camera_error', fall?.last_error || (cameraReady ? 'Camera ready' : 'No camera activity yet'));
+
+            const cpuPercent = Number(fallbackMetrics?.cpu?.percent);
+            const tempC = Number(fallbackMetrics?.temperature_c);
+            const memPercent = Number(fallbackMetrics?.memory?.used_percent);
+            const diskPercent = Number(fallbackMetrics?.storage?.used_percent);
+            setText('medical_cpu_value', Number.isFinite(cpuPercent) ? `${cpuPercent.toFixed(1)}%` : 'N/A');
+            setText('medical_temp_value', Number.isFinite(tempC) ? `${tempC.toFixed(1)}°C` : 'N/A');
+            setText('medical_mem_value', Number.isFinite(memPercent) ? `${memPercent.toFixed(1)}%` : 'N/A');
+            setText('medical_storage_value', Number.isFinite(diskPercent) ? `${diskPercent.toFixed(1)}%` : 'N/A');
+
+            const latency = Number(benchmarkMetrics?.latency_avg_s);
+            const p95 = Number(benchmarkMetrics?.latency_p95_s);
+            const throughput = Number(benchmarkMetrics?.throughput_iter_per_s);
+            const benchmarkEnergy = Number(benchmarkPrediction?.predicted_energy_mwh);
+            setText('medical_benchmark_latency', Number.isFinite(latency) ? `${(latency * 1000).toFixed(1)} ms` : 'N/A');
+            setText('medical_benchmark_p95', Number.isFinite(p95) ? `${(p95 * 1000).toFixed(1)} ms` : 'N/A');
+            setText('medical_benchmark_throughput', Number.isFinite(throughput) ? `${throughput.toFixed(2)} iter/s` : 'N/A');
+            setText('medical_benchmark_energy', Number.isFinite(benchmarkEnergy) ? `${benchmarkEnergy.toFixed(2)} mWh` : 'N/A');
+            setText('medical_benchmark_updated', formatTimestamp(benchmarkReport?.timestamp || benchmarkMetrics?.updated_at || null));
+            setText(
+                'medical_benchmark_note',
+                benchmarkPrediction
+                    ? 'Prediction recalibrated from on-device benchmark.'
+                    : (benchmarkMetrics?.status === 'completed'
+                        ? 'Benchmark completed. Waiting for controller-side recalibration.'
+                        : (benchmarkMetrics?.last_error || 'Waiting for on-device benchmark'))
+            );
+
+            const guidanceEl = document.getElementById('medical_response_guidance');
+            if (guidanceEl) {
+                if (activeEvent) {
+                    guidanceEl.textContent = 'Potential fall detected. Review the live frame immediately, acknowledge the alert, and dispatch a caregiver or call for help if the event is confirmed.';
+                } else if (medicalWatchActive) {
+                    guidanceEl.textContent = 'Clinical Watch is active. The system is running periodic fall checks, refreshing the camera view, and collecting incident events for operator review.';
+                } else {
+                    guidanceEl.textContent = 'Keep the camera feed visible. Start Clinical Watch for continuous periodic checks, or run a manual fall check when a patient enters the monitored area.';
+                }
+            }
+
+            const lastUpdateEl = document.getElementById('medical_last_update');
+            if (lastUpdateEl) {
+                lastUpdateEl.textContent = new Date().toLocaleTimeString();
+            }
+
+            if (activeEvent) {
+                updateMedicalBanner(
+                    'Active alert',
+                    'Critical',
+                    `Potential fall detected${activeEvent.device_name ? ` on ${activeEvent.device_name}` : ''}. Review the live camera stream and acknowledge once the event has been handled.`,
+                    'alert'
+                );
+            } else if (medicalWatchActive) {
+                updateMedicalBanner(
+                    'Clinical watch running',
+                    'Elevated',
+                    'The medical watch loop is active. The controller is periodically requesting fall checks from the edge device and collecting events for review.',
+                    'watch'
+                );
+            } else {
+                updateMedicalBanner(
+                    'Monitoring ready',
+                    'Normal',
+                    'No unacknowledged fall alerts are active for the selected device.',
+                    'safe'
+                );
+            }
+        }
+
+        async function refreshMedicalCameraSnapshot(options = {}) {
+            const { bbbIp, deviceUuid } = getSelectedMedicalDeviceContext();
+            const image = document.getElementById('medical_camera_image');
+
+            if (!bbbIp && !deviceUuid) {
+                updateMedicalCameraPlaceholder('Select a device to load the clinical camera stream.');
+                return;
+            }
+
+            if (medicalCameraRequestInFlight && !options.force) {
+                return;
+            }
+
+            const params = new URLSearchParams();
+            if (deviceUuid) params.append('device_uuid', deviceUuid);
+            if (bbbIp) params.append('bbb_ip', bbbIp);
+            params.append('annotate', '1');
+            params.append('_ts', String(Date.now()));
+
+            medicalCameraRequestInFlight = true;
+            try {
+                const response = await fetch(`/api/device/camera-frame?${params.toString()}`, { cache: 'no-store' });
+                if (!response.ok) {
+                    let errText = `Camera snapshot failed (${response.status})`;
+                    try {
+                        const errJson = await response.json();
+                        errText = errJson.error || errText;
+                    } catch (_) {
+                        const text = await response.text();
+                        if (text) errText = text;
+                    }
+                    throw new Error(errText);
+                }
+
+                const blob = await response.blob();
+                revokeMedicalCameraObjectUrl();
+                currentMedicalCameraObjectUrl = URL.createObjectURL(blob);
+                image.src = currentMedicalCameraObjectUrl;
+                image.style.display = 'block';
+                const placeholder = document.getElementById('medical_camera_placeholder');
+                if (placeholder) {
+                    placeholder.style.display = 'none';
+                }
+            } catch (err) {
+                console.error('Medical camera snapshot error:', err);
+                updateMedicalCameraPlaceholder(err.message || 'Unable to load medical camera frame.', true);
+                if (!options.silent) {
+                    showAlert('error', err.message || 'Unable to load medical camera frame.');
+                }
+            } finally {
+                medicalCameraRequestInFlight = false;
+            }
+        }
+
+        function setMedicalWatchState(active) {
+            medicalWatchActive = Boolean(active);
+            const btn = document.getElementById('medical_watch_toggle_btn');
+            const stateEl = document.getElementById('medical_watch_state');
+            if (btn) {
+                btn.textContent = medicalWatchActive ? 'Stop Clinical Watch' : 'Start Clinical Watch';
+            }
+            if (stateEl) {
+                stateEl.textContent = medicalWatchActive ? 'Running' : 'Stopped';
+            }
+        }
+
+        async function runMedicalFallDetection(options = {}) {
+            const { bbbIp, deviceUuid, deviceName } = getSelectedMedicalDeviceContext();
+            if (!bbbIp && !deviceUuid) {
+                if (!options.silent) {
+                    showAlert('error', 'Please select a medical device first.');
+                }
+                return null;
+            }
+            if (medicalWatchRequestInFlight) {
+                return null;
+            }
+
+            const btn = document.getElementById('medical_run_check_btn');
+            medicalWatchRequestInFlight = true;
+            try {
+                if (btn && !options.background) {
+                    btn.disabled = true;
+                    btn.textContent = 'Running...';
+                }
+
+                const response = await fetch('/api/device/camera/fall-detect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        bbb_ip: bbbIp || null,
+                        device_uuid: deviceUuid || null,
+                        device_name: deviceName,
+                        duration_s: 2.5,
+                        max_frames: 12
+                    })
+                });
+
+                const payload = await response.json();
+                if (!response.ok || !payload.success) {
+                    throw new Error(payload.error || 'Medical fall detection request failed.');
+                }
+
+                await loadMedicalFallEvents({ silent: true });
+                renderMedicalWatch(lastDeviceStatus, lastDeviceMetrics);
+                refreshDeviceMetrics({ silent: true });
+                refreshMedicalCameraSnapshot({ force: true, silent: true });
+
+                if (!options.silent) {
+                    const detected = payload.fall_detected === true ? 'potential fall detected' : 'no fall detected';
+                    const score = Number(payload.fall_score);
+                    const suffix = Number.isFinite(score) ? ` (score ${score.toFixed(3)})` : '';
+                    showAlert(payload.fall_detected ? 'error' : 'success', `Clinical check completed: ${detected}${suffix}.`);
+                }
+                return payload;
+            } catch (err) {
+                console.error('Medical fall detection error:', err);
+                if (!options.silent) {
+                    showAlert('error', err.message || 'Unable to run medical fall detection.');
+                }
+                return null;
+            } finally {
+                medicalWatchRequestInFlight = false;
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Run Fall Check';
+                }
+            }
+        }
+
+        async function runMedicalBenchmark() {
+            const { bbbIp, deviceUuid, deviceName } = getSelectedMedicalDeviceContext();
+            const btn = document.getElementById('medical_benchmark_btn');
+            if (!bbbIp && !deviceUuid) {
+                showAlert('error', 'Please select a medical device first.');
+                return;
+            }
+
+            try {
+                if (btn) {
+                    btn.disabled = true;
+                    btn.textContent = 'Benchmarking...';
+                }
+
+                const response = await fetch('/api/device/benchmark', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        bbb_ip: bbbIp || null,
+                        device_uuid: deviceUuid || null,
+                        device_name: deviceName,
+                        model_name: lastDeviceStatus?.model_name || null,
+                        model_info: lastDeviceStatus?.model_info || null,
+                        warmup_runs: 5,
+                        benchmark_runs: 30
+                    })
+                });
+                const payload = await response.json();
+                if (!response.ok || !payload.success) {
+                    throw new Error(payload.error || 'Unable to benchmark medical device.');
+                }
+
+                const params = new URLSearchParams();
+                if (deviceUuid) params.append('device_uuid', deviceUuid);
+                if (bbbIp) params.append('bbb_ip', bbbIp);
+                const statusResponse = await fetch(`/api/status?${params.toString()}`);
+                const statusPayload = await statusResponse.json();
+                if (statusPayload.success) {
+                    updateDeviceStatus(statusPayload.status);
+                }
+                refreshDeviceMetrics({ silent: true });
+                await loadMedicalFallEvents({ silent: true });
+                renderMedicalWatch(lastDeviceStatus, lastDeviceMetrics);
+
+                const calibrated = Number(payload.report?.prediction?.predicted_energy_mwh);
+                if (Number.isFinite(calibrated)) {
+                    showAlert('success', `On-device benchmark complete. Calibrated energy prediction: ${calibrated.toFixed(2)} mWh.`);
+                } else {
+                    showAlert('success', 'On-device benchmark complete. Waiting for calibrated energy prediction.');
+                }
+            } catch (err) {
+                console.error('Medical benchmark error:', err);
+                showAlert('error', err.message || 'Unable to benchmark medical device.');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Benchmark Energy';
+                }
+            }
+        }
+
+        function stopMedicalWatchLoop() {
+            if (medicalWatchInterval) {
+                clearInterval(medicalWatchInterval);
+                medicalWatchInterval = null;
+            }
+            setMedicalWatchState(false);
+        }
+
+        async function toggleMedicalWatch() {
+            if (medicalWatchActive) {
+                stopMedicalWatchLoop();
+                renderMedicalWatch(lastDeviceStatus, lastDeviceMetrics);
+                return;
+            }
+
+            const { bbbIp, deviceUuid } = getSelectedMedicalDeviceContext();
+            if (!bbbIp && !deviceUuid) {
+                showAlert('error', 'Please select a medical device first.');
+                return;
+            }
+
+            setMedicalWatchState(true);
+            await runMedicalFallDetection({ silent: true, background: true });
+            medicalWatchInterval = setInterval(() => {
+                runMedicalFallDetection({ silent: true, background: true });
+            }, 9000);
+            renderMedicalWatch(lastDeviceStatus, lastDeviceMetrics);
+        }
+
+        async function acknowledgeLatestMedicalAlert() {
+            const activeEvent = medicalLatestEvents.find(item => item.fall_detected === true && !item.acknowledged);
+            if (!activeEvent) {
+                showAlert('info', 'No unacknowledged medical alert is active.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/medical/fall-events/${encodeURIComponent(activeEvent.event_id)}/ack`, {
+                    method: 'POST'
+                });
+                const payload = await response.json();
+                if (!response.ok || !payload.success) {
+                    throw new Error(payload.error || 'Unable to acknowledge alert');
+                }
+                await loadMedicalFallEvents({ silent: true });
+                renderMedicalWatch(lastDeviceStatus, lastDeviceMetrics);
+                showAlert('success', 'Medical alert acknowledged.');
+            } catch (err) {
+                console.error('Acknowledge alert error:', err);
+                showAlert('error', err.message || 'Unable to acknowledge alert.');
+            }
+        }
+
+        async function refreshMedicalView(options = {}) {
+            if (options.withMetrics) {
+                refreshDeviceMetrics({ silent: options.silent !== false });
+            }
+            await Promise.all([
+                refreshMedicalCameraSnapshot({ silent: options.silent !== false, force: options.forceCamera === true }),
+                loadMedicalFallEvents({ silent: options.silent !== false })
+            ]);
+            renderMedicalWatch(lastDeviceStatus, lastDeviceMetrics);
+        }
+
+        function startMedicalPolling() {
+            stopMedicalPolling();
+            refreshMedicalView({ silent: true, forceCamera: true });
+            medicalCameraPollInterval = setInterval(() => {
+                refreshMedicalCameraSnapshot({ silent: true });
+            }, 2000);
+            medicalEventPollInterval = setInterval(() => {
+                loadMedicalFallEvents({ silent: true }).then(() => renderMedicalWatch(lastDeviceStatus, lastDeviceMetrics));
+            }, 5000);
+        }
+
+        function stopMedicalPolling() {
+            if (medicalCameraPollInterval) {
+                clearInterval(medicalCameraPollInterval);
+                medicalCameraPollInterval = null;
+            }
+            if (medicalEventPollInterval) {
+                clearInterval(medicalEventPollInterval);
+                medicalEventPollInterval = null;
+            }
+            stopMedicalWatchLoop();
         }
 
         function startMetricsPolling() {
@@ -1717,11 +2502,15 @@
 
             if (status) {
                 const meterMetrics = status.meter_metrics || data.meter || null;
-                renderEnergyComparison(status.model_info || null, status.energy_metrics || null, meterMetrics, status.latest_energy_report || null);
+                renderEnergyComparison(status.model_info || null, status.energy_metrics || null, meterMetrics, status.latest_energy_report || null, status.latest_benchmark_report || null);
                 renderMeterStatus(status, data.meter || null);
+                renderCameraMonitor(status, data || null);
+                renderMedicalWatch(status, data || null);
             } else {
                 renderEnergyComparison(null, null, data.meter || null);
                 renderMeterStatus(null, data.meter || null);
+                renderCameraMonitor(null, data || null);
+                renderMedicalWatch(null, data || null);
             }
             
             // Extract metrics from response (structure: cpu.percent, memory.used_percent, etc)
@@ -3560,8 +4349,18 @@
                 }
             }
 
+            const medicalSelector = document.getElementById('medical_device_selector');
+            if (medicalSelector && endpoint) {
+                const matchingOption = Array.from(medicalSelector.options).find(opt => opt.value === endpoint);
+                if (matchingOption) {
+                    medicalSelector.value = endpoint;
+                }
+            }
+
             if (options.refresh !== false) {
                 refreshDeviceMetrics({ silent: true });
+                refreshCameraSnapshot({ force: true, silent: true });
+                refreshMedicalView({ silent: true, forceCamera: true });
             }
         }
         

@@ -165,6 +165,45 @@ window.currentAnalyzedModel = null;
 window.currentPredictionResult = null;
 window.currentUploadedArtifact = null;
 
+function cleanNumericForDeploy(value) {
+    return Number.isFinite(value) ? value : null;
+}
+
+function getCurrentProfileStub() {
+    return {
+        model_name: window.currentUploadedArtifact?.model_name
+            || window.currentAnalyzedModel?.model_name
+            || window.currentUploadedFile?.name?.replace(/\.[^.]+$/, '')
+            || '',
+        artifact_file: window.currentUploadedArtifact?.artifact_file
+            || window.currentAnalyzedModel?.filename
+            || window.currentUploadedFile?.name
+            || ''
+    };
+}
+
+function getCurrentDeploymentProfile() {
+    return inferDeploymentProfile(getCurrentProfileStub(), window.currentAnalyzedModel || {});
+}
+
+function canDeployWithoutPrediction() {
+    const profile = getCurrentDeploymentProfile();
+    return Boolean(window.currentUploadedFile && profile?.use_case === 'fall_detection_pose');
+}
+
+function renderPredictionBypass(message) {
+    const outputDiv = document.getElementById('uploaded_predict_output');
+    outputDiv.innerHTML = `
+        <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 12px; padding: 16px; margin-top: 12px;">
+            <div style="font-weight: 700; color: #b45309; margin-bottom: 6px;">Deploy without energy prediction</div>
+            <div style="color: var(--muted); font-size: 13px; line-height: 1.5;">${message}</div>
+            <div style="display:flex; justify-content:flex-end; margin-top: 14px;">
+                <button class="btn primary" type="button" onclick="deployCurrentPrediction()">Upload And Deploy</button>
+            </div>
+        </div>
+    `;
+}
+
 function inferPredictionDeviceType() {
     const checked = document.querySelector('.device-checkbox:checked');
     if (!checked) return null;
@@ -283,6 +322,13 @@ async function analyzeModelFile(file) {
                 Features extracted from <strong>${file.name}</strong>. Review the values and click <strong>Predict Energy</strong>.
             </div>
         `;
+        if (canDeployWithoutPrediction()) {
+            outputDiv.innerHTML += `
+                <div style="margin-top: 12px; padding: 12px; border-radius: 10px; background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.18); color: var(--muted); font-size: 13px; line-height: 1.5;">
+                    This MoveNet camera model can already be deployed to Jetson Nano. If energy prediction is unavailable for this TFLite file, you can still deploy it and benchmark it directly on-device.
+                </div>
+            `;
+        }
     } catch (err) {
         console.error('Analyze model error:', err);
         zoneLabel.innerHTML = `<span style="color:var(--danger)">Upload failed: ${err.message}</span>`;
@@ -376,7 +422,11 @@ async function predictUploadedModelEnergy() {
     const numericFields = ['params_m', 'gflops', 'gmacs', 'size_mb', 'latency_avg_s', 'throughput_iter_per_s'];
     for (const key of numericFields) {
         if (!Number.isFinite(payload[key])) {
-            outputDiv.innerHTML = `<div style="color: var(--danger); font-weight: 500;">Please fill all feature fields with valid numeric values.</div>`;
+            if (canDeployWithoutPrediction()) {
+                renderPredictionBypass('This MoveNet TFLite file does not expose enough numeric features for the current energy predictor. You can deploy it now and benchmark real energy on Jetson Nano after it is running.');
+            } else {
+                outputDiv.innerHTML = `<div style="color: var(--danger); font-weight: 500;">Please fill all feature fields with valid numeric values.</div>`;
+            }
             return;
         }
     }
@@ -400,7 +450,11 @@ async function predictUploadedModelEnergy() {
         renderPredictionResult(data.prediction, payload);
     } catch (err) {
         console.error('Prediction error:', err);
-        outputDiv.innerHTML = `<div style="color: var(--danger); font-weight: 500;">${err.message}</div>`;
+        if (canDeployWithoutPrediction()) {
+            renderPredictionBypass(`Prediction is not available for this MoveNet TFLite file right now: ${err.message}`);
+        } else {
+            outputDiv.innerHTML = `<div style="color: var(--danger); font-weight: 500;">${err.message}</div>`;
+        }
     } finally {
         btn.disabled = false;
         btn.textContent = 'Predict Energy';
@@ -434,25 +488,51 @@ function buildDeployModelInfo(uploadResult) {
     const prediction = window.currentPredictionResult || {};
     const analyzed = window.currentAnalyzedModel || {};
     const payload = collectPredictionPayload();
+    const profile = inferDeploymentProfile(uploadResult, analyzed);
 
     return {
         model_name: uploadResult.model_name,
         artifact_file: uploadResult.artifact_file,
         artifact_format: uploadResult.format,
-        input_size: analyzed.input_shape || analyzed.input_size || '3x224x224',
-        params_m: payload.params_m,
-        gflops: payload.gflops,
-        gmacs: payload.gmacs,
-        size_mb: payload.size_mb,
-        latency_avg_s: payload.latency_avg_s,
-        throughput_iter_per_s: payload.throughput_iter_per_s,
-        predicted_energy_mwh: prediction.predicted_energy_mwh,
-        energy_avg_mwh: prediction.predicted_energy_mwh,
+        device_type: payload.device_type,
+        input_size: profile.input_size || analyzed.input_shape || analyzed.input_size || '3x224x224',
+        params_m: cleanNumericForDeploy(payload.params_m),
+        gflops: cleanNumericForDeploy(payload.gflops),
+        gmacs: cleanNumericForDeploy(payload.gmacs),
+        size_mb: cleanNumericForDeploy(payload.size_mb),
+        latency_avg_s: cleanNumericForDeploy(payload.latency_avg_s),
+        throughput_iter_per_s: cleanNumericForDeploy(payload.throughput_iter_per_s),
+        predicted_energy_mwh: cleanNumericForDeploy(prediction.predicted_energy_mwh),
+        energy_avg_mwh: cleanNumericForDeploy(prediction.predicted_energy_mwh),
         prediction_mape_pct: prediction.prediction_mape_pct,
-        prediction_reason: prediction.reason,
+        prediction_reason: prediction.reason || (
+            profile.use_case === 'fall_detection_pose'
+                ? 'Energy prediction will be validated and recalibrated with a live on-device benchmark after deployment.'
+                : null
+        ),
         energy_category: prediction.energy_category,
-        source_type: 'uploaded_custom_model'
+        source_type: profile.source_type || 'uploaded_custom_model',
+        ...profile
     };
+}
+
+function inferDeploymentProfile(uploadResult, analyzed) {
+    const rawName = `${uploadResult?.model_name || ''} ${uploadResult?.artifact_file || ''} ${analyzed?.filename || ''}`.toLowerCase();
+    if (rawName.includes('movenet')) {
+        const isThunder = rawName.includes('thunder');
+        const inputSize = isThunder ? 256 : 192;
+        return {
+            use_case: 'fall_detection_pose',
+            task: 'pose_estimation',
+            pose_model: isThunder ? 'movenet_singlepose_thunder' : 'movenet_singlepose_lightning',
+            camera_input: true,
+            camera_device: '/dev/video0',
+            camera_resolution: [640, 480],
+            input_size: `3x${inputSize}x${inputSize}`,
+            source_type: 'fall_detection_camera_model'
+        };
+    }
+    return {};
 }
 
 async function deployCurrentPrediction() {
@@ -461,7 +541,8 @@ async function deployCurrentPrediction() {
         showAlert('error', 'Please select at least one device before deployment.');
         return;
     }
-    if (!window.currentPredictionResult) {
+    const allowNoPrediction = canDeployWithoutPrediction();
+    if (!window.currentPredictionResult && !allowNoPrediction) {
         showAlert('error', 'Please run energy prediction before deployment.');
         return;
     }
@@ -469,24 +550,34 @@ async function deployCurrentPrediction() {
     try {
         const uploadResult = await ensureUploadedArtifact();
         const modelInfo = buildDeployModelInfo(uploadResult);
+        if (!window.currentPredictionResult && allowNoPrediction) {
+            showAlert('warning', 'Deploying MoveNet without energy prediction. We will validate energy directly on Jetson after deployment.');
+        }
 
         let successCount = 0;
         const failures = [];
         let firstSuccessfulDevice = null;
 
         for (const device of selectedDevices) {
+            const deployPayload = {
+                model_name: uploadResult.model_name,
+                artifact_file: uploadResult.artifact_file,
+                model_info: modelInfo,
+                device_uuid: device.uuid,
+                device_endpoint: device.endpoint,
+                fleet: device.fleet_slug || device.slug,
+                auto_benchmark_after_deploy: true,
+                warmup_runs: 5,
+                benchmark_runs: 30
+            };
+            if (Number.isFinite(modelInfo.predicted_energy_mwh)) {
+                deployPayload.energy_budget_mwh = modelInfo.predicted_energy_mwh;
+            }
+
             const response = await fetch('/api/balena/deploy', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model_name: uploadResult.model_name,
-                    artifact_file: uploadResult.artifact_file,
-                    model_info: modelInfo,
-                    energy_budget_mwh: modelInfo.predicted_energy_mwh,
-                    device_uuid: device.uuid,
-                    device_endpoint: device.endpoint,
-                    fleet: device.fleet_slug || device.slug
-                })
+                body: JSON.stringify(deployPayload)
             });
 
             const result = await response.json();
@@ -494,6 +585,14 @@ async function deployCurrentPrediction() {
                 successCount += 1;
                 if (!firstSuccessfulDevice) {
                     firstSuccessfulDevice = device;
+                }
+                if (result.benchmark?.prediction) {
+                    const calibrated = Number(result.benchmark.prediction.predicted_energy_mwh);
+                    if (Number.isFinite(calibrated)) {
+                        showAlert('info', `On-device benchmark for ${device.device_name || device.uuid}: calibrated energy ${calibrated.toFixed(2)} mWh.`);
+                    }
+                } else if (result.benchmark_warning) {
+                    showAlert('warning', `Benchmark warning for ${device.device_name || device.uuid}: ${result.benchmark_warning}`);
                 }
             } else {
                 failures.push(`${device.device_name || device.uuid}: ${result.error}`);

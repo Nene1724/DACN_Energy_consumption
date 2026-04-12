@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     python3-pip \
     python3-numpy \
+    python3-opencv \
     libusb-1.0-0 \
     pkg-config \
     libhdf5-serial-dev \
@@ -16,6 +17,7 @@ RUN apt-get update && apt-get install -y \
     libhdf5-dev \
     zlib1g-dev \
     zip \
+    v4l-utils \
     libjpeg8-dev \
     liblapack-dev \
     libblas-dev \

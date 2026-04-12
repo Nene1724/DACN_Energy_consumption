@@ -107,11 +107,113 @@
         },
         "used_url_type": "local"
       }
+    },
+    {
+      "timestamp": "2026-04-11T15:54:52.426917Z",
+      "type": "info",
+      "message": "Starting deployment of 'movenet_singlepose_lightning_f16' to device 192.168.137.215",
+      "metadata": {
+        "model_name": "movenet_singlepose_lightning_f16",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "fleet": "22520937/jetson_nano"
+      }
+    },
+    {
+      "timestamp": "2026-04-11T15:54:54.667171Z",
+      "type": "success",
+      "message": "Deploy thành công model 'movenet_singlepose_lightning_f16' lên thiết bị 192.168.137.215 (via local URL)",
+      "metadata": {
+        "model_name": "movenet_singlepose_lightning_f16",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "model_path": "D:\\KLTN\\DACN_Energy_consumption\\ml-controller\\model_store\\movenet_singlepose_lightning_f16.tflite",
+        "fleet": "22520937/jetson_nano",
+        "device_response": {
+          "energy_budget_mwh": null,
+          "message": "Deployment successful",
+          "model_info": {
+            "artifact_file": "movenet_singlepose_lightning_f16.tflite",
+            "artifact_format": "tflite",
+            "camera_device": "/dev/video0",
+            "camera_input": true,
+            "camera_resolution": [
+              640,
+              480
+            ],
+            "input_size": "3x192x192",
+            "model_name": "movenet_singlepose_lightning_f16",
+            "params_m": 1.1896,
+            "pose_model": "movenet_singlepose_lightning",
+            "prediction_reason": "Energy prediction skipped because this TFLite MoveNet model does not expose GFLOPs and GMACs automatically.",
+            "size_mb": 4.5381,
+            "source_type": "fall_detection_camera_model",
+            "task": "pose_estimation",
+            "use_case": "fall_detection_pose"
+          },
+          "model_name": "movenet_singlepose_lightning_f16",
+          "model_path": "/data/models/current_model.tflite",
+          "model_size_bytes": 4758512
+        },
+        "used_url_type": "local"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T04:53:08.944485Z",
+      "type": "info",
+      "message": "Starting deployment of 'movenet_singlepose_lightning_f16' to device 192.168.137.215",
+      "metadata": {
+        "model_name": "movenet_singlepose_lightning_f16",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-04-12T04:53:13.578540Z",
+      "type": "error",
+      "message": "Failed to deploy to device (tried 2 URLs). Last error: 500 Server Error: INTERNAL SERVER ERROR for url: http://192.168.137.215:8000/deploy",
+      "metadata": {
+        "model_name": "movenet_singlepose_lightning_f16",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "urls_tried": [
+          "https://7c5c93028893443c5105aaa5d739538f.balena-devices.com/deploy",
+          "http://192.168.137.215:8000/deploy"
+        ],
+        "last_error": "500 Server Error: INTERNAL SERVER ERROR for url: http://192.168.137.215:8000/deploy"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T04:56:26.586344Z",
+      "type": "info",
+      "message": "Starting deployment of 'movenet_singlepose_lightning_f16' to device 192.168.137.215",
+      "metadata": {
+        "model_name": "movenet_singlepose_lightning_f16",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-04-12T04:56:31.148784Z",
+      "type": "error",
+      "message": "Failed to deploy to device (tried 2 URLs). Last error: 500 Server Error: INTERNAL SERVER ERROR for url: http://192.168.137.215:8000/deploy",
+      "metadata": {
+        "model_name": "movenet_singlepose_lightning_f16",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "urls_tried": [
+          "https://7c5c93028893443c5105aaa5d739538f.balena-devices.com/deploy",
+          "http://192.168.137.215:8000/deploy"
+        ],
+        "last_error": "500 Server Error: INTERNAL SERVER ERROR for url: http://192.168.137.215:8000/deploy"
+      }
     }
   ],
   "metadata": {
     "created_at": "2025-12-13T00:00:00Z",
-    "last_updated": "2026-04-11T14:30:19.802796Z",
-    "total_deployments": 27
+    "last_updated": "2026-04-12T04:56:31.148784Z",
+    "total_deployments": 28
   }
 }

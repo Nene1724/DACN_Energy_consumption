@@ -14,6 +14,11 @@ services:
       - PYTHONUNBUFFERED=1
       - UDEV=1
       - FNB58_AUTO_START=1
+      - CAMERA_DEVICE=/dev/video0
+      - CAMERA_WIDTH=640
+      - CAMERA_HEIGHT=480
+      - FALL_DETECT_DURATION_S=2.5
+      - FALL_DETECT_MAX_FRAMES=16
     labels:
       io.balena.features.balena-api: '1'
       io.balena.features.supervisor-api: '1'
