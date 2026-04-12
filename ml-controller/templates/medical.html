@@ -12,10 +12,7 @@
                 </p>
             </div>
             <div class="panel-actions medical-actions-fixed">
-                <button class="btn ghost" id="medical_refresh_btn" type="button">Refresh</button>
-                <button class="btn ghost" id="medical_benchmark_btn" type="button">Benchmark Energy</button>
                 <button class="btn ghost" id="medical_ack_btn" type="button">Acknowledge Alert</button>
-                <button class="btn primary" id="medical_run_check_btn" type="button">Run Fall Check</button>
                 <button class="btn primary" id="medical_watch_toggle_btn" type="button">Start Clinical Watch</button>
             </div>
         </div>
@@ -63,31 +60,15 @@
                     <div class="metric-line"><span class="label">Last Check:</span><span class="value" id="medical_last_check">N/A</span></div>
                     <div class="metric-line"><span class="label">Last Status:</span><span class="value" id="medical_camera_error">No camera activity yet</span></div>
                 </div>
-
-                <div class="medical-stat-grid">
-                    <div class="medical-stat-card">
-                        <small>CPU</small>
-                        <strong id="medical_cpu_value">N/A</strong>
-                    </div>
-                    <div class="medical-stat-card">
-                        <small>Temperature</small>
-                        <strong id="medical_temp_value">N/A</strong>
-                    </div>
-                    <div class="medical-stat-card">
-                        <small>Memory</small>
-                        <strong id="medical_mem_value">N/A</strong>
-                    </div>
-                    <div class="medical-stat-card">
-                        <small>Storage</small>
-                        <strong id="medical_storage_value">N/A</strong>
-                    </div>
-                </div>
             </div>
         </div>
 
         <div class="monitor-row" style="margin-top: 16px;">
             <div class="monitor-card">
-                <h4>Benchmark-Calibrated Energy</h4>
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <h4 style="margin: 0;">Benchmark-Calibrated Energy</h4>
+                    <button class="btn ghost" id="medical_benchmark_btn" type="button">Benchmark</button>
+                </div>
                 <div class="metric-list" style="margin-top: 8px;">
                     <div class="metric-line"><span class="label">Latency Avg:</span><span class="value" id="medical_benchmark_latency">N/A</span></div>
                     <div class="metric-line"><span class="label">Latency P95:</span><span class="value" id="medical_benchmark_p95">N/A</span></div>
