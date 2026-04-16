@@ -1,0 +1,74 @@
+{
+  "timestamp": "2026-04-12T08:05:45.609617+00:00",
+  "agent": "http://192.168.137.215:8000",
+  "dataset_base_url": "https://fenix.ur.edu.pl/~mkepski/ds/data/",
+  "selection": {
+    "kind": "all",
+    "camera": "cam0",
+    "start": 1,
+    "end": 2,
+    "duration_s": 2.5,
+    "max_frames": 16
+  },
+  "stats": {
+    "tp": 0,
+    "tn": 0,
+    "fp": 0,
+    "fn": 0,
+    "errors": 4,
+    "total": 4,
+    "accuracy": 0.0,
+    "precision": 0.0,
+    "recall": 0.0
+  },
+  "results": [
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 1,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-01-cam0.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-01-cam0.mp4",
+      "success": false,
+      "error": "404 Client Error: NOT FOUND for url: http://192.168.137.215:8000/camera/upload-video"
+    },
+    {
+      "sequence": {
+        "kind": "fall",
+        "index": 2,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/fall-02-cam0.mp4",
+        "expected_fall": true
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\fall-02-cam0.mp4",
+      "success": false,
+      "error": "404 Client Error: NOT FOUND for url: http://192.168.137.215:8000/camera/upload-video"
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 1,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-01-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-01-cam0.mp4",
+      "success": false,
+      "error": "404 Client Error: NOT FOUND for url: http://192.168.137.215:8000/camera/upload-video"
+    },
+    {
+      "sequence": {
+        "kind": "adl",
+        "index": 2,
+        "camera": "cam0",
+        "url": "https://fenix.ur.edu.pl/~mkepski/ds/data/adl-02-cam0.mp4",
+        "expected_fall": false
+      },
+      "downloaded_mp4": "D:\\KLTN\\DACN_Energy_consumption\\.cache\\ur_fall\\adl-02-cam0.mp4",
+      "success": false,
+      "error": "404 Client Error: NOT FOUND for url: http://192.168.137.215:8000/camera/upload-video"
+    }
+  ]
+}

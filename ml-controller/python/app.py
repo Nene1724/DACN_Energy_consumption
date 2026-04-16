@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 from typing import Optional
-from flask import Flask, request, render_template, jsonify, send_from_directory, make_response
+from flask import Flask, request, render_template, jsonify, send_from_directory, make_response, Response, stream_with_context
 import requests
 from requests.utils import requote_uri
 from model_analyzer import ModelAnalyzer
@@ -738,6 +738,11 @@ def monitoring():
     return _render_with_cache("index.html", initial_view="monitoring")
 
 
+@app.route("/medical")
+def medical():
+    return _render_with_cache("index.html", initial_view="medical")
+
+
 @app.route("/analytics")
 def analytics():
     """Legacy analytics route: keep URL alive but render deployment view."""
@@ -1332,6 +1337,66 @@ def get_device_camera_frame():
     }), 502
 
 
+@app.route("/api/device/camera-stream", methods=["GET"])
+def get_device_camera_stream():
+    """Proxy a multipart MJPEG camera stream from the selected edge device."""
+    bbb_ip = request.args.get("bbb_ip")
+    device_uuid = request.args.get("device_uuid")
+    annotate = request.args.get("annotate", "1")
+    fps = request.args.get("fps", "5")
+    camera_source = request.args.get("camera_source")
+
+    if not bbb_ip and not device_uuid:
+        return jsonify({"success": False, "error": "bbb_ip or device_uuid is required"}), 400
+
+    base_urls = []
+    if device_uuid:
+        public_url = get_device_public_url(device_uuid)
+        if public_url:
+            base_urls.append(public_url)
+    if bbb_ip:
+        base_urls.append(f"http://{bbb_ip}:8000")
+
+    if not base_urls:
+        return jsonify({"success": False, "error": "No valid endpoint available"}), 400
+
+    last_error = None
+    params = {"annotate": annotate, "fps": fps}
+    if camera_source:
+        params["camera_source"] = camera_source
+
+    for base in base_urls:
+        try:
+            upstream = requests.get(f"{base}/camera/stream", params=params, stream=True, timeout=10)
+            upstream.raise_for_status()
+            content_type = upstream.headers.get("Content-Type") or "multipart/x-mixed-replace"
+
+            def generate():
+                try:
+                    for chunk in upstream.iter_content(chunk_size=8192):
+                        if chunk:
+                            yield chunk
+                finally:
+                    try:
+                        upstream.close()
+                    except Exception:
+                        pass
+
+            response = Response(stream_with_context(generate()), content_type=content_type)
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            return response
+        except Exception as exc:
+            last_error = str(exc)
+            continue
+
+    return jsonify({
+        "success": False,
+        "error": f"Unable to stream camera from device: {last_error or 'unknown error'}",
+        "device_offline": True
+    }), 502
+
+
 @app.route("/api/device/camera/fall-detect", methods=["POST"])
 def run_device_camera_fall_detect():
     """Proxy a live fall-detection request to the selected edge device."""
@@ -1346,6 +1411,7 @@ def run_device_camera_fall_detect():
         "duration_s": data.get("duration_s"),
         "max_frames": data.get("max_frames"),
         "camera_device": data.get("camera_device"),
+        "camera_source": data.get("camera_source"),
     }
 
     urls_to_try = []
@@ -1900,7 +1966,7 @@ def deploy_model():
                 continue
         
         # All URLs failed
-        error_msg = f"Failed to deploy to device (tried {len(urls_to_try)} URLs). Last error: {last_error}"
+        error_msg = f"Failed to deploy to device (tried {len(urls_to_try)} URLs). Last status: {last_error}"
         log_manager.add_log(
             "error",
             error_msg,
@@ -2200,12 +2266,18 @@ def get_medical_fall_events():
     device_ip = request.args.get("bbb_ip")
     items = _load_fall_events()
 
+    normalized_uuid = str(device_uuid or "").strip()
+    normalized_ip = str(device_ip or "").strip()
+
     filtered = []
     for item in reversed(items):
-        if device_uuid and str(item.get("device_id") or "").strip() != str(device_uuid).strip():
-            continue
-        if device_ip and str(item.get("device_ip") or "").strip() != str(device_ip).strip():
-            continue
+        # Prefer UUID matching when available; IPs can change or be stale.
+        if normalized_uuid:
+            if str(item.get("device_id") or "").strip() != normalized_uuid:
+                continue
+        elif normalized_ip:
+            if str(item.get("device_ip") or "").strip() != normalized_ip:
+                continue
         filtered.append(item)
         if len(filtered) >= limit:
             break

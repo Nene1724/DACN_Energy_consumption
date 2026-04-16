@@ -49,3 +49,6 @@ Thumbs.db
 # Docker (local overrides)
 docker-compose.override.yml
 
+# Local caches (e.g., dataset downloads)
+.cache/
+

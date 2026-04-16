@@ -1,5 +1,6 @@
 import os
 import threading
+import uuid
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, Response
@@ -119,9 +120,32 @@ FALL_DETECT_MAX_READ_FAILURES = max(1, int(os.getenv("FALL_DETECT_MAX_READ_FAILU
 TENSORRT_ENGINE_ENABLED = (os.getenv("TENSORRT_ENGINE_ENABLED", "1").strip().lower() in ("1", "true", "yes", "on"))
 TENSORRT_FP16_ENABLED = (os.getenv("TENSORRT_FP16_ENABLED", "1").strip().lower() in ("1", "true", "yes", "on"))
 TENSORRT_WORKSPACE_BYTES = max(1 << 20, int(os.getenv("TENSORRT_WORKSPACE_BYTES", str(512 * 1024 * 1024))))
+VIDEO_UPLOAD_DIR = (os.getenv("VIDEO_UPLOAD_DIR") or "/data/uploaded_videos").strip()
 
 # Used only for simulated fallback telemetry when the OS doesn't expose temp sensors.
 _SIM_TEMP_START_TS = time.time()
+
+
+def _safe_video_upload_dir() -> str:
+    base_dir = VIDEO_UPLOAD_DIR or "/data/uploaded_videos"
+    try:
+        os.makedirs(base_dir, exist_ok=True)
+        return base_dir
+    except Exception:
+        fallback = "/tmp/uploaded_videos"
+        os.makedirs(fallback, exist_ok=True)
+        return fallback
+
+
+def _is_file_camera_source(camera_source: object) -> bool:
+    if camera_source is None:
+        return False
+    text = str(camera_source).strip()
+    if not text:
+        return False
+    if os.path.isfile(text):
+        return True
+    return text.lower().endswith(".mp4")
 
 
 def _now_iso():
@@ -895,6 +919,7 @@ def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=N
     duration_s = max(0.5, float(duration_s if duration_s is not None else FALL_DETECT_DURATION_S))
     max_frames = max(4, int(max_frames if max_frames is not None else FALL_DETECT_MAX_FRAMES))
     requested_source = camera_source or CAMERA_DEVICE
+    is_file_source = _is_file_camera_source(requested_source)
     c, h, w = input_size
     target_size = int(max(h, w))
 
@@ -918,9 +943,17 @@ def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=N
 
                 while (time.time() - start_ts) < duration_s and frame_count < max_frames:
                     ok, frame_bgr = cap.read()
-                    if not ok:
+                    if not ok or frame_bgr is None:
                         frame_read_failures += 1
                         last_error = f"Camera frame read failed ({frame_read_failures}/{FALL_DETECT_MAX_READ_FAILURES})"
+                        if is_file_source:
+                            try:
+                                cap.release()
+                            except Exception:
+                                pass
+                            cap, actual_source = open_camera(requested_source, CAMERA_WIDTH, CAMERA_HEIGHT)
+                            time.sleep(0.01)
+                            continue
                         if frame_read_failures >= FALL_DETECT_MAX_READ_FAILURES:
                             break
                         time.sleep(0.05)
@@ -1614,6 +1647,28 @@ def camera_fall_detect():
     return jsonify(result), status_code
 
 
+@app.route("/camera/upload-video", methods=["POST"])
+def camera_upload_video():
+    file = request.files.get("file")
+    if file is None or not getattr(file, "filename", ""):
+        return jsonify({"success": False, "error": "Missing video file"}), 400
+
+    filename = str(file.filename)
+    if not filename.lower().endswith(".mp4"):
+        return jsonify({"success": False, "error": "Only .mp4 files are supported"}), 400
+
+    upload_dir = _safe_video_upload_dir()
+    safe_name = f"{int(time.time())}_{uuid.uuid4().hex}.mp4"
+    save_path = os.path.join(upload_dir, safe_name)
+
+    try:
+        file.save(save_path)
+    except Exception as exc:
+        return jsonify({"success": False, "error": f"Failed to save uploaded video: {exc}"}), 500
+
+    return jsonify({"success": True, "video_path": save_path})
+
+
 @app.route("/camera/snapshot", methods=["GET"])
 def camera_snapshot():
     """Return a JPEG snapshot from the USB camera for monitoring."""
@@ -1634,6 +1689,211 @@ def camera_snapshot():
             "success": False,
             "error": f"Unable to capture camera snapshot: {exc}",
         }), 500
+
+
+@app.route("/camera/stream", methods=["GET"])
+def camera_stream():
+    """Return a multipart MJPEG stream from the USB camera."""
+    annotate = str(request.args.get("annotate", "1")).strip().lower() not in {"0", "false", "no", "off"}
+    camera_source = request.args.get("camera_device") or request.args.get("camera_source") or CAMERA_DEVICE
+    try:
+        fps = float(request.args.get("fps", "5"))
+    except (TypeError, ValueError):
+        fps = 5.0
+
+    try:
+        jpeg_quality = int(request.args.get("quality", "75"))
+    except (TypeError, ValueError):
+        jpeg_quality = 75
+
+    fps = max(0.5, min(fps, 15.0))
+    jpeg_quality = max(50, min(jpeg_quality, 90))
+    boundary = "frame"
+
+    def generate():
+        frame_delay = 1.0 / fps if fps > 0 else 0.2
+        is_file_source = _is_file_camera_source(camera_source)
+
+        if not is_file_source:
+            # Use a persistent camera handle for lower latency and smoother MJPEG output.
+            try:
+                import movenet_fall_detection as _mfd
+                cv2 = getattr(_mfd, "cv2", None)
+            except Exception:
+                cv2 = None
+
+            if cv2 is None:
+                return
+
+            cap = None
+            actual_source = camera_source
+            try:
+                cap, actual_source = open_camera(camera_source, CAMERA_WIDTH, CAMERA_HEIGHT)
+                _mark_camera_ready(actual_source)
+
+                warmup_reads = 0
+                while warmup_reads < 2:
+                    ok, _ = cap.read()
+                    if not ok:
+                        break
+                    warmup_reads += 1
+
+                while True:
+                    try:
+                        ok, frame_bgr = cap.read()
+                        if not ok or frame_bgr is None:
+                            try:
+                                cap.release()
+                            except Exception:
+                                pass
+                            cap, actual_source = open_camera(camera_source, CAMERA_WIDTH, CAMERA_HEIGHT)
+                            time.sleep(0.05)
+                            continue
+
+                        if annotate:
+                            lines = _build_camera_overlay_lines()
+                            origin_y = 28
+                            for idx, line in enumerate(lines[:6]):
+                                y = origin_y + (idx * 24)
+                                cv2.putText(
+                                    frame_bgr,
+                                    str(line),
+                                    (14, y),
+                                    cv2.FONT_HERSHEY_SIMPLEX,
+                                    0.62,
+                                    (255, 255, 255),
+                                    2,
+                                    cv2.LINE_AA,
+                                )
+                                cv2.putText(
+                                    frame_bgr,
+                                    str(line),
+                                    (14, y),
+                                    cv2.FONT_HERSHEY_SIMPLEX,
+                                    0.62,
+                                    (24, 24, 24),
+                                    1,
+                                    cv2.LINE_AA,
+                                )
+
+                        ok, encoded = cv2.imencode(
+                            ".jpg",
+                            frame_bgr,
+                            [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality],
+                        )
+                        if not ok:
+                            time.sleep(0.05)
+                            continue
+
+                        frame_bytes = encoded.tobytes()
+                        header = (
+                            f"--{boundary}\r\n"
+                            "Content-Type: image/jpeg\r\n"
+                            f"Content-Length: {len(frame_bytes)}\r\n"
+                            f"X-Camera-Source: {actual_source}\r\n"
+                            "\r\n"
+                        ).encode("utf-8")
+                        yield header + frame_bytes + b"\r\n"
+                    except GeneratorExit:
+                        return
+                    except Exception:
+                        time.sleep(0.25)
+                    finally:
+                        time.sleep(frame_delay)
+            finally:
+                if cap is not None:
+                    try:
+                        cap.release()
+                    except Exception:
+                        pass
+            return
+
+        # File-backed stream (e.g., uploaded MP4)
+        try:
+            import movenet_fall_detection as _mfd
+            cv2 = getattr(_mfd, "cv2", None)
+        except Exception:
+            cv2 = None
+
+        if cv2 is None:
+            return
+
+        cap = None
+        actual_source = camera_source
+        try:
+            cap, actual_source = open_camera(camera_source, CAMERA_WIDTH, CAMERA_HEIGHT)
+            _mark_camera_ready(actual_source)
+            while True:
+                try:
+                    ok, frame_bgr = cap.read()
+                    if not ok or frame_bgr is None:
+                        try:
+                            cap.release()
+                        except Exception:
+                            pass
+                        cap, actual_source = open_camera(camera_source, CAMERA_WIDTH, CAMERA_HEIGHT)
+                        continue
+
+                    if annotate:
+                        lines = _build_camera_overlay_lines()
+                        origin_y = 28
+                        for idx, line in enumerate(lines[:6]):
+                            y = origin_y + (idx * 24)
+                            cv2.putText(
+                                frame_bgr,
+                                str(line),
+                                (14, y),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.62,
+                                (255, 255, 255),
+                                2,
+                                cv2.LINE_AA,
+                            )
+                            cv2.putText(
+                                frame_bgr,
+                                str(line),
+                                (14, y),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                0.62,
+                                (24, 24, 24),
+                                1,
+                                cv2.LINE_AA,
+                            )
+
+                    ok, encoded = cv2.imencode(
+                        ".jpg",
+                        frame_bgr,
+                        [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality],
+                    )
+                    if not ok:
+                        time.sleep(0.05)
+                        continue
+                    frame_bytes = encoded.tobytes()
+                    header = (
+                        f"--{boundary}\r\n"
+                        "Content-Type: image/jpeg\r\n"
+                        f"Content-Length: {len(frame_bytes)}\r\n"
+                        f"X-Camera-Source: {actual_source}\r\n"
+                        "\r\n"
+                    ).encode("utf-8")
+                    yield header + frame_bytes + b"\r\n"
+                except GeneratorExit:
+                    return
+                except Exception:
+                    time.sleep(0.25)
+                finally:
+                    time.sleep(frame_delay)
+        finally:
+            if cap is not None:
+                try:
+                    cap.release()
+                except Exception:
+                    pass
+
+    response = Response(generate(), mimetype=f"multipart/x-mixed-replace; boundary={boundary}")
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    return response
 
 
 @app.route("/benchmark", methods=["POST"])

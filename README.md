@@ -74,6 +74,34 @@ Use the deployment UI to upload this file and deploy it to Jetson. The agent
 will treat MoveNet uploads as `fall_detection_pose` models and expose live
 camera inference through `/predict` and `/camera/fall-detect`.
 
+## Test the deployed fall model with UR Fall dataset (MP4)
+
+The UR Fall Detection Dataset page provides direct MP4 downloads (cam0/cam1 for
+fall sequences; cam0 for ADL).
+
+This repo includes a small batch runner that will:
+
+1) download selected MP4s to a local cache (`.cache/ur_fall/`)
+2) upload each MP4 to your Jetson agent (`/camera/upload-video`)
+3) run fall detection on the uploaded file (`/camera/fall-detect`)
+4) write a JSON report with TP/TN/FP/FN + timing
+
+Run it from repo root (after you can reach the agent at port 8000):
+
+```powershell
+./.venv/Scripts/python ml-controller/python/ur_fall_batch_test.py \
+	--agent http://<JETSON_IP>:8000 \
+	--kind all --start 1 --end 5
+```
+
+Run the full dataset (can take a while):
+
+```powershell
+./.venv/Scripts/python ml-controller/python/ur_fall_batch_test.py \
+	--agent http://<JETSON_IP>:8000 \
+	--kind all --start 1 --end 40
+```
+
 ## Repo structure
 
 - `ml-controller/python/`: Flask app (`app.py`) + services

@@ -50,43 +50,13 @@
                     <div class="metric-line"><span class="label">Power:</span><span class="value" id="meter_power">N/A</span></div>
                     <div class="metric-line"><span class="label">Measured Energy:</span><span class="value" id="meter_energy">N/A</span></div>
                     <div class="metric-line"><span class="label">Updated:</span><span class="value" id="meter_updated">N/A</span></div>
-                    <div class="metric-line"><span class="label">Last Error:</span><span class="value" id="meter_error">No readings yet</span></div>
+                    <div class="metric-line"><span class="label">Last status:</span><span class="value" id="meter_error">No readings yet</span></div>
                 </div>
             </div>
         </div>
 
         <div class="monitor-row" style="margin-top: 16px;">
-            <div class="monitor-card" style="flex: 1.3;">
-                <div style="display:flex; justify-content:space-between; align-items:center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap;">
-                    <h4 style="margin: 0;">USB Camera Monitor</h4>
-                    <div style="display:flex; gap: 8px; flex-wrap: wrap;">
-                        <button class="btn ghost" id="camera_refresh_btn" type="button">Refresh Frame</button>
-                        <button class="btn primary" id="camera_run_detection_btn" type="button">Run Fall Check</button>
-                    </div>
-                </div>
-                <div style="position: relative; border-radius: 12px; overflow: hidden; background: #0f172a; min-height: 320px; border: 1px solid rgba(148, 163, 184, 0.22);">
-                    <img id="camera_monitor_image" alt="Jetson USB camera"
-                         style="display:none; width:100%; height:100%; min-height:320px; object-fit:cover; background:#020617;">
-                    <div id="camera_monitor_placeholder"
-                         style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; color:#cbd5e1; padding:24px; font-size:14px; line-height:1.6;">
-                        Select a device to load the latest USB camera frame.
-                    </div>
-                </div>
-            </div>
-            <div class="monitor-card">
-                <h4>Camera Status</h4>
-                <div class="metric-list" style="margin-top: 8px;">
-                    <div class="metric-line"><span class="label">Camera:</span><span class="value" id="camera_state">N/A</span></div>
-                    <div class="metric-line"><span class="label">Source:</span><span class="value" id="camera_source">N/A</span></div>
-                    <div class="metric-line"><span class="label">Model Mode:</span><span class="value" id="camera_mode">N/A</span></div>
-                    <div class="metric-line"><span class="label">Fall Detected:</span><span class="value" id="camera_fall_detected">N/A</span></div>
-                    <div class="metric-line"><span class="label">Fall Score:</span><span class="value" id="camera_fall_score">N/A</span></div>
-                    <div class="metric-line"><span class="label">Label:</span><span class="value" id="camera_fall_label">N/A</span></div>
-                    <div class="metric-line"><span class="label">Frames:</span><span class="value" id="camera_frames_analyzed">N/A</span></div>
-                    <div class="metric-line"><span class="label">Updated:</span><span class="value" id="camera_updated">N/A</span></div>
-                    <div class="metric-line"><span class="label">Last Error:</span><span class="value" id="camera_error">No camera activity yet</span></div>
-                </div>
-            </div>
+            <!-- USB camera monitor removed from Monitoring (available in Medical Watch). -->
         </div>
     </div>
 
