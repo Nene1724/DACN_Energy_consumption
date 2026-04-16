@@ -38,5 +38,45 @@
       "last_frame_error": null,
       "max_consecutive_fall_frames": 0
     }
+  },
+  {
+    "event_id": "fall-20260412085629040515",
+    "timestamp": "2026-04-12T08:56:28.780210+00:00",
+    "device_id": "7c5c93028893443c5105aaa5d739538f",
+    "device_ip": "192.168.137.215",
+    "device_name": null,
+    "model_name": "movenet_singlepose_lightning_f16",
+    "camera_source": "/dev/video0",
+    "camera_ready": true,
+    "fall_detected": false,
+    "fall_score": 0.0,
+    "label": "uncertain",
+    "frames_analyzed": 7,
+    "severity": "normal",
+    "acknowledged": false,
+    "source": "controller_proxy",
+    "details": {
+      "avg_fall_score": 0.0,
+      "best_frame": {
+        "aspect_ratio": 0.7006,
+        "bbox_height_norm": 0.6331,
+        "bbox_width_norm": 0.4436,
+        "center_y_norm": 0.2596,
+        "fall_detected_frame": false,
+        "fall_score": 0.0,
+        "frame_index": 0,
+        "head_to_ankle_span_norm": null,
+        "label": "uncertain",
+        "pose_confidence": 0.3964,
+        "torso_angle_deg": null,
+        "torso_vertical_delta": null,
+        "valid_pose": true,
+        "visible_keypoints": 8
+      },
+      "fall_frame_ratio": 0.0,
+      "fall_frames": 0,
+      "last_frame_error": null,
+      "max_consecutive_fall_frames": 0
+    }
   }
 ]

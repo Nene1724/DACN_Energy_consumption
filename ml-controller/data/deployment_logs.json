@@ -209,11 +209,173 @@
         ],
         "last_error": "500 Server Error: INTERNAL SERVER ERROR for url: http://192.168.137.215:8000/deploy"
       }
+    },
+    {
+      "timestamp": "2026-04-12T07:18:33.406007Z",
+      "type": "info",
+      "message": "Starting deployment of 'yolov5n' to device 192.168.137.215",
+      "metadata": {
+        "model_name": "yolov5n",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-04-12T07:18:56.162479Z",
+      "type": "error",
+      "message": "Failed to deploy to device (tried 2 URLs). Last error: HTTPConnectionPool(host='192.168.137.215', port=8000): Max retries exceeded with url: /deploy (Caused by ConnectTimeoutError(<HTTPConnection(host='192.168.137.215', port=8000) at 0x16f258d1a20>, 'Connection to 192.168.137.215 timed out. (connect timeout=60)'))",
+      "metadata": {
+        "model_name": "yolov5n",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "urls_tried": [
+          "https://7c5c93028893443c5105aaa5d739538f.balena-devices.com/deploy",
+          "http://192.168.137.215:8000/deploy"
+        ],
+        "last_error": "HTTPConnectionPool(host='192.168.137.215', port=8000): Max retries exceeded with url: /deploy (Caused by ConnectTimeoutError(<HTTPConnection(host='192.168.137.215', port=8000) at 0x16f258d1a20>, 'Connection to 192.168.137.215 timed out. (connect timeout=60)'))"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T07:19:21.193268Z",
+      "type": "info",
+      "message": "Starting deployment of 'yolov5n' to device 192.168.137.215",
+      "metadata": {
+        "model_name": "yolov5n",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-04-12T07:19:43.723332Z",
+      "type": "error",
+      "message": "Failed to deploy to device (tried 2 URLs). Last error: HTTPConnectionPool(host='192.168.137.215', port=8000): Max retries exceeded with url: /deploy (Caused by ConnectTimeoutError(<HTTPConnection(host='192.168.137.215', port=8000) at 0x16f116ec340>, 'Connection to 192.168.137.215 timed out. (connect timeout=60)'))",
+      "metadata": {
+        "model_name": "yolov5n",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "urls_tried": [
+          "https://7c5c93028893443c5105aaa5d739538f.balena-devices.com/deploy",
+          "http://192.168.137.215:8000/deploy"
+        ],
+        "last_error": "HTTPConnectionPool(host='192.168.137.215', port=8000): Max retries exceeded with url: /deploy (Caused by ConnectTimeoutError(<HTTPConnection(host='192.168.137.215', port=8000) at 0x16f116ec340>, 'Connection to 192.168.137.215 timed out. (connect timeout=60)'))"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T07:31:34.161339Z",
+      "type": "info",
+      "message": "Starting deployment of 'yolov5n' to device 192.168.137.215",
+      "metadata": {
+        "model_name": "yolov5n",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-04-12T07:31:37.104468Z",
+      "type": "success",
+      "message": "Deploy thành công model 'yolov5n' lên thiết bị 192.168.137.215 (via local URL)",
+      "metadata": {
+        "model_name": "yolov5n",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "model_path": "D:\\KLTN_Hub\\Repo_All\\DACN_Energy_consumption\\ml-controller\\model_store\\yolov5n.onnx",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": 11.31,
+          "message": "Deployment successful",
+          "model_info": {
+            "artifact_file": "yolov5n.onnx",
+            "artifact_format": "onnx",
+            "device_type": "jetson_nano",
+            "energy_avg_mwh": 11.31,
+            "energy_category": "excellent",
+            "gflops": 2.44339,
+            "gmacs": 1.221695,
+            "input_size": [
+              1,
+              3,
+              224,
+              224
+            ],
+            "latency_avg_s": 0.16873,
+            "model_name": "yolov5n",
+            "params_m": 1.867405,
+            "predicted_energy_mwh": 11.31,
+            "prediction_mape_pct": 21.07900438055828,
+            "prediction_reason": "Energy consumption (11.3 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+            "size_mb": 7.554398,
+            "source_type": "uploaded_custom_model",
+            "throughput_iter_per_s": 9.1741
+          },
+          "model_name": "yolov5n",
+          "model_path": "/data/models/current_model.onnx",
+          "model_size_bytes": 7921360
+        },
+        "used_url_type": "local"
+      }
+    },
+    {
+      "timestamp": "2026-04-12T07:39:55.556198Z",
+      "type": "info",
+      "message": "Starting deployment of 'yolov5s' to device 192.168.137.215",
+      "metadata": {
+        "model_name": "yolov5s",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-04-12T07:40:01.393108Z",
+      "type": "success",
+      "message": "Deploy thành công model 'yolov5s' lên thiết bị 192.168.137.215 (via local URL)",
+      "metadata": {
+        "model_name": "yolov5s",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.215",
+        "model_path": "D:\\KLTN_Hub\\Repo_All\\DACN_Energy_consumption\\ml-controller\\model_store\\yolov5s.onnx",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": 105.5,
+          "message": "Deployment successful",
+          "model_info": {
+            "artifact_file": "yolov5s.onnx",
+            "artifact_format": "onnx",
+            "device_type": "jetson_nano",
+            "energy_avg_mwh": 105.5,
+            "energy_category": "acceptable",
+            "gflops": 7.960414,
+            "gmacs": 3.980207,
+            "input_size": [
+              1,
+              3,
+              224,
+              224
+            ],
+            "latency_avg_s": 0.264724,
+            "model_name": "yolov5s",
+            "params_m": 7.225885,
+            "predicted_energy_mwh": 105.5,
+            "prediction_mape_pct": 21.07900438055828,
+            "prediction_reason": "Energy consumption (105.5 mWh) is acceptable (98.606651-226.52004625 mWh) for jetson_nano. Consider optimization.",
+            "size_mb": 27.995465,
+            "source_type": "uploaded_custom_model",
+            "throughput_iter_per_s": 3.9405
+          },
+          "model_name": "yolov5s",
+          "model_path": "/data/models/current_model.onnx",
+          "model_size_bytes": 29355373
+        },
+        "used_url_type": "local"
+      }
     }
   ],
   "metadata": {
     "created_at": "2025-12-13T00:00:00Z",
-    "last_updated": "2026-04-12T04:56:31.148784Z",
-    "total_deployments": 28
+    "last_updated": "2026-04-12T07:40:01.393108Z",
+    "total_deployments": 30
   }
 }

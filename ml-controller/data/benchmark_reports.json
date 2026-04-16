@@ -1,0 +1,136 @@
+[
+  {
+    "timestamp": "2026-04-12T07:31:50.245703+00:00",
+    "device_id": "7c5c93028893443c5105aaa5d739538f",
+    "device_ip": "192.168.137.215",
+    "device_name": "192.168.137.215",
+    "model_name": "yolov5n",
+    "device_type": "jetson_nano",
+    "benchmark": {
+      "benchmark_runs": 30,
+      "input_layout": "nchw",
+      "input_size": [
+        3,
+        640,
+        640
+      ],
+      "iterations": 30,
+      "latency_avg_s": 0.281312,
+      "latency_p50_s": 0.276423,
+      "latency_p95_s": 0.292801,
+      "latency_std_s": 0.018113,
+      "model_name": "yolov5n",
+      "runtime": "onnx",
+      "sample_latencies_ms": [
+        278.214,
+        275.22,
+        275.04,
+        275.163,
+        275.32,
+        276.493,
+        275.764,
+        291.499,
+        275.723,
+        275.505
+      ],
+      "success": true,
+      "throughput_iter_per_s": 3.5548,
+      "timestamp": "2026-04-12T07:31:50.245703+00:00",
+      "warmup_runs": 5
+    },
+    "prediction": {
+      "model_name": "yolov5n",
+      "device_type": "jetson_nano",
+      "predicted_energy_mwh": 11.82,
+      "ci_lower_mwh": 9.33,
+      "ci_upper_mwh": 14.31,
+      "energy_category": "excellent",
+      "recommendation": "deploy",
+      "reason": "Energy consumption (11.8 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+      "thresholds": {
+        "p25": 29.98996075,
+        "p50": 98.606651,
+        "p75": 226.52004625
+      },
+      "model_info": {
+        "params_m": 1.867405,
+        "gflops": 2.44339,
+        "size_mb": 7.554398,
+        "latency_avg_s": 0.281312,
+        "throughput_iter_per_s": 3.5548
+      },
+      "model_used_for_prediction": "Extra Trees + log1p target",
+      "prediction_mape_pct": 21.07900438055828,
+      "model_downloaded": true
+    },
+    "prediction_error": null,
+    "used_url_type": "local"
+  },
+  {
+    "timestamp": "2026-04-12T07:40:32.266677+00:00",
+    "device_id": "7c5c93028893443c5105aaa5d739538f",
+    "device_ip": "192.168.137.215",
+    "device_name": "192.168.137.215",
+    "model_name": "yolov5s",
+    "device_type": "jetson_nano",
+    "benchmark": {
+      "benchmark_runs": 30,
+      "input_layout": "nchw",
+      "input_size": [
+        3,
+        640,
+        640
+      ],
+      "iterations": 30,
+      "latency_avg_s": 0.789689,
+      "latency_p50_s": 0.781965,
+      "latency_p95_s": 0.859632,
+      "latency_std_s": 0.03151,
+      "model_name": "yolov5s",
+      "runtime": "onnx",
+      "sample_latencies_ms": [
+        791.103,
+        788.739,
+        796.388,
+        783.807,
+        787.814,
+        775.832,
+        769.354,
+        788.204,
+        768.745,
+        873.854
+      ],
+      "success": true,
+      "throughput_iter_per_s": 1.2663,
+      "timestamp": "2026-04-12T07:40:32.266677+00:00",
+      "warmup_runs": 5
+    },
+    "prediction": {
+      "model_name": "yolov5s",
+      "device_type": "jetson_nano",
+      "predicted_energy_mwh": 105.61,
+      "ci_lower_mwh": 83.35,
+      "ci_upper_mwh": 127.87,
+      "energy_category": "acceptable",
+      "recommendation": "deploy_with_caution",
+      "reason": "Energy consumption (105.6 mWh) is acceptable (98.606651-226.52004625 mWh) for jetson_nano. Consider optimization.",
+      "thresholds": {
+        "p25": 29.98996075,
+        "p50": 98.606651,
+        "p75": 226.52004625
+      },
+      "model_info": {
+        "params_m": 7.225885,
+        "gflops": 7.960414,
+        "size_mb": 27.995465,
+        "latency_avg_s": 0.789689,
+        "throughput_iter_per_s": 1.2663
+      },
+      "model_used_for_prediction": "Extra Trees + log1p target",
+      "prediction_mape_pct": 21.07900438055828,
+      "model_downloaded": true
+    },
+    "prediction_error": null,
+    "used_url_type": "local"
+  }
+]

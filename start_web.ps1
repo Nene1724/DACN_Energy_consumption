@@ -13,18 +13,21 @@ $VENV_DIR = Join-Path $ROOT_DIR ".venv"
 $VENV_PYTHON = Join-Path $VENV_DIR "Scripts\python.exe"
 $REQ_FILE = Join-Path $ROOT_DIR "ml-controller\requirements.txt"
 
-function Resolve-Python311 {
-    # Prefer Python 3.11 (needed for numpy/pandas wheels)
+function Resolve-Python {
+    # Prefer Python 3.11, but fall back to any available Python so local testing can still run.
     $pyLauncher = Get-Command py -ErrorAction SilentlyContinue
     if ($pyLauncher) {
         try {
             $exe = & py -3.11 -c "import sys; print(sys.executable)" 2>$null
+            if ($LASTEXITCODE -eq 0 -and $exe) { return $exe.Trim() }
+            $exe = & py -3 -c "import sys; print(sys.executable)" 2>$null
             if ($LASTEXITCODE -eq 0 -and $exe) { return $exe.Trim() }
         } catch {}
     }
 
     $candidates = @(
         "python3.11",
+        "python3",
         "python"
     )
 
@@ -46,8 +49,8 @@ function Resolve-Python311 {
 
 function Ensure-Venv($pythonExe) {
     if (-not $pythonExe) {
-        Write-Host "[ERROR] Python 3.11 not found. Install Python 3.11 and re-run." -ForegroundColor Red
-        Write-Host "        Tip: winget install -e --id Python.Python.3.11 --scope user" -ForegroundColor Yellow
+        Write-Host "[ERROR] No usable Python installation found." -ForegroundColor Red
+        Write-Host "        Tip: install Python 3.10+ or Python 3.11 and re-run." -ForegroundColor Yellow
         exit 1
     }
 
@@ -57,9 +60,9 @@ function Ensure-Venv($pythonExe) {
     } else {
         try {
             $ver = & $VENV_PYTHON -c "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')" 2>$null
-            if ($LASTEXITCODE -ne 0 -or $ver.Trim() -ne "3.11") {
+            if ($LASTEXITCODE -ne 0 -or [version]$ver.Trim() -lt [version]'3.10') {
                 $needCreate = $true
-                Write-Host "[WARNING] Existing .venv is not Python 3.11 (found: $ver). Will rebuild venv." -ForegroundColor Yellow
+                Write-Host "[WARNING] Existing .venv Python version is too old (found: $ver). Will rebuild venv." -ForegroundColor Yellow
             }
         } catch {
             $needCreate = $true
@@ -81,8 +84,8 @@ function Ensure-Venv($pythonExe) {
     }
 }
 
-$python311 = Resolve-Python311
-Ensure-Venv $python311
+$pythonExe = Resolve-Python
+Ensure-Venv $pythonExe
 
 # Check if artifacts exist
 $ARTIFACTS_DIR = Join-Path $ROOT_DIR "ml-controller\artifacts"

@@ -26,7 +26,10 @@ KEEPALIVE_INTERVAL_S = 1.0
 
 
 def detect_fnb58_usb() -> Optional[str]:
-    dev = _find_device()
+    try:
+        dev = _find_device()
+    except Exception:
+        return None
     if dev is None:
         return None
     bus = int(getattr(dev, "bus", 0) or 0)
@@ -43,7 +46,10 @@ def _parse_usb_target(port: Optional[str]):
 
 
 def _iter_matching_devices():
-    return list(usb.core.find(find_all=True, idVendor=VENDOR_ID, idProduct=PRODUCT_ID) or [])
+    try:
+        return list(usb.core.find(find_all=True, idVendor=VENDOR_ID, idProduct=PRODUCT_ID) or [])
+    except Exception:
+        return []
 
 
 def _find_device(preferred_port: Optional[str] = None):

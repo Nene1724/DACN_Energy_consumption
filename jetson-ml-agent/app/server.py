@@ -39,6 +39,20 @@ except ImportError:
     ONNX_AVAILABLE = False
 
 try:
+    import tensorrt as trt
+    TENSORRT_AVAILABLE = True
+except ImportError:
+    trt = None
+    TENSORRT_AVAILABLE = False
+
+try:
+    from cuda import cudart
+    CUDA_RUNTIME_AVAILABLE = True
+except ImportError:
+    cudart = None
+    CUDA_RUNTIME_AVAILABLE = False
+
+try:
     from fnb58_reader import FNB58Reader as FNB58SerialReader, detect_fnb58_port
 except ImportError:
     FNB58SerialReader = None
@@ -101,6 +115,10 @@ CAMERA_WIDTH = int(os.getenv("CAMERA_WIDTH", "640") or "640")
 CAMERA_HEIGHT = int(os.getenv("CAMERA_HEIGHT", "480") or "480")
 FALL_DETECT_DURATION_S = max(0.5, float(os.getenv("FALL_DETECT_DURATION_S", "2.5")))
 FALL_DETECT_MAX_FRAMES = max(4, int(os.getenv("FALL_DETECT_MAX_FRAMES", "16") or "16"))
+FALL_DETECT_MAX_READ_FAILURES = max(1, int(os.getenv("FALL_DETECT_MAX_READ_FAILURES", "6") or "6"))
+TENSORRT_ENGINE_ENABLED = (os.getenv("TENSORRT_ENGINE_ENABLED", "1").strip().lower() in ("1", "true", "yes", "on"))
+TENSORRT_FP16_ENABLED = (os.getenv("TENSORRT_FP16_ENABLED", "1").strip().lower() in ("1", "true", "yes", "on"))
+TENSORRT_WORKSPACE_BYTES = max(1 << 20, int(os.getenv("TENSORRT_WORKSPACE_BYTES", str(512 * 1024 * 1024))))
 
 # Used only for simulated fallback telemetry when the OS doesn't expose temp sensors.
 _SIM_TEMP_START_TS = time.time()
@@ -125,6 +143,7 @@ def _current_model_path_for_ext(ext: str):
 
 def _current_model_candidates():
     return [
+        _current_model_path_for_ext(".engine"),
         _current_model_path_for_ext(".tflite"),
         _current_model_path_for_ext(".onnx"),
     ]
@@ -236,6 +255,7 @@ STATE = {
 # In-memory runtime cache
 LOADED_INTERPRETER = None
 LOADED_ONNX_SESSION = None
+LOADED_TRT_RUNNER = None
 LOADED_RUNTIME = None
 LOADED_MODEL_NAME = None
 LOADED_MODEL_PATH = None
@@ -251,13 +271,19 @@ FNB58_RETRY_LOOP = {"thread": None}
 
 def _unload_loaded_model(reason: str = ""):
     """Drop the in-memory model cache to avoid mixing weights across deploys."""
-    global LOADED_INTERPRETER, LOADED_ONNX_SESSION, LOADED_RUNTIME
+    global LOADED_INTERPRETER, LOADED_ONNX_SESSION, LOADED_TRT_RUNNER, LOADED_RUNTIME
     global LOADED_MODEL_NAME, LOADED_MODEL_PATH, LOADED_INPUT_SIZE, LOADED_INPUT_LAYOUT, LOADED_INPUT_META, LOADED_AT
     with MODEL_LOCK:
-        if LOADED_INTERPRETER is not None or LOADED_ONNX_SESSION is not None:
+        if LOADED_INTERPRETER is not None or LOADED_ONNX_SESSION is not None or LOADED_TRT_RUNNER is not None:
             log(f"Unloading cached model{': ' + reason if reason else ''}")
+        if LOADED_TRT_RUNNER is not None:
+            try:
+                LOADED_TRT_RUNNER.close()
+            except Exception:
+                pass
         LOADED_INTERPRETER = None
         LOADED_ONNX_SESSION = None
+        LOADED_TRT_RUNNER = None
         LOADED_RUNTIME = None
         LOADED_MODEL_NAME = None
         LOADED_MODEL_PATH = None
@@ -548,7 +574,11 @@ def _detect_fnb58_target(preferred=None):
                 return ("usb", preferred_text)
             return ("serial", preferred_text)
 
-    usb_target = detect_fnb58_usb() if FNB58USBReader is not None else None
+    try:
+        usb_target = detect_fnb58_usb() if FNB58USBReader is not None else None
+    except Exception as exc:
+        log(f"[FNB58] USB detection skipped: {exc}")
+        usb_target = None
     if usb_target:
         return ("usb", usb_target)
 
@@ -850,6 +880,12 @@ def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=N
         input_meta = LOADED_INPUT_META
         input_size = LOADED_INPUT_SIZE
 
+    if not TFLITE_AVAILABLE:
+        return {
+            "success": False,
+            "error": "TFLite runtime is not available. Install tensorflow or tflite_runtime to run camera fall detection.",
+        }, 500
+
     if runtime != "tflite" or interpreter is None or input_size is None:
         return {
             "success": False,
@@ -864,6 +900,7 @@ def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=N
 
     frame_results = []
     frame_count = 0
+    frame_read_failures = 0
     start_ts = time.time()
     last_error = None
     actual_source = requested_source
@@ -882,16 +919,23 @@ def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=N
                 while (time.time() - start_ts) < duration_s and frame_count < max_frames:
                     ok, frame_bgr = cap.read()
                     if not ok:
-                        last_error = "Camera frame read failed"
+                        frame_read_failures += 1
+                        last_error = f"Camera frame read failed ({frame_read_failures}/{FALL_DETECT_MAX_READ_FAILURES})"
+                        if frame_read_failures >= FALL_DETECT_MAX_READ_FAILURES:
+                            break
                         time.sleep(0.05)
                         continue
+
+                    frame_read_failures = 0
 
                     input_details = input_meta if isinstance(input_meta, dict) else interpreter.get_input_details()[0]
                     output_details = interpreter.get_output_details()[0]
                     input_dtype = input_details.get("dtype", np.uint8)
 
+                    input_tensor, _ = preprocess_frame_bgr(frame_bgr, target_size, input_dtype=input_dtype)
+
+                    # Keep lock scope minimal: protect only interpreter state mutations.
                     with MODEL_LOCK:
-                        input_tensor, _ = preprocess_frame_bgr(frame_bgr, target_size, input_dtype=input_dtype)
                         interpreter.set_tensor(input_details["index"], input_tensor)
                         interpreter.invoke()
                         output = interpreter.get_tensor(output_details["index"])
@@ -911,6 +955,14 @@ def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=N
         return {
             "success": False,
             "error": f"Unable to open camera: {exc}",
+        }, 500
+
+    if not frame_results and last_error:
+        reset_fall_detection_metrics(error=last_error)
+        return {
+            "success": False,
+            "error": last_error,
+            "frames_analyzed": 0,
         }, 500
 
     summary = summarize_detection_window(frame_results) if summarize_detection_window is not None else {
@@ -939,6 +991,7 @@ def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=N
             "max_consecutive_fall_frames": summary.get("max_consecutive_fall_frames"),
             "best_frame": summary.get("best_frame"),
             "last_frame_error": last_error,
+            "frame_read_failures": frame_read_failures,
         },
     }
     _update_fall_detection_snapshot(result)
@@ -1338,6 +1391,9 @@ def status():
     response["runtime_capabilities"] = {
         "tflite_available": TFLITE_AVAILABLE,
         "onnx_available": ONNX_AVAILABLE,
+        "tensorrt_available": TENSORRT_AVAILABLE,
+        "cuda_runtime_available": CUDA_RUNTIME_AVAILABLE,
+        "tensorrt_engine_enabled": TENSORRT_ENGINE_ENABLED,
         "numpy_available": np is not None
     }
     response["fall_detection"]["enabled"] = _is_fall_detection_model_info()
@@ -1434,7 +1490,8 @@ def deploy():
         return jsonify({"error": "This device only supports .tflite and .onnx artifacts"}), 400
     
     if model_ext == 'onnx' and not ONNX_AVAILABLE:
-        return jsonify({"error": "ONNX Runtime not installed on this device"}), 500
+        if not (TENSORRT_ENGINE_ENABLED and TENSORRT_AVAILABLE and CUDA_RUNTIME_AVAILABLE):
+            return jsonify({"error": "ONNX Runtime not installed and TensorRT engine path unavailable"}), 500
 
     try:
         # Always drop any cached model before swapping artifacts on disk.
@@ -1623,10 +1680,11 @@ def predict():
 
     try:
         with MODEL_LOCK:
-            if LOADED_INPUT_SIZE is None or (LOADED_INTERPRETER is None and LOADED_ONNX_SESSION is None):
+            if LOADED_INPUT_SIZE is None or (LOADED_INTERPRETER is None and LOADED_ONNX_SESSION is None and LOADED_TRT_RUNNER is None):
                 return jsonify({"error": "Model not loaded in memory"}), 400
             interpreter = LOADED_INTERPRETER
             session = LOADED_ONNX_SESSION
+            trt_runner = LOADED_TRT_RUNNER
             input_size = LOADED_INPUT_SIZE
             input_layout = LOADED_INPUT_LAYOUT
             input_meta = LOADED_INPUT_META
@@ -1637,6 +1695,10 @@ def predict():
             dummy_input = _build_dummy_input(input_layout or "nchw", input_size, getattr(input_meta, "shape", None), np.float32)
             outputs = session.run(None, {input_meta.name: dummy_input})
             output = outputs[0]
+        elif runtime == "tensorrt":
+            if trt_runner is None:
+                raise RuntimeError("TensorRT runner is not loaded")
+            output = trt_runner.infer()
         else:
             input_details = interpreter.get_input_details()[0]
             dtype = input_details["dtype"]
@@ -1743,7 +1805,12 @@ def _build_dummy_input(layout, input_size, shape=None, dtype=np.float32):
     return np.random.rand(*normalized_shape).astype(dtype)
 
 
-def _run_loaded_model_once_locked(runtime, interpreter, session, input_size, input_layout, input_meta, dummy_input=None):
+def _run_loaded_model_once_locked(runtime, interpreter, session, trt_runner, input_size, input_layout, input_meta, dummy_input=None):
+    if runtime == "tensorrt":
+        if trt_runner is None:
+            raise RuntimeError("TensorRT runner is not loaded")
+        return trt_runner.infer(dummy_input)
+
     if runtime == "onnx":
         if session is None or input_meta is None:
             raise RuntimeError("ONNX session is not loaded")
@@ -1781,15 +1848,18 @@ def benchmark_loaded_model(warmup_runs: int = 5, benchmark_runs: int = 30):
         runtime = LOADED_RUNTIME
         interpreter = LOADED_INTERPRETER
         session = LOADED_ONNX_SESSION
+        trt_runner = LOADED_TRT_RUNNER
         input_size = LOADED_INPUT_SIZE
         input_layout = LOADED_INPUT_LAYOUT
         input_meta = LOADED_INPUT_META
 
-        if input_size is None or (interpreter is None and session is None):
+        if input_size is None or (interpreter is None and session is None and trt_runner is None):
             raise RuntimeError("No loaded model is available for benchmarking")
 
         if runtime == "onnx":
             dummy_input = _build_dummy_input(input_layout or "nchw", input_size, getattr(input_meta, "shape", None), np.float32)
+        elif runtime == "tensorrt":
+            dummy_input = None
         else:
             input_details = interpreter.get_input_details()[0]
             dummy_input = _build_dummy_input(
@@ -1800,12 +1870,12 @@ def benchmark_loaded_model(warmup_runs: int = 5, benchmark_runs: int = 30):
             )
 
         for _ in range(warmup_runs):
-            _run_loaded_model_once_locked(runtime, interpreter, session, input_size, input_layout, input_meta, dummy_input)
+            _run_loaded_model_once_locked(runtime, interpreter, session, trt_runner, input_size, input_layout, input_meta, dummy_input)
 
         samples_s = []
         for _ in range(benchmark_runs):
             started = time.perf_counter()
-            _run_loaded_model_once_locked(runtime, interpreter, session, input_size, input_layout, input_meta, dummy_input)
+            _run_loaded_model_once_locked(runtime, interpreter, session, trt_runner, input_size, input_layout, input_meta, dummy_input)
             ended = time.perf_counter()
             samples_s.append(max(ended - started, 0.0))
 
@@ -1880,6 +1950,219 @@ def _load_onnx_model(model_path, input_size):
     session.run(None, {input_meta.name: dummy})
     return session, input_meta, normalized_input_size, layout
 
+
+def _check_cuda_status(status, action: str):
+    ok_value = getattr(cudart.cudaError_t, "cudaSuccess", 0) if CUDA_RUNTIME_AVAILABLE else 0
+    if int(status) != int(ok_value):
+        raise RuntimeError(f"CUDA call failed while {action}: {status}")
+
+
+def _to_concrete_shape(shape, fallback_shape):
+    concrete = []
+    for idx, dim in enumerate(shape):
+        try:
+            value = int(dim)
+        except Exception:
+            value = -1
+        if value <= 0:
+            value = int(fallback_shape[idx]) if idx < len(fallback_shape) else 1
+        concrete.append(max(1, value))
+    return tuple(concrete)
+
+
+class _TensorRTRunner:
+    """Minimal TensorRT engine runner using CUDA runtime API."""
+
+    def __init__(self, engine_path, input_size):
+        if not TENSORRT_AVAILABLE:
+            raise RuntimeError("TensorRT Python package is not available")
+        if not CUDA_RUNTIME_AVAILABLE:
+            raise RuntimeError("cuda-python runtime bindings are not available")
+        if not os.path.exists(engine_path):
+            raise FileNotFoundError(f"TensorRT engine file not found: {engine_path}")
+
+        logger = trt.Logger(trt.Logger.WARNING)
+        runtime = trt.Runtime(logger)
+        with open(engine_path, "rb") as f:
+            serialized_engine = f.read()
+        engine = runtime.deserialize_cuda_engine(serialized_engine)
+        if engine is None:
+            raise RuntimeError("Failed to deserialize TensorRT engine")
+
+        context = engine.create_execution_context()
+        if context is None:
+            raise RuntimeError("Failed to create TensorRT execution context")
+
+        self.logger = logger
+        self.runtime = runtime
+        self.engine = engine
+        self.context = context
+        self.engine_path = engine_path
+        self.input_size = input_size
+        self.input_index = None
+        self.output_indices = []
+
+        for binding_idx in range(self.engine.num_bindings):
+            if self.engine.binding_is_input(binding_idx):
+                self.input_index = binding_idx
+            else:
+                self.output_indices.append(binding_idx)
+
+        if self.input_index is None:
+            raise RuntimeError("TensorRT engine does not expose an input binding")
+        if not self.output_indices:
+            raise RuntimeError("TensorRT engine does not expose any output bindings")
+
+        raw_shape = tuple(self.engine.get_binding_shape(self.input_index))
+        self.layout, self.normalized_input_size = _infer_layout_and_size(raw_shape, input_size)
+
+    def close(self):
+        self.context = None
+        self.engine = None
+        self.runtime = None
+
+    def infer(self, dummy_input=None):
+        if self.context is None or self.engine is None:
+            raise RuntimeError("TensorRT runner is closed")
+
+        if dummy_input is None:
+            dummy_input = _build_dummy_input(
+                self.layout or "nchw",
+                self.normalized_input_size,
+                self.engine.get_binding_shape(self.input_index),
+                np.float32,
+            )
+
+        input_array = np.ascontiguousarray(dummy_input)
+        input_dtype = np.dtype(trt.nptype(self.engine.get_binding_dtype(self.input_index)))
+        if input_array.dtype != input_dtype:
+            input_array = input_array.astype(input_dtype, copy=False)
+
+        if any(int(dim) <= 0 for dim in self.engine.get_binding_shape(self.input_index)):
+            if not self.context.set_binding_shape(self.input_index, tuple(int(dim) for dim in input_array.shape)):
+                raise RuntimeError("Failed to set dynamic input shape for TensorRT context")
+
+        device_ptrs = {}
+        bindings = [0] * self.engine.num_bindings
+        output_buffers = {}
+
+        try:
+            for binding_idx in range(self.engine.num_bindings):
+                dtype = np.dtype(trt.nptype(self.engine.get_binding_dtype(binding_idx)))
+                if binding_idx == self.input_index:
+                    host_array = input_array
+                else:
+                    raw_shape = tuple(int(x) for x in self.context.get_binding_shape(binding_idx))
+                    concrete_shape = _to_concrete_shape(raw_shape, [1] * len(raw_shape))
+                    host_array = np.empty(concrete_shape, dtype=dtype)
+                    output_buffers[binding_idx] = host_array
+
+                nbytes = int(host_array.nbytes)
+                status, ptr = cudart.cudaMalloc(nbytes)
+                _check_cuda_status(status, f"allocating binding {binding_idx}")
+                device_ptrs[binding_idx] = ptr
+                bindings[binding_idx] = int(ptr)
+
+                if binding_idx == self.input_index:
+                    status = cudart.cudaMemcpy(
+                        ptr,
+                        input_array.ctypes.data,
+                        nbytes,
+                        cudart.cudaMemcpyKind.cudaMemcpyHostToDevice,
+                    )[0]
+                    _check_cuda_status(status, "copying input to device")
+
+            if not self.context.execute_v2(bindings):
+                raise RuntimeError("TensorRT execution failed")
+
+            first_output_idx = self.output_indices[0]
+            output_array = output_buffers[first_output_idx]
+            out_bytes = int(output_array.nbytes)
+            status = cudart.cudaMemcpy(
+                output_array.ctypes.data,
+                device_ptrs[first_output_idx],
+                out_bytes,
+                cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost,
+            )[0]
+            _check_cuda_status(status, "copying output to host")
+            return output_array
+        finally:
+            for ptr in device_ptrs.values():
+                try:
+                    cudart.cudaFree(ptr)
+                except Exception:
+                    pass
+
+
+def _build_tensorrt_engine(onnx_path, engine_path, input_size):
+    if not TENSORRT_AVAILABLE:
+        raise RuntimeError("TensorRT Python package is not available")
+
+    logger = trt.Logger(trt.Logger.WARNING)
+    builder = trt.Builder(logger)
+    network_flags = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
+    network = builder.create_network(network_flags)
+    parser = trt.OnnxParser(network, logger)
+
+    with open(onnx_path, "rb") as f:
+        if not parser.parse(f.read()):
+            errors = []
+            for idx in range(parser.num_errors):
+                errors.append(str(parser.get_error(idx)))
+            detail = " | ".join(errors) if errors else "unknown ONNX parser error"
+            raise RuntimeError(f"TensorRT ONNX parse failed: {detail}")
+
+    config = builder.create_builder_config()
+    if hasattr(config, "set_memory_pool_limit"):
+        config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, int(TENSORRT_WORKSPACE_BYTES))
+    else:
+        config.max_workspace_size = int(TENSORRT_WORKSPACE_BYTES)
+
+    if TENSORRT_FP16_ENABLED and builder.platform_has_fast_fp16:
+        config.set_flag(trt.BuilderFlag.FP16)
+
+    has_dynamic_input = False
+    profile = builder.create_optimization_profile()
+    for input_idx in range(network.num_inputs):
+        tensor = network.get_input(input_idx)
+        shape = tuple(int(dim) for dim in tensor.shape)
+        if any(dim <= 0 for dim in shape):
+            has_dynamic_input = True
+            layout, normalized = _infer_layout_and_size(shape, input_size)
+            c, h, w = normalized
+            fallback_shape = (1, h, w, c) if layout == "nhwc" else (1, c, h, w)
+            concrete = _to_concrete_shape(shape, fallback_shape)
+            profile.set_shape(tensor.name, concrete, concrete, concrete)
+
+    if has_dynamic_input:
+        config.add_optimization_profile(profile)
+
+    if hasattr(builder, "build_serialized_network"):
+        serialized = builder.build_serialized_network(network, config)
+        if serialized is None:
+            raise RuntimeError("TensorRT build_serialized_network returned None")
+        engine_bytes = bytes(serialized)
+    else:
+        engine = builder.build_engine(network, config)
+        if engine is None:
+            raise RuntimeError("TensorRT build_engine returned None")
+        engine_bytes = bytes(engine.serialize())
+
+    with open(engine_path, "wb") as f:
+        f.write(engine_bytes)
+
+
+def _load_tensorrt_engine(engine_path, input_size):
+    _ensure_numpy()
+    runner = _TensorRTRunner(engine_path, input_size)
+    _ = runner.infer()
+    input_meta = {
+        "name": str(runner.engine.get_binding_name(runner.input_index)),
+        "shape": list(runner.engine.get_binding_shape(runner.input_index)),
+        "_trt_runner": runner,
+    }
+    return runner, input_meta, runner.normalized_input_size, runner.layout
+
 #ss kq dd
 # -------- Energy measurement utilities (powercap-based) --------
 def _find_powercap_energy_file():
@@ -1932,10 +2215,15 @@ def measure_energy_during_inference(duration_s: float = 10.0):
 
     # Prepare model handles
     with MODEL_LOCK:
+        runtime = LOADED_RUNTIME
         interpreter = LOADED_INTERPRETER
+        session = LOADED_ONNX_SESSION
+        trt_runner = LOADED_TRT_RUNNER
+        input_meta = LOADED_INPUT_META
         input_size = LOADED_INPUT_SIZE
-    if interpreter is None or input_size is None:
-        return {"success": False, "error": "Interpreter not loaded"}
+        input_layout = LOADED_INPUT_LAYOUT
+    if input_size is None or (interpreter is None and session is None and trt_runner is None):
+        return {"success": False, "error": "Runtime is not loaded"}
 
     start_uj = _read_uint(energy_file)
     start_ts = time.time()
@@ -1943,7 +2231,19 @@ def measure_energy_during_inference(duration_s: float = 10.0):
     while (time.time() - start_ts) < duration_s:
         try:
             with MODEL_LOCK:
-                _run_single_inference_locked(interpreter, input_size)
+                if runtime == "tflite":
+                    _run_single_inference_locked(interpreter, input_size)
+                else:
+                    _run_loaded_model_once_locked(
+                        runtime,
+                        interpreter,
+                        session,
+                        trt_runner,
+                        input_size,
+                        input_layout,
+                        input_meta,
+                        None,
+                    )
             iters += 1
         except Exception:
             break
@@ -2259,12 +2559,12 @@ def telemetry():
 def start_model_inference():
     """
     Start model inference (runs in background thread)
-    
-    Loads TFLite model from CURRENT_MODEL_PATH and runs warmup forward.
-    Keeps interpreter in memory for /predict.
+
+    Loads the active model artifact (.tflite/.onnx/.engine) and runs warmup forward.
+    Keeps the selected runtime handle in memory for /predict.
     """
     try:
-        global LOADED_INTERPRETER, LOADED_ONNX_SESSION, LOADED_RUNTIME
+        global LOADED_INTERPRETER, LOADED_ONNX_SESSION, LOADED_TRT_RUNNER, LOADED_RUNTIME
         global LOADED_MODEL_NAME, LOADED_MODEL_PATH, LOADED_INPUT_SIZE, LOADED_INPUT_LAYOUT, LOADED_INPUT_META, LOADED_AT
 
         log("Starting model inference...")
@@ -2280,11 +2580,46 @@ def start_model_inference():
         with MODEL_LOCK:
             # Ensure any previous cache is dropped before loading.
             _unload_loaded_model("start")
-            if model_path.endswith(".onnx"):
-                session, input_meta, normalized_input_size, layout = _load_onnx_model(model_path, input_size)
-                LOADED_ONNX_SESSION = session
-                LOADED_RUNTIME = "onnx"
-                LOADED_INPUT_META = input_meta
+            if model_path.endswith(".engine"):
+                try:
+                    trt_runner, input_meta, normalized_input_size, layout = _load_tensorrt_engine(model_path, input_size)
+                    LOADED_TRT_RUNNER = trt_runner
+                    LOADED_RUNTIME = "tensorrt"
+                    LOADED_INPUT_META = input_meta
+                except Exception as trt_engine_exc:
+                    onnx_fallback_path = os.path.splitext(model_path)[0] + ".onnx"
+                    if not os.path.exists(onnx_fallback_path):
+                        raise RuntimeError(f"Failed to load TensorRT engine and no ONNX fallback found: {trt_engine_exc}")
+                    log(f"Failed to load TensorRT engine, falling back to ONNX artifact: {trt_engine_exc}")
+                    model_path = onnx_fallback_path
+                    session, input_meta, normalized_input_size, layout = _load_onnx_model(model_path, input_size)
+                    LOADED_ONNX_SESSION = session
+                    LOADED_RUNTIME = "onnx"
+                    LOADED_INPUT_META = input_meta
+            elif model_path.endswith(".onnx"):
+                trt_ready = TENSORRT_ENGINE_ENABLED and TENSORRT_AVAILABLE and CUDA_RUNTIME_AVAILABLE
+                if trt_ready:
+                    engine_path = os.path.splitext(model_path)[0] + ".engine"
+                    try:
+                        if not os.path.exists(engine_path) or os.path.getmtime(engine_path) < os.path.getmtime(model_path):
+                            log("Building TensorRT engine from ONNX...")
+                            _build_tensorrt_engine(model_path, engine_path, input_size)
+                        trt_runner, input_meta, normalized_input_size, layout = _load_tensorrt_engine(engine_path, input_size)
+                        LOADED_TRT_RUNNER = trt_runner
+                        LOADED_RUNTIME = "tensorrt"
+                        LOADED_INPUT_META = input_meta
+                        model_path = engine_path
+                    except Exception as trt_exc:
+                        log(f"TensorRT engine path unavailable, falling back to ONNX Runtime: {trt_exc}")
+                        session, input_meta, normalized_input_size, layout = _load_onnx_model(model_path, input_size)
+                        LOADED_ONNX_SESSION = session
+                        LOADED_RUNTIME = "onnx"
+                        LOADED_INPUT_META = input_meta
+                else:
+                    session, input_meta, normalized_input_size, layout = _load_onnx_model(model_path, input_size)
+                    LOADED_ONNX_SESSION = session
+                    LOADED_RUNTIME = "onnx"
+                    LOADED_INPUT_META = input_meta
             else:
                 interpreter, input_meta, normalized_input_size, layout = _load_tflite_model(model_path, input_size)
                 LOADED_INTERPRETER = interpreter
@@ -2325,7 +2660,8 @@ if __name__ == "__main__":
     active_model_path = _get_active_model_path()
     if active_model_path and os.path.exists(active_model_path):
         STATE["artifact_path"] = active_model_path
-        STATE["runtime"] = os.path.splitext(active_model_path)[1].lstrip(".")
+        ext = os.path.splitext(active_model_path)[1].lower()
+        STATE["runtime"] = "tensorrt" if ext == ".engine" else ext.lstrip(".")
         size = os.path.getsize(active_model_path)
         log(f"Found existing model: {size} bytes")
         if STATE.get("model_name"):

@@ -6,6 +6,7 @@ simple fall-detection heuristics that are practical on Jetson Nano.
 from __future__ import annotations
 
 import math
+import os
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
@@ -39,6 +40,15 @@ KEYPOINT_DICT = {
 TORSO_KEYS = ("left_shoulder", "right_shoulder", "left_hip", "right_hip")
 HEAD_KEYS = ("nose", "left_eye", "right_eye", "left_ear", "right_ear")
 ANKLE_KEYS = ("left_ankle", "right_ankle")
+
+FALL_FRAME_SCORE_THRESHOLD = float(os.getenv("FALL_FRAME_SCORE_THRESHOLD", "0.62") or "0.62")
+FALL_WINDOW_AVG_SCORE_THRESHOLD = float(os.getenv("FALL_WINDOW_AVG_SCORE_THRESHOLD", "0.72") or "0.72")
+FALL_WINDOW_RATIO_THRESHOLD = float(os.getenv("FALL_WINDOW_RATIO_THRESHOLD", "0.4") or "0.4")
+FALL_WINDOW_MIN_FRAMES = max(1, int(os.getenv("FALL_WINDOW_MIN_FRAMES", "4") or "4"))
+FALL_WINDOW_MIN_CONSECUTIVE = max(1, int(os.getenv("FALL_WINDOW_MIN_CONSECUTIVE", "3") or "3"))
+
+# Reuse canvases by size/dtype to reduce per-frame allocations during resize+pad.
+_RESIZE_CANVAS_CACHE: Dict[Tuple[int, str], np.ndarray] = {}
 
 
 def _ensure_cv2() -> None:
@@ -178,11 +188,17 @@ def resize_with_pad_rgb(image_rgb: np.ndarray, target_size: int) -> np.ndarray:
     new_height = max(1, int(round(height * scale)))
 
     resized = cv2.resize(image_rgb, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
-    canvas = np.zeros((target_size, target_size, 3), dtype=resized.dtype)
+    cache_key = (int(target_size), str(resized.dtype))
+    canvas = _RESIZE_CANVAS_CACHE.get(cache_key)
+    if canvas is None or canvas.shape != (target_size, target_size, 3):
+        canvas = np.zeros((target_size, target_size, 3), dtype=resized.dtype)
+        _RESIZE_CANVAS_CACHE[cache_key] = canvas
+    else:
+        canvas.fill(0)
     top = (target_size - new_height) // 2
     left = (target_size - new_width) // 2
     canvas[top:top + new_height, left:left + new_width] = resized
-    return canvas
+    return canvas.copy()
 
 
 def preprocess_frame_bgr(frame_bgr: np.ndarray, input_size: int, input_dtype=np.uint8) -> Tuple[np.ndarray, np.ndarray]:
@@ -298,7 +314,7 @@ def analyze_pose(keypoints: np.ndarray, min_score: float = 0.25) -> Dict[str, An
         fall_score += min(max((0.14 - torso_vertical_delta) / 0.12, 0.0), 1.0) * 0.10
 
     fall_score = float(min(max(fall_score, 0.0), 1.0))
-    fall_detected_frame = bool(fall_score >= 0.62 and pose_confidence >= min_score)
+    fall_detected_frame = bool(fall_score >= FALL_FRAME_SCORE_THRESHOLD and pose_confidence >= min_score)
 
     label = "uncertain"
     if fall_detected_frame:
@@ -355,7 +371,11 @@ def summarize_detection_window(frame_results: List[Dict[str, Any]]) -> Dict[str,
     frames_analyzed = len(frame_results)
     fall_ratio = fall_frames / float(frames_analyzed)
     avg_score = float(np.mean([float(item.get("fall_score") or 0.0) for item in frame_results]))
-    fall_detected = bool(max_consecutive >= 3 or (fall_frames >= 4 and fall_ratio >= 0.4) or avg_score >= 0.72)
+    fall_detected = bool(
+        max_consecutive >= FALL_WINDOW_MIN_CONSECUTIVE
+        or (fall_frames >= FALL_WINDOW_MIN_FRAMES and fall_ratio >= FALL_WINDOW_RATIO_THRESHOLD)
+        or avg_score >= FALL_WINDOW_AVG_SCORE_THRESHOLD
+    )
 
     return {
         "frames_analyzed": frames_analyzed,
