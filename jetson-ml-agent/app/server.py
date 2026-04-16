@@ -1113,7 +1113,7 @@ def _capture_camera_snapshot_result(camera_source=None, annotate=True):
     return frame_bytes, actual_source
 
 
-def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=None):
+def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=None, fast_mode=False):
     if not _is_fall_detection_model_info():
         return {
             "success": False,
@@ -1146,6 +1146,7 @@ def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=N
 
     duration_s = max(0.5, float(duration_s if duration_s is not None else FALL_DETECT_DURATION_S))
     max_frames = max(4, int(max_frames if max_frames is not None else FALL_DETECT_MAX_FRAMES))
+    fast_mode = bool(fast_mode)
     requested_source = camera_source or CAMERA_DEVICE
     is_file_source = _is_file_camera_source(requested_source)
     c, h, w = input_size
@@ -1160,6 +1161,90 @@ def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=N
     actual_source = requested_source
     first_frame_wait_s = max(1.2, min(3.0, duration_s + 0.4))
     detection_window_s = max(duration_s, first_frame_wait_s + 0.35)
+
+    if fast_mode:
+        frame_bgr, actual_source, frame_err = _get_cached_camera_frame(requested_source, max_age_s=1.6)
+        if frame_bgr is None:
+            frame_bgr, actual_source, frame_err = _read_camera_frame(requested_source, wait_timeout_s=0.22)
+        if frame_bgr is None:
+            last_error = frame_err or f"Camera frame read failed for source: {requested_source}"
+        else:
+            try:
+                input_details = input_meta if isinstance(input_meta, dict) else interpreter.get_input_details()[0]
+                output_details = interpreter.get_output_details()[0]
+                input_dtype = input_details.get("dtype", np.uint8)
+
+                input_tensor, _ = preprocess_frame_bgr(frame_bgr, target_size, input_dtype=input_dtype)
+                with MODEL_LOCK:
+                    interpreter.set_tensor(input_details["index"], input_tensor)
+                    interpreter.invoke()
+                    output = interpreter.get_tensor(output_details["index"])
+
+                keypoints = extract_keypoints(output)
+                pose_result = analyze_pose(keypoints)
+                pose_result["frame_index"] = 0
+                frame_results.append(pose_result)
+                frame_count = 1
+            except Exception as exc:
+                last_error = f"Fall inference failed: {exc}"
+
+        try:
+            summary = summarize_detection_window(frame_results) if summarize_detection_window is not None else {
+                "frames_analyzed": len(frame_results),
+                "fall_detected": False,
+                "fall_score": 0.0,
+                "label": "unsupported",
+            }
+        except Exception as exc:
+            last_error = f"Fall summary failed: {exc}"
+            summary = {
+                "frames_analyzed": len(frame_results),
+                "fall_detected": False,
+                "fall_score": 0.0,
+                "label": "no_frames" if not frame_results else "uncertain",
+                "avg_fall_score": None,
+                "fall_frames": 0,
+                "fall_frame_ratio": None,
+                "max_consecutive_fall_frames": 0,
+                "best_frame": None,
+            }
+
+        summary = summary if isinstance(summary, dict) else {
+            "frames_analyzed": len(frame_results),
+            "fall_detected": False,
+            "fall_score": 0.0,
+            "label": "unsupported",
+        }
+        result = {
+            "success": True,
+            "timestamp": _now_iso(),
+            "model": STATE.get("model_name"),
+            "runtime": runtime,
+            "camera_source": str(actual_source),
+            "camera_ready": bool(frame_results),
+            "duration_s": round(time.time() - start_ts, 3),
+            "frames_requested": 1,
+            "frames_analyzed": summary.get("frames_analyzed", len(frame_results)),
+            "fall_detected": summary.get("fall_detected", False),
+            "fall_score": summary.get("fall_score", 0.0),
+            "label": summary.get("label"),
+            "details": {
+                "avg_fall_score": summary.get("avg_fall_score"),
+                "fall_frames": summary.get("fall_frames"),
+                "fall_frame_ratio": summary.get("fall_frame_ratio"),
+                "max_consecutive_fall_frames": summary.get("max_consecutive_fall_frames"),
+                "best_frame": summary.get("best_frame"),
+                "last_frame_error": last_error or ("No camera frame available for fast-mode inference" if not frame_results else None),
+                "frame_read_failures": frame_read_failures,
+                "detection_mode": "fast_cached_frame",
+            },
+        }
+        if not frame_results and last_error:
+            result["error"] = last_error
+        elif not frame_results:
+            result["error"] = "No camera frame available for fast-mode inference"
+        _update_fall_detection_snapshot(result)
+        return result, 200
 
     def _capture_frame_with_fallback():
         shared_wait_s = 0.35 if frame_count == 0 else 0.2
@@ -1989,6 +2074,7 @@ def camera_fall_detect():
             duration_s=data.get("duration_s"),
             max_frames=data.get("max_frames"),
             camera_source=data.get("camera_device") or data.get("camera_source"),
+            fast_mode=bool(data.get("fast_mode")),
         )
         return jsonify(result), status_code
     except Exception as exc:

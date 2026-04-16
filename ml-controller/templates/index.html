@@ -466,7 +466,7 @@
         let medicalPauseStreamForDetection = false;
         const MEDICAL_STREAM_FPS = 20;
         const MEDICAL_STREAM_QUALITY = 68;
-        const MEDICAL_WATCH_INTERVAL_MS = 7000;
+        const MEDICAL_WATCH_INTERVAL_MS = 3000;
 
         function upsertMedicalFallEvent(eventPayload) {
             if (!eventPayload) return;
@@ -2404,6 +2404,7 @@
                 const detectMaxFrames = Number.isFinite(Number(options.maxFrames))
                     ? Number(options.maxFrames)
                     : (options.background ? 8 : 12);
+                const detectFastMode = (options.fastMode === true) || (options.background === true);
 
                 const response = await fetch('/api/device/camera/fall-detect', {
                     method: 'POST',
@@ -2413,7 +2414,8 @@
                         device_uuid: deviceUuid || null,
                         device_name: deviceName,
                         duration_s: detectDurationS,
-                        max_frames: detectMaxFrames
+                        max_frames: detectMaxFrames,
+                        fast_mode: detectFastMode
                     })
                 });
 
@@ -2571,9 +2573,9 @@
             startMedicalCameraStream({ fps: MEDICAL_STREAM_FPS, quality: MEDICAL_STREAM_QUALITY });
 
             setMedicalWatchState(true);
-            await runMedicalFallDetection({ silent: true, background: true, durationS: 1.4, maxFrames: 6 });
+            await runMedicalFallDetection({ silent: true, background: true, durationS: 0.8, maxFrames: 1, fastMode: true, pauseStreamForDetection: false });
             medicalWatchInterval = setInterval(() => {
-                runMedicalFallDetection({ silent: true, background: true, durationS: 1.4, maxFrames: 6 });
+                runMedicalFallDetection({ silent: true, background: true, durationS: 0.8, maxFrames: 1, fastMode: true, pauseStreamForDetection: false });
             }, MEDICAL_WATCH_INTERVAL_MS);
             renderMedicalWatch(lastDeviceStatus, lastDeviceMetrics);
         }

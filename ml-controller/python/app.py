@@ -1435,6 +1435,7 @@ def run_device_camera_fall_detect():
         "max_frames": data.get("max_frames"),
         "camera_device": data.get("camera_device"),
         "camera_source": data.get("camera_source"),
+        "fast_mode": data.get("fast_mode"),
     }
 
     urls_to_try = []
@@ -1474,6 +1475,8 @@ def run_device_camera_fall_detect():
                         duration_s = _safe_float(request_payload.get("duration_s"))
                         if duration_s is not None:
                             request_payload["duration_s"] = round(max(duration_s, 2.5) + 1.0, 2)
+                        # Retry in full window mode for better recovery when fast mode misses frames.
+                        request_payload["fast_mode"] = False
                         max_frames = request_payload.get("max_frames")
                         try:
                             if max_frames is not None:
