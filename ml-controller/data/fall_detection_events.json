@@ -1,45 +1,5 @@
 [
   {
-    "event_id": "fall-20260412092438338312",
-    "timestamp": "2026-04-12T09:24:41.690765+00:00",
-    "device_id": "7c5c93028893443c5105aaa5d739538f",
-    "device_ip": "192.168.137.215",
-    "device_name": "billowing-brook (192.168.137.215) CARE READY",
-    "model_name": "movenet_singlepose_lightning_f16",
-    "camera_source": "/dev/video0",
-    "camera_ready": true,
-    "fall_detected": false,
-    "fall_score": 0.4497,
-    "label": "uncertain",
-    "frames_analyzed": 5,
-    "severity": "normal",
-    "acknowledged": false,
-    "source": "controller_proxy",
-    "details": {
-      "avg_fall_score": 0.4487,
-      "best_frame": {
-        "aspect_ratio": 4.716,
-        "bbox_height_norm": 0.0276,
-        "bbox_width_norm": 0.1303,
-        "center_y_norm": 0.624,
-        "fall_detected_frame": false,
-        "fall_score": 0.4497,
-        "frame_index": 0,
-        "head_to_ankle_span_norm": null,
-        "label": "uncertain",
-        "pose_confidence": 0.3279,
-        "torso_angle_deg": null,
-        "torso_vertical_delta": null,
-        "valid_pose": true,
-        "visible_keypoints": 4
-      },
-      "fall_frame_ratio": 0.0,
-      "fall_frames": 0,
-      "last_frame_error": null,
-      "max_consecutive_fall_frames": 0
-    }
-  },
-  {
     "event_id": "fall-20260412092447096589",
     "timestamp": "2026-04-12T09:24:50.453952+00:00",
     "device_id": "7c5c93028893443c5105aaa5d739538f",
@@ -13637,6 +13597,39 @@
         "frame_index": 0,
         "label": "insufficient_pose",
         "pose_confidence": 0.024040138348937035,
+        "valid_pose": false,
+        "visible_keypoints": 0
+      },
+      "fall_frame_ratio": 0.0,
+      "fall_frames": 0,
+      "last_frame_error": null,
+      "max_consecutive_fall_frames": 0
+    }
+  },
+  {
+    "event_id": "fall-20260416165644411859",
+    "timestamp": "2026-04-16T16:56:45.294745+00:00",
+    "device_id": "7c5c93028893443c5105aaa5d739538f",
+    "device_ip": "192.168.137.164",
+    "device_name": "billowing-brook (192.168.137.164) CARE READY",
+    "model_name": "movenet_singlepose_lightning_f16",
+    "camera_source": "/dev/video0",
+    "camera_ready": true,
+    "fall_detected": false,
+    "fall_score": 0.0,
+    "label": "insufficient_pose",
+    "frames_analyzed": 2,
+    "severity": "normal",
+    "acknowledged": false,
+    "source": "controller_proxy",
+    "details": {
+      "avg_fall_score": 0.0,
+      "best_frame": {
+        "fall_detected_frame": false,
+        "fall_score": 0.0,
+        "frame_index": 0,
+        "label": "insufficient_pose",
+        "pose_confidence": 0.02035483904182911,
         "valid_pose": false,
         "visible_keypoints": 0
       },
