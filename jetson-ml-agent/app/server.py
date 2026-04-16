@@ -3244,5 +3244,5 @@ if __name__ == "__main__":
         start_fnb58_monitor()
         ensure_fnb58_retry_loop()
     
-    # Start Flask server
-    app.run(host="0.0.0.0", port=8000)
+    # Start Flask server (threaded to keep stream responsive during fall checks)
+    app.run(host="0.0.0.0", port=8000, threaded=True)

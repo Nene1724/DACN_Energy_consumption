@@ -1367,30 +1367,41 @@ def get_device_camera_stream():
     device_uuid = request.args.get("device_uuid")
     annotate = request.args.get("annotate", "1")
     fps = request.args.get("fps", "5")
+    quality = request.args.get("quality", "70")
     camera_source = request.args.get("camera_source")
 
     if not bbb_ip and not device_uuid:
         return jsonify({"success": False, "error": "bbb_ip or device_uuid is required"}), 400
 
     base_urls = []
+    # Prefer local route first to keep stream latency low and stable.
+    if bbb_ip:
+        base_urls.append(f"http://{bbb_ip}:8000")
     if device_uuid:
         public_url = get_device_public_url(device_uuid)
         if public_url:
             base_urls.append(public_url)
-    if bbb_ip:
-        base_urls.append(f"http://{bbb_ip}:8000")
 
     if not base_urls:
         return jsonify({"success": False, "error": "No valid endpoint available"}), 400
 
     last_error = None
-    params = {"annotate": annotate, "fps": fps}
+    params = {"annotate": annotate, "fps": fps, "quality": quality}
     if camera_source:
         params["camera_source"] = camera_source
 
-    for base in base_urls:
+    for url_idx, base in enumerate(base_urls):
+        is_lan_path = url_idx == 0 and bbb_ip  # First URL is LAN if available
         try:
-            upstream = requests.get(f"{base}/camera/stream", params=params, stream=True, timeout=10)
+            # Use shorter timeout for LAN to quickly fail over if device unreachable
+            req_timeout = 8 if is_lan_path else 12
+            upstream = requests.get(f"{base}/camera/stream", params=params, stream=True, timeout=req_timeout)
+            
+            # Skip to next endpoint if we get 5xx errors (gateway/infrastructure issues)
+            if upstream.status_code >= 500:
+                last_error = f"Device gateway error ({upstream.status_code})"
+                continue
+            
             upstream.raise_for_status()
             content_type = upstream.headers.get("Content-Type") or "multipart/x-mixed-replace"
 
@@ -1465,7 +1476,8 @@ def run_device_camera_fall_detect():
 
     last_error = None
     last_failure_payload = None
-    for url in urls_to_try:
+    for url_idx, url in enumerate(urls_to_try):
+        is_lan_path = url_idx == 0 and bbb_ip  # First URL is LAN if available
         for attempt_idx in range(2):
             try:
                 try:
@@ -1484,7 +1496,9 @@ def run_device_camera_fall_detect():
                         except Exception:
                             pass
 
-                    resp = requests.post(url, json=request_payload, timeout=60)
+                    # Use shorter timeout for LAN (fail fast to switch to public) and standard for public URL
+                    req_timeout = 10 if is_lan_path else 15
+                    resp = requests.post(url, json=request_payload, timeout=req_timeout)
                 except Exception:
                     raise
 
@@ -1502,6 +1516,12 @@ def run_device_camera_fall_detect():
                     if body_text:
                         err_msg = f"{err_msg}: {body_text}"
                     response_payload = {"success": False, "error": err_msg}
+
+                # On 5xx responses (likely gateway/server errors), immediately skip to next URL
+                # without consuming retry attempts, as this signals infrastructure issue not camera contention
+                if resp.status_code >= 500:
+                    last_error = f"Device gateway error ({resp.status_code}): {response_payload.get('error', 'Unknown')}"
+                    break  # Exit attempt loop, try next URL
 
                 if resp.status_code < 400 and isinstance(response_payload, dict) and response_payload.get("success"):
                     if attempt_idx == 0 and _should_retry_no_frames(response_payload):
@@ -2930,4 +2950,4 @@ def get_device_status(device_endpoint):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True, threaded=True)
