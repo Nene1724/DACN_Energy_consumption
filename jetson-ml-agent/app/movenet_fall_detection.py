@@ -46,6 +46,13 @@ FALL_WINDOW_AVG_SCORE_THRESHOLD = float(os.getenv("FALL_WINDOW_AVG_SCORE_THRESHO
 FALL_WINDOW_RATIO_THRESHOLD = float(os.getenv("FALL_WINDOW_RATIO_THRESHOLD", "0.4") or "0.4")
 FALL_WINDOW_MIN_FRAMES = max(1, int(os.getenv("FALL_WINDOW_MIN_FRAMES", "4") or "4"))
 FALL_WINDOW_MIN_CONSECUTIVE = max(1, int(os.getenv("FALL_WINDOW_MIN_CONSECUTIVE", "3") or "3"))
+FALL_POSE_MIN_SCORE = max(0.05, min(0.5, float(os.getenv("FALL_POSE_MIN_SCORE", "0.15") or "0.15")))
+FALL_LYING_ASPECT_RATIO_THRESHOLD = float(os.getenv("FALL_LYING_ASPECT_RATIO_THRESHOLD", "0.95") or "0.95")
+FALL_LYING_VERTICAL_SPAN_THRESHOLD = float(os.getenv("FALL_LYING_VERTICAL_SPAN_THRESHOLD", "0.55") or "0.55")
+FALL_LYING_TORSO_ANGLE_THRESHOLD = float(os.getenv("FALL_LYING_TORSO_ANGLE_THRESHOLD", "32.0") or "32.0")
+FALL_LYING_HEAD_TO_ANKLE_THRESHOLD = float(os.getenv("FALL_LYING_HEAD_TO_ANKLE_THRESHOLD", "0.58") or "0.58")
+FALL_TORSO_VERTICAL_DELTA_THRESHOLD = float(os.getenv("FALL_TORSO_VERTICAL_DELTA_THRESHOLD", "0.12") or "0.12")
+FALL_WINDOW_TOPK = max(1, int(os.getenv("FALL_WINDOW_TOPK", "3") or "3"))
 
 # Reuse canvases by size/dtype to reduce per-frame allocations during resize+pad.
 _RESIZE_CANVAS_CACHE: Dict[Tuple[int, str], np.ndarray] = {}
@@ -57,25 +64,50 @@ def _ensure_cv2() -> None:
 
 
 def _camera_candidates(camera_source: Any) -> Iterable[Any]:
+    seen = set()
+
+    def _emit(candidate: Any):
+        key = str(candidate)
+        if key in seen:
+            return
+        seen.add(key)
+        yield candidate
+
     if camera_source is None:
-        yield 0
-        yield "/dev/video0"
+        for candidate in (0, "/dev/video0", "/dev/video1", "/dev/video2", "/dev/video3"):
+            yield from _emit(candidate)
         return
 
     text = str(camera_source).strip()
     if not text:
-        yield 0
-        yield "/dev/video0"
+        for candidate in (0, "/dev/video0", "/dev/video1", "/dev/video2", "/dev/video3"):
+            yield from _emit(candidate)
         return
 
-    yield text
+    yield from _emit(text)
     if text.startswith("/dev/video"):
         suffix = text.replace("/dev/video", "", 1)
         if suffix.isdigit():
-            yield int(suffix)
+            yield from _emit(int(suffix))
+            # Fall back to neighboring camera nodes when the configured one is missing.
+            base_idx = int(suffix)
+            for delta in (1, -1, 2, -2, 3):
+                idx = base_idx + delta
+                if idx >= 0:
+                    yield from _emit(f"/dev/video{idx}")
+                    yield from _emit(idx)
     elif text.isdigit():
-        yield int(text)
-        yield f"/dev/video{text}"
+        index = int(text)
+        yield from _emit(index)
+        yield from _emit(f"/dev/video{text}")
+        for extra in (0, 1, 2, 3):
+            yield from _emit(f"/dev/video{extra}")
+            yield from _emit(extra)
+
+    # Final generic fallback scan for common camera nodes.
+    for extra in (0, 1, 2, 3):
+        yield from _emit(f"/dev/video{extra}")
+        yield from _emit(extra)
 
 
 def open_camera(camera_source: Any = "/dev/video0", width: int = 640, height: int = 480):
@@ -252,7 +284,7 @@ def _mean_visible_point(keypoints: np.ndarray, names: Iterable[str], min_score: 
     return np.mean(np.stack(visible, axis=0), axis=0)
 
 
-def analyze_pose(keypoints: np.ndarray, min_score: float = 0.25) -> Dict[str, Any]:
+def analyze_pose(keypoints: np.ndarray, min_score: float = FALL_POSE_MIN_SCORE) -> Dict[str, Any]:
     scores = keypoints[:, 2]
     visible_mask = scores >= float(min_score)
 
@@ -303,15 +335,15 @@ def analyze_pose(keypoints: np.ndarray, min_score: float = 0.25) -> Dict[str, An
 
     fall_score = 0.0
     if torso_angle_deg is not None:
-        fall_score += min(max((torso_angle_deg - 35.0) / 55.0, 0.0), 1.0) * 0.40
-    if aspect_ratio > 0.8:
-        fall_score += min(max((aspect_ratio - 0.8) / 0.8, 0.0), 1.0) * 0.25
-    if vertical_span < 0.45:
-        fall_score += min(max((0.45 - vertical_span) / 0.25, 0.0), 1.0) * 0.15
-    if center_y is not None and center_y > 0.45:
-        fall_score += min(max((center_y - 0.45) / 0.35, 0.0), 1.0) * 0.10
-    if torso_vertical_delta is not None and torso_vertical_delta < 0.14:
-        fall_score += min(max((0.14 - torso_vertical_delta) / 0.12, 0.0), 1.0) * 0.10
+        fall_score += min(max((torso_angle_deg - FALL_LYING_TORSO_ANGLE_THRESHOLD) / 58.0, 0.0), 1.0) * 0.32
+    if aspect_ratio > FALL_LYING_ASPECT_RATIO_THRESHOLD:
+        fall_score += min(max((aspect_ratio - FALL_LYING_ASPECT_RATIO_THRESHOLD) / 0.7, 0.0), 1.0) * 0.26
+    if vertical_span < FALL_LYING_VERTICAL_SPAN_THRESHOLD:
+        fall_score += min(max((FALL_LYING_VERTICAL_SPAN_THRESHOLD - vertical_span) / 0.30, 0.0), 1.0) * 0.18
+    if head_to_ankle_span is not None and head_to_ankle_span < FALL_LYING_HEAD_TO_ANKLE_THRESHOLD:
+        fall_score += min(max((FALL_LYING_HEAD_TO_ANKLE_THRESHOLD - head_to_ankle_span) / 0.30, 0.0), 1.0) * 0.16
+    if torso_vertical_delta is not None and torso_vertical_delta < FALL_TORSO_VERTICAL_DELTA_THRESHOLD:
+        fall_score += min(max((FALL_TORSO_VERTICAL_DELTA_THRESHOLD - torso_vertical_delta) / 0.10, 0.0), 1.0) * 0.08
 
     fall_score = float(min(max(fall_score, 0.0), 1.0))
     fall_detected_frame = bool(fall_score >= FALL_FRAME_SCORE_THRESHOLD and pose_confidence >= min_score)
@@ -319,7 +351,13 @@ def analyze_pose(keypoints: np.ndarray, min_score: float = 0.25) -> Dict[str, An
     label = "uncertain"
     if fall_detected_frame:
         label = "fall_like_posture"
-    elif torso_angle_deg is not None and torso_angle_deg < 30.0 and aspect_ratio < 0.85 and vertical_span > 0.42:
+    elif (
+        torso_angle_deg is not None
+        and torso_angle_deg < 30.0
+        and aspect_ratio < 0.85
+        and vertical_span > 0.42
+        and (head_to_ankle_span is None or head_to_ankle_span > FALL_LYING_HEAD_TO_ANKLE_THRESHOLD)
+    ):
         label = "upright"
 
     return {
@@ -355,9 +393,11 @@ def summarize_detection_window(frame_results: List[Dict[str, Any]]) -> Dict[str,
     max_consecutive = 0
     best_frame = None
     best_score = -1.0
+    top_scores: List[float] = []
 
     for frame in frame_results:
         score = float(frame.get("fall_score") or 0.0)
+        top_scores.append(score)
         if score > best_score:
             best_score = score
             best_frame = frame
@@ -371,10 +411,12 @@ def summarize_detection_window(frame_results: List[Dict[str, Any]]) -> Dict[str,
     frames_analyzed = len(frame_results)
     fall_ratio = fall_frames / float(frames_analyzed)
     avg_score = float(np.mean([float(item.get("fall_score") or 0.0) for item in frame_results]))
+    top_k_scores = sorted(top_scores, reverse=True)[:FALL_WINDOW_TOPK]
+    top_k_avg_score = float(np.mean(top_k_scores)) if top_k_scores else 0.0
     fall_detected = bool(
         max_consecutive >= FALL_WINDOW_MIN_CONSECUTIVE
         or (fall_frames >= FALL_WINDOW_MIN_FRAMES and fall_ratio >= FALL_WINDOW_RATIO_THRESHOLD)
-        or avg_score >= FALL_WINDOW_AVG_SCORE_THRESHOLD
+        or top_k_avg_score >= FALL_WINDOW_AVG_SCORE_THRESHOLD
     )
 
     return {
@@ -382,6 +424,7 @@ def summarize_detection_window(frame_results: List[Dict[str, Any]]) -> Dict[str,
         "fall_detected": fall_detected,
         "fall_score": round(best_score if best_score >= 0 else avg_score, 4),
         "avg_fall_score": round(avg_score, 4),
+        "top_k_avg_score": round(top_k_avg_score, 4),
         "fall_frames": fall_frames,
         "fall_frame_ratio": round(fall_ratio, 4),
         "max_consecutive_fall_frames": max_consecutive,

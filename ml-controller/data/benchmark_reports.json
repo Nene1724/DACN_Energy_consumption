@@ -132,5 +132,273 @@
     },
     "prediction_error": null,
     "used_url_type": "local"
+  },
+  {
+    "timestamp": "2026-04-16T13:34:52.303104+00:00",
+    "device_id": "7c5c93028893443c5105aaa5d739538f",
+    "device_ip": "192.168.137.164",
+    "device_name": "billowing-brook (192.168.137.164) CARE READY",
+    "model_name": "movenet_singlepose_lightning_f16",
+    "device_type": "jetson_nano",
+    "benchmark": {
+      "benchmark_runs": 30,
+      "input_layout": "nhwc",
+      "input_size": [
+        3,
+        192,
+        192
+      ],
+      "iterations": 30,
+      "latency_avg_s": 0.084112,
+      "latency_p50_s": 0.083871,
+      "latency_p95_s": 0.086497,
+      "latency_std_s": 0.00171,
+      "model_name": "movenet_singlepose_lightning_f16",
+      "runtime": "tflite",
+      "sample_latencies_ms": [
+        91.607,
+        84.142,
+        82.917,
+        84.247,
+        83.0,
+        83.798,
+        84.097,
+        82.755,
+        84.805,
+        82.754
+      ],
+      "success": true,
+      "throughput_iter_per_s": 11.8889,
+      "timestamp": "2026-04-16T13:34:52.303104+00:00",
+      "warmup_runs": 5
+    },
+    "prediction": {
+      "model_name": "movenet_singlepose_lightning_f16",
+      "device_type": "jetson_nano",
+      "predicted_energy_mwh": 8.22,
+      "ci_lower_mwh": 6.48,
+      "ci_upper_mwh": 9.95,
+      "energy_category": "excellent",
+      "recommendation": "deploy",
+      "reason": "Energy consumption (8.2 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+      "thresholds": {
+        "p25": 29.98996075,
+        "p50": 98.606651,
+        "p75": 226.52004625
+      },
+      "model_info": {
+        "params_m": 2.318094,
+        "gflops": 0.542697,
+        "size_mb": 4.538071,
+        "latency_avg_s": 0.084112,
+        "throughput_iter_per_s": 11.8889
+      },
+      "model_used_for_prediction": "Extra Trees + log1p target",
+      "prediction_mape_pct": 21.07900438055828,
+      "model_downloaded": true
+    },
+    "prediction_error": null,
+    "used_url_type": "local"
+  },
+  {
+    "timestamp": "2026-04-16T14:48:07.805624+00:00",
+    "device_id": "7c5c93028893443c5105aaa5d739538f",
+    "device_ip": "192.168.137.164",
+    "device_name": "192.168.137.164",
+    "model_name": "yolov5n",
+    "device_type": "jetson_nano",
+    "benchmark": {
+      "benchmark_runs": 30,
+      "input_layout": "nchw",
+      "input_size": [
+        3,
+        640,
+        640
+      ],
+      "iterations": 30,
+      "latency_avg_s": 0.28129,
+      "latency_p50_s": 0.277174,
+      "latency_p95_s": 0.299004,
+      "latency_std_s": 0.014297,
+      "model_name": "yolov5n",
+      "runtime": "onnx",
+      "sample_latencies_ms": [
+        298.464,
+        275.818,
+        274.501,
+        298.598,
+        278.537,
+        280.098,
+        273.719,
+        273.61,
+        275.741,
+        280.369
+      ],
+      "success": true,
+      "throughput_iter_per_s": 3.5551,
+      "timestamp": "2026-04-16T14:48:07.805624+00:00",
+      "warmup_runs": 5
+    },
+    "prediction": {
+      "model_name": "yolov5n",
+      "device_type": "jetson_nano",
+      "predicted_energy_mwh": 11.82,
+      "ci_lower_mwh": 9.33,
+      "ci_upper_mwh": 14.31,
+      "energy_category": "excellent",
+      "recommendation": "deploy",
+      "reason": "Energy consumption (11.8 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+      "thresholds": {
+        "p25": 29.98996075,
+        "p50": 98.606651,
+        "p75": 226.52004625
+      },
+      "model_info": {
+        "params_m": 1.867405,
+        "gflops": 2.44339,
+        "size_mb": 7.554398,
+        "latency_avg_s": 0.28129,
+        "throughput_iter_per_s": 3.5551
+      },
+      "model_used_for_prediction": "Extra Trees + log1p target",
+      "prediction_mape_pct": 21.07900438055828,
+      "model_downloaded": true
+    },
+    "prediction_error": null,
+    "used_url_type": "local"
+  },
+  {
+    "timestamp": "2026-04-16T14:48:23.786752+00:00",
+    "device_id": "7c5c93028893443c5105aaa5d739538f",
+    "device_ip": "192.168.137.164",
+    "device_name": "192.168.137.164",
+    "model_name": "yolov5n",
+    "device_type": "jetson_nano",
+    "benchmark": {
+      "benchmark_runs": 30,
+      "input_layout": "nchw",
+      "input_size": [
+        3,
+        640,
+        640
+      ],
+      "iterations": 30,
+      "latency_avg_s": 0.288326,
+      "latency_p50_s": 0.279848,
+      "latency_p95_s": 0.337623,
+      "latency_std_s": 0.024551,
+      "model_name": "yolov5n",
+      "runtime": "onnx",
+      "sample_latencies_ms": [
+        280.106,
+        298.3,
+        364.748,
+        287.958,
+        382.816,
+        302.272,
+        280.772,
+        284.443,
+        284.488,
+        300.816
+      ],
+      "success": true,
+      "throughput_iter_per_s": 3.4683,
+      "timestamp": "2026-04-16T14:48:23.786752+00:00",
+      "warmup_runs": 5
+    },
+    "prediction": {
+      "model_name": "yolov5n",
+      "device_type": "jetson_nano",
+      "predicted_energy_mwh": 11.86,
+      "ci_lower_mwh": 9.36,
+      "ci_upper_mwh": 14.36,
+      "energy_category": "excellent",
+      "recommendation": "deploy",
+      "reason": "Energy consumption (11.9 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+      "thresholds": {
+        "p25": 29.98996075,
+        "p50": 98.606651,
+        "p75": 226.52004625
+      },
+      "model_info": {
+        "params_m": 1.867405,
+        "gflops": 2.44339,
+        "size_mb": 7.554398,
+        "latency_avg_s": 0.288326,
+        "throughput_iter_per_s": 3.4683
+      },
+      "model_used_for_prediction": "Extra Trees + log1p target",
+      "prediction_mape_pct": 21.07900438055828,
+      "model_downloaded": true
+    },
+    "prediction_error": null,
+    "used_url_type": "local"
+  },
+  {
+    "timestamp": "2026-04-16T14:49:04.717661+00:00",
+    "device_id": "7c5c93028893443c5105aaa5d739538f",
+    "device_ip": "192.168.137.164",
+    "device_name": "192.168.137.164",
+    "model_name": "movenet_singlepose_lightning_f16",
+    "device_type": "jetson_nano",
+    "benchmark": {
+      "benchmark_runs": 30,
+      "input_layout": "nhwc",
+      "input_size": [
+        3,
+        192,
+        192
+      ],
+      "iterations": 30,
+      "latency_avg_s": 0.079252,
+      "latency_p50_s": 0.078916,
+      "latency_p95_s": 0.079765,
+      "latency_std_s": 0.001434,
+      "model_name": "movenet_singlepose_lightning_f16",
+      "runtime": "tflite",
+      "sample_latencies_ms": [
+        86.86,
+        78.87,
+        78.919,
+        79.086,
+        79.711,
+        79.11,
+        79.112,
+        78.897,
+        78.912,
+        78.827
+      ],
+      "success": true,
+      "throughput_iter_per_s": 12.6179,
+      "timestamp": "2026-04-16T14:49:04.717661+00:00",
+      "warmup_runs": 5
+    },
+    "prediction": {
+      "model_name": "movenet_singlepose_lightning_f16",
+      "device_type": "jetson_nano",
+      "predicted_energy_mwh": 7.99,
+      "ci_lower_mwh": 6.31,
+      "ci_upper_mwh": 9.68,
+      "energy_category": "excellent",
+      "recommendation": "deploy",
+      "reason": "Energy consumption (8.0 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+      "thresholds": {
+        "p25": 29.98996075,
+        "p50": 98.606651,
+        "p75": 226.52004625
+      },
+      "model_info": {
+        "params_m": 2.318094,
+        "gflops": 0.542697,
+        "size_mb": 4.538071,
+        "latency_avg_s": 0.079252,
+        "throughput_iter_per_s": 12.6179
+      },
+      "model_used_for_prediction": "Extra Trees + log1p target",
+      "prediction_mape_pct": 21.07900438055828,
+      "model_downloaded": true
+    },
+    "prediction_error": null,
+    "used_url_type": "local"
   }
 ]

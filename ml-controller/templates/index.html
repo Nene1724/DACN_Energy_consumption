@@ -463,6 +463,32 @@
         let medicalWatchRequestInFlight = false;
         let medicalLastAnnouncedEventId = null;
         let medicalLatestEvents = [];
+        let medicalPauseStreamForDetection = false;
+        const MEDICAL_STREAM_FPS = 20;
+        const MEDICAL_STREAM_QUALITY = 68;
+        const MEDICAL_WATCH_INTERVAL_MS = 7000;
+
+        function upsertMedicalFallEvent(eventPayload) {
+            if (!eventPayload) return;
+
+            const normalizedEvent = {
+                ...eventPayload,
+                camera_source: eventPayload.camera_source || eventPayload.camera_device || '/dev/video0',
+                timestamp: eventPayload.timestamp || new Date().toISOString(),
+            };
+            const eventId = normalizedEvent.event_id || `${normalizedEvent.timestamp}-${normalizedEvent.camera_source}`;
+            normalizedEvent.event_id = eventId;
+
+            const existingIndex = medicalLatestEvents.findIndex(item => item?.event_id === eventId);
+            if (existingIndex >= 0) {
+                medicalLatestEvents[existingIndex] = { ...medicalLatestEvents[existingIndex], ...normalizedEvent };
+            } else {
+                medicalLatestEvents = [normalizedEvent, ...medicalLatestEvents];
+            }
+
+            medicalLatestEvents = medicalLatestEvents.slice(0, 12);
+            renderMedicalFallEvents(medicalLatestEvents);
+        }
 
         function setActiveView(view) {
             console.log('Switching to view:', view);
@@ -1481,7 +1507,22 @@
                     }
                 });
                 const preferredValue = currentValue || document.getElementById('bbb_ip')?.value || '';
-                if (preferredValue) medicalSelector.value = preferredValue;
+                if (preferredValue) {
+                    medicalSelector.value = preferredValue;
+                } else {
+                    const firstOnline = devices.find(dev => dev.endpoint && dev.is_online === true);
+                    const fallback = firstOnline?.endpoint || devices.find(dev => dev.endpoint)?.endpoint || '';
+                    if (fallback) {
+                        medicalSelector.value = fallback;
+                    }
+                }
+
+                // Keep monitoring + hidden state in sync when Medical selector gets an auto/default value.
+                if (medicalSelector.value && medicalSelector.value !== (document.getElementById('bbb_ip')?.value || '')) {
+                    const selectedOption = medicalSelector.selectedOptions[0];
+                    const selectedUuid = selectedOption?.dataset?.uuid || '';
+                    selectMonitoringDevice({ endpoint: medicalSelector.value, uuid: selectedUuid }, { refresh: false });
+                }
             }
         }
 
@@ -2092,6 +2133,8 @@
             const activeEvent = medicalLatestEvents.find(item => item.fall_detected === true && !item.acknowledged)
                 || ((status?.latest_fall_event?.fall_detected && !status?.latest_fall_event?.acknowledged) ? status.latest_fall_event : null);
             const isWatchRunning = medicalWatchActive === true;
+            const medicalCtx = getSelectedMedicalDeviceContext();
+            const hasSelectedDevice = Boolean(medicalCtx?.bbbIp);
             const benchmarkReport = status?.latest_benchmark_report || null;
             const benchmarkMetrics = benchmarkReport?.benchmark || status?.benchmark_metrics || fallbackMetrics?.benchmark || null;
             const benchmarkPrediction = benchmarkReport?.prediction || null;
@@ -2100,6 +2143,20 @@
                 const el = document.getElementById(id);
                 if (el) el.textContent = value;
             };
+
+            if (!hasSelectedDevice) {
+                setText('medical_camera_state', 'No device selected');
+                setText('medical_camera_source', 'N/A');
+                setText('medical_model_mode', 'N/A');
+                setText('medical_fall_label', 'N/A');
+                setText('medical_fall_score', 'N/A');
+                setText('medical_frames_analyzed', 'N/A');
+                setText('medical_last_check', '--');
+                setText('medical_camera_error', 'Select a medical device to start camera and fall checks');
+                updateMedicalCameraPlaceholder('Select a device to load the clinical camera stream.', false);
+                updateMedicalBanner('Idle', 'Info', 'Select a Jetson device to start Medical Watch.', 'watch');
+                return;
+            }
 
             const cameraReady = fall?.camera_ready === true;
             setText('medical_camera_state', cameraReady ? 'Ready' : 'Waiting');
@@ -2323,10 +2380,30 @@
             }
 
             medicalWatchRequestInFlight = true;
+            let resumeMedicalStreamAfterDetect = false;
             try {
                 if (!options.silent) {
                     updateMedicalBanner('Checking', 'Info', 'Running fall detection on the selected device camera...', 'watch');
                 }
+
+                // Adaptive contention handling: keep stream smooth by default and
+                // pause only when recent detections indicate camera contention.
+                const shouldPauseStreamForDetection = medicalStreamActive && (
+                    options.pauseStreamForDetection === true
+                    || (options.pauseStreamForDetection !== false && medicalPauseStreamForDetection)
+                );
+                if (shouldPauseStreamForDetection) {
+                    resumeMedicalStreamAfterDetect = true;
+                    stopMedicalCameraStream();
+                    await new Promise((resolve) => setTimeout(resolve, 120));
+                }
+
+                const detectDurationS = Number.isFinite(Number(options.durationS))
+                    ? Number(options.durationS)
+                    : (options.background ? 1.8 : 2.0);
+                const detectMaxFrames = Number.isFinite(Number(options.maxFrames))
+                    ? Number(options.maxFrames)
+                    : (options.background ? 8 : 12);
 
                 const response = await fetch('/api/device/camera/fall-detect', {
                     method: 'POST',
@@ -2335,8 +2412,8 @@
                         bbb_ip: bbbIp || null,
                         device_uuid: deviceUuid || null,
                         device_name: deviceName,
-                        duration_s: 2.5,
-                        max_frames: 12
+                        duration_s: detectDurationS,
+                        max_frames: detectMaxFrames
                     })
                 });
 
@@ -2345,10 +2422,47 @@
                     throw new Error(payload.error || 'Medical fall detection request failed.');
                 }
 
-                await loadMedicalFallEvents({ silent: true });
+                const framesAnalyzed = Number(payload?.frames_analyzed || 0);
+                const label = String(payload?.label || '').toLowerCase();
+                const lastFrameErrorText = String(payload?.details?.last_frame_error || payload?.error || '').toLowerCase();
+                const hasContentionHint = (
+                    label === 'no_frames'
+                    || lastFrameErrorText.includes('contention')
+                    || lastFrameErrorText.includes('no frame')
+                    || lastFrameErrorText.includes('unable to open camera')
+                    || lastFrameErrorText.includes('camera frame read failed')
+                );
+                if (framesAnalyzed > 0) {
+                    medicalPauseStreamForDetection = false;
+                } else if (hasContentionHint) {
+                    medicalPauseStreamForDetection = true;
+                }
+
+                upsertMedicalFallEvent(payload);
+                if (lastDeviceStatus) {
+                    lastDeviceStatus = {
+                        ...lastDeviceStatus,
+                        latest_fall_event: {
+                            ...(lastDeviceStatus.latest_fall_event || {}),
+                            ...payload,
+                            source: payload.source || 'controller_proxy'
+                        },
+                        fall_detection: {
+                            ...(lastDeviceStatus.fall_detection || {}),
+                            enabled: true,
+                            camera_ready: payload.camera_ready === true,
+                            camera_source: payload.camera_source || lastDeviceStatus?.fall_detection?.camera_source || '/dev/video0',
+                            fall_score: payload.fall_score,
+                            label: payload.label,
+                            frames_analyzed: payload.frames_analyzed,
+                            last_error: null,
+                            updated_at: payload.timestamp || new Date().toISOString()
+                        }
+                    };
+                }
+                loadMedicalFallEvents({ silent: true }).catch(() => {});
                 renderMedicalWatch(lastDeviceStatus, lastDeviceMetrics);
                 refreshDeviceMetrics({ silent: true });
-                refreshMedicalCameraSnapshot({ force: true, silent: true });
 
                 if (!options.silent) {
                     const detected = payload.fall_detected === true ? 'potential fall detected' : 'no fall detected';
@@ -2364,6 +2478,9 @@
                 }
                 return null;
             } finally {
+                if (resumeMedicalStreamAfterDetect) {
+                    startMedicalCameraStream({ fps: MEDICAL_STREAM_FPS, quality: MEDICAL_STREAM_QUALITY });
+                }
                 medicalWatchRequestInFlight = false;
             }
         }
@@ -2450,11 +2567,14 @@
                 return;
             }
 
+            // Keep stream mode for smoother UX while watch loop runs.
+            startMedicalCameraStream({ fps: MEDICAL_STREAM_FPS, quality: MEDICAL_STREAM_QUALITY });
+
             setMedicalWatchState(true);
-            await runMedicalFallDetection({ silent: true, background: true });
+            await runMedicalFallDetection({ silent: true, background: true, durationS: 1.4, maxFrames: 6 });
             medicalWatchInterval = setInterval(() => {
-                runMedicalFallDetection({ silent: true, background: true });
-            }, 9000);
+                runMedicalFallDetection({ silent: true, background: true, durationS: 1.4, maxFrames: 6 });
+            }, MEDICAL_WATCH_INTERVAL_MS);
             renderMedicalWatch(lastDeviceStatus, lastDeviceMetrics);
         }
 
@@ -2497,8 +2617,9 @@
             stopMedicalPolling();
             refreshMedicalView({ silent: true, forceCamera: true });
 
-            // Prefer real-time MJPEG stream; fallback logic inside startMedicalCameraStream.
-            startMedicalCameraStream({ fps: 5, quality: 70 });
+            // Use MJPEG stream for smooth camera playback; stream function has snapshot fallback.
+            startMedicalCameraStream({ fps: MEDICAL_STREAM_FPS, quality: MEDICAL_STREAM_QUALITY });
+
             medicalEventPollInterval = setInterval(() => {
                 loadMedicalFallEvents({ silent: true }).then(() => renderMedicalWatch(lastDeviceStatus, lastDeviceMetrics));
             }, 5000);

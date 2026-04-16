@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import time
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 from typing import Optional
@@ -52,6 +53,9 @@ FALL_EVENTS_PATH = os.path.join(DATA_DIR, "fall_detection_events.json")
 PREFERRED_ARTIFACT_EXTS = [".tflite", ".onnx", ".pth", ".pt", ".bin"]
 BALENA_API_BASE = os.getenv("BALENA_API_BASE", "https://api.balena-cloud.com")
 BALENA_DEFAULT_TIMEOUT = int(os.getenv("BALENA_API_TIMEOUT", "30"))
+BALENA_PUBLIC_URL_CACHE_TTL_S = max(30, int(os.getenv("BALENA_PUBLIC_URL_CACHE_TTL_S", "300") or "300"))
+BALENA_PUBLIC_URL_NEGATIVE_TTL_S = max(15, int(os.getenv("BALENA_PUBLIC_URL_NEGATIVE_TTL_S", "60") or "60"))
+BALENA_PUBLIC_URL_CACHE = {}
 MODEL_ANALYZE_MAX_MB = int(os.getenv("MODEL_ANALYZE_MAX_MB", "128"))
 
 
@@ -699,6 +703,12 @@ def get_device_public_url(device_uuid: str, token=None) -> str:
     if not token or not device_uuid:
         return ""
 
+    cache_key = str(device_uuid).strip()
+    now_ts = time.time()
+    cached = BALENA_PUBLIC_URL_CACHE.get(cache_key)
+    if cached and cached.get("expires_at", 0) > now_ts:
+        return cached.get("url") or ""
+
     try:
         headers = {
             "Authorization": f"Bearer {token}",
@@ -712,9 +722,22 @@ def get_device_public_url(device_uuid: str, token=None) -> str:
         
         if devices and devices[0].get("is_web_accessible"):
             # Public URL format: https://<uuid>.balena-devices.com
-            return f"https://{device_uuid}.balena-devices.com"
+            resolved = f"https://{device_uuid}.balena-devices.com"
+            BALENA_PUBLIC_URL_CACHE[cache_key] = {
+                "url": resolved,
+                "expires_at": now_ts + BALENA_PUBLIC_URL_CACHE_TTL_S,
+            }
+            return resolved
+        BALENA_PUBLIC_URL_CACHE[cache_key] = {
+            "url": "",
+            "expires_at": now_ts + BALENA_PUBLIC_URL_NEGATIVE_TTL_S,
+        }
     except Exception as e:
         print(f"[WARN] Could not fetch public URL for device {device_uuid}: {e}")
+        BALENA_PUBLIC_URL_CACHE[cache_key] = {
+            "url": "",
+            "expires_at": now_ts + BALENA_PUBLIC_URL_NEGATIVE_TTL_S,
+        }
     
     return ""
 
@@ -1415,55 +1438,173 @@ def run_device_camera_fall_detect():
     }
 
     urls_to_try = []
+    # Prefer local endpoint first to keep camera control on the LAN path.
+    if bbb_ip:
+        urls_to_try.append(f"http://{bbb_ip}:8000/camera/fall-detect")
     if device_uuid:
         public_url = get_device_public_url(device_uuid)
         if public_url:
             urls_to_try.append(f"{public_url}/camera/fall-detect")
-    if bbb_ip:
-        urls_to_try.append(f"http://{bbb_ip}:8000/camera/fall-detect")
 
     if not urls_to_try:
         return jsonify({"success": False, "error": "No valid endpoint available"}), 400
 
-    last_error = None
-    for url in urls_to_try:
-        try:
-            resp = requests.post(url, json=payload, timeout=60)
-            response_payload = resp.json()
-            if resp.status_code < 400 and isinstance(response_payload, dict) and response_payload.get("success"):
-                event_item = {
-                    "event_id": f"fall-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}",
-                    "timestamp": response_payload.get("timestamp") or datetime.now(timezone.utc).isoformat(),
-                    "device_id": device_uuid,
-                    "device_ip": bbb_ip,
-                    "device_name": data.get("device_name"),
-                    "model_name": response_payload.get("model"),
-                    "camera_source": response_payload.get("camera_source"),
-                    "camera_ready": response_payload.get("camera_ready"),
-                    "fall_detected": bool(response_payload.get("fall_detected")),
-                    "fall_score": _safe_float(response_payload.get("fall_score")),
-                    "label": response_payload.get("label"),
-                    "frames_analyzed": response_payload.get("frames_analyzed"),
-                    "severity": "critical" if response_payload.get("fall_detected") else "normal",
-                    "acknowledged": False,
-                    "source": "controller_proxy",
-                    "details": response_payload.get("details") or {},
-                }
-                _append_fall_event(event_item)
-                response_payload["event"] = event_item
-            return jsonify(response_payload), resp.status_code
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
-            last_error = str(exc)
-            continue
-        except Exception as exc:
-            last_error = str(exc)
-            continue
+    def _should_retry_no_frames(response_payload):
+        if not isinstance(response_payload, dict):
+            return False
+        frames_analyzed = int(response_payload.get("frames_analyzed") or 0)
+        if frames_analyzed > 0:
+            return False
+        details = response_payload.get("details") if isinstance(response_payload.get("details"), dict) else {}
+        label = str(response_payload.get("label") or "").strip().lower()
+        err_text = str(details.get("last_frame_error") or response_payload.get("error") or "").strip().lower()
+        if label == "no_frames":
+            return True
+        return any(token in err_text for token in ("no frame", "contention", "unable to open camera", "camera frame read failed"))
 
-    return jsonify({
-        "success": False,
-        "error": last_error or "Unable to run fall detection on device",
-        "device_offline": True
-    }), 502
+    last_error = None
+    last_failure_payload = None
+    for url in urls_to_try:
+        for attempt_idx in range(2):
+            try:
+                try:
+                    request_payload = dict(payload)
+                    if attempt_idx > 0:
+                        # On retry, lengthen the detection window slightly so the device can recover camera ownership.
+                        duration_s = _safe_float(request_payload.get("duration_s"))
+                        if duration_s is not None:
+                            request_payload["duration_s"] = round(max(duration_s, 2.5) + 1.0, 2)
+                        max_frames = request_payload.get("max_frames")
+                        try:
+                            if max_frames is not None:
+                                request_payload["max_frames"] = max(int(max_frames), 12)
+                        except Exception:
+                            pass
+
+                    resp = requests.post(url, json=request_payload, timeout=60)
+                except Exception:
+                    raise
+
+                try:
+                    response_payload = resp.json()
+                except Exception:
+                    body_text = ""
+                    try:
+                        body_text = (resp.text or "").strip()
+                    except Exception:
+                        body_text = ""
+                    if len(body_text) > 220:
+                        body_text = body_text[:220] + "..."
+                    err_msg = f"Invalid JSON from device ({resp.status_code})"
+                    if body_text:
+                        err_msg = f"{err_msg}: {body_text}"
+                    response_payload = {"success": False, "error": err_msg}
+
+                if resp.status_code < 400 and isinstance(response_payload, dict) and response_payload.get("success"):
+                    if attempt_idx == 0 and _should_retry_no_frames(response_payload):
+                        time.sleep(0.35)
+                        continue
+
+                    details = response_payload.get("details") or {}
+                    if not isinstance(details, dict):
+                        details = {}
+                    frames_analyzed = int(response_payload.get("frames_analyzed") or 0)
+                    response_payload["camera_ready"] = bool(frames_analyzed > 0 and response_payload.get("camera_ready") is not False)
+                    if frames_analyzed <= 0 and not details.get("last_frame_error"):
+                        details["last_frame_error"] = "No frames analyzed by device; likely camera contention between stream and detection"
+                    response_payload["details"] = details
+
+                    event_item = {
+                        "event_id": f"fall-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}",
+                        "timestamp": response_payload.get("timestamp") or datetime.now(timezone.utc).isoformat(),
+                        "device_id": device_uuid,
+                        "device_ip": bbb_ip,
+                        "device_name": data.get("device_name"),
+                        "model_name": response_payload.get("model"),
+                        "camera_source": response_payload.get("camera_source"),
+                        "camera_ready": response_payload.get("camera_ready"),
+                        "fall_detected": bool(response_payload.get("fall_detected")),
+                        "fall_score": _safe_float(response_payload.get("fall_score")),
+                        "label": response_payload.get("label"),
+                        "frames_analyzed": response_payload.get("frames_analyzed"),
+                        "severity": "critical" if response_payload.get("fall_detected") else "normal",
+                        "acknowledged": False,
+                        "source": "controller_proxy",
+                        "details": details,
+                    }
+                    _append_fall_event(event_item)
+                    response_payload["event"] = event_item
+
+                    return jsonify(response_payload), resp.status_code
+
+                # Save device-side failure and optionally retry once on likely camera contention.
+                failure_error = (response_payload.get("error") if isinstance(response_payload, dict) else None) or f"Device fall-detect failed ({resp.status_code})"
+                if attempt_idx == 0 and _should_retry_no_frames(response_payload):
+                    time.sleep(0.35)
+                    continue
+
+                last_error = failure_error
+                last_failure_payload = {
+                    "model": response_payload.get("model") if isinstance(response_payload, dict) else None,
+                    "runtime": response_payload.get("runtime") if isinstance(response_payload, dict) else None,
+                    "camera_source": (response_payload.get("camera_source") if isinstance(response_payload, dict) else None) or data.get("camera_source") or data.get("camera_device") or "/dev/video0",
+                    "duration_s": response_payload.get("duration_s") if isinstance(response_payload, dict) else None,
+                    "frames_requested": response_payload.get("frames_requested") if isinstance(response_payload, dict) else None,
+                    "error": failure_error,
+                }
+                break
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
+                last_error = str(exc)
+                break
+            except Exception as exc:
+                last_error = str(exc)
+                break
+
+    # Convert the final failure into a structured event so the UI keeps updating.
+    failed_payload = {
+        "success": True,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "model": (last_failure_payload or {}).get("model"),
+        "runtime": (last_failure_payload or {}).get("runtime"),
+        "camera_source": (last_failure_payload or {}).get("camera_source") or data.get("camera_source") or data.get("camera_device") or "/dev/video0",
+        "camera_ready": False,
+        "duration_s": (last_failure_payload or {}).get("duration_s"),
+        "frames_requested": (last_failure_payload or {}).get("frames_requested"),
+        "frames_analyzed": 0,
+        "fall_detected": False,
+        "fall_score": 0.0,
+        "label": "no_frames",
+        "error": (last_failure_payload or {}).get("error") or last_error or "Unable to run fall detection on device",
+        "details": {
+            "avg_fall_score": None,
+            "best_frame": None,
+            "fall_frame_ratio": None,
+            "fall_frames": 0,
+            "last_frame_error": (last_failure_payload or {}).get("error") or last_error or "Unable to run fall detection on device",
+            "max_consecutive_fall_frames": 0,
+        },
+    }
+    event_item = {
+        "event_id": f"fall-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}",
+        "timestamp": failed_payload["timestamp"],
+        "device_id": device_uuid,
+        "device_ip": bbb_ip,
+        "device_name": data.get("device_name"),
+        "model_name": failed_payload.get("model"),
+        "camera_source": failed_payload.get("camera_source"),
+        "camera_ready": failed_payload.get("camera_ready"),
+        "fall_detected": False,
+        "fall_score": 0.0,
+        "label": "no_frames",
+        "frames_analyzed": 0,
+        "severity": "normal",
+        "acknowledged": False,
+        "source": "controller_proxy",
+        "details": failed_payload.get("details") or {},
+    }
+    _append_fall_event(event_item)
+    failed_payload["event"] = event_item
+    return jsonify(failed_payload), 200
 
 
 @app.route("/api/device/benchmark", methods=["POST"])
