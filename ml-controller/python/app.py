@@ -1343,7 +1343,7 @@ def get_device_camera_stream():
     bbb_ip = request.args.get("bbb_ip")
     device_uuid = request.args.get("device_uuid")
     annotate = request.args.get("annotate", "1")
-    fps = request.args.get("fps", "5")
+    fps = request.args.get("fps", "15")
     camera_source = request.args.get("camera_source")
 
     if not bbb_ip and not device_uuid:
@@ -1373,7 +1373,7 @@ def get_device_camera_stream():
 
             def generate():
                 try:
-                    for chunk in upstream.iter_content(chunk_size=8192):
+                    for chunk in upstream.iter_content(chunk_size=65536):
                         if chunk:
                             yield chunk
                 finally:

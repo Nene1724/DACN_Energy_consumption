@@ -90,10 +90,18 @@ def open_camera(camera_source: Any = "/dev/video0", width: int = 640, height: in
                 cap = None
 
         if cap is not None and cap.isOpened():
+            # Request MJPEG format from USB camera for hardware-accelerated
+            # decoding — dramatically reduces CPU load vs raw YUYV.
+            fourcc_mjpg = cv2.VideoWriter_fourcc(*"MJPG")
+            cap.set(cv2.CAP_PROP_FOURCC, fourcc_mjpg)
             if width:
                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, float(width))
             if height:
                 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, float(height))
+            # Request 30 FPS from the camera hardware
+            cap.set(cv2.CAP_PROP_FPS, 30.0)
+            # Minimize internal buffer to always get the latest frame
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             return cap, candidate
 
     raise RuntimeError(last_error or f"Unable to open camera source: {camera_source}")

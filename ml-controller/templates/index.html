@@ -2256,8 +2256,8 @@
             if (deviceUuid) params.append('device_uuid', deviceUuid);
             if (bbbIp) params.append('bbb_ip', bbbIp);
             params.append('annotate', '1');
-            params.append('fps', String(options.fps || 5));
-            params.append('quality', String(options.quality || 70));
+            params.append('fps', String(options.fps || 15));
+            params.append('quality', String(options.quality || 65));
             params.append('_ts', String(Date.now()));
 
             medicalStreamActive = true;

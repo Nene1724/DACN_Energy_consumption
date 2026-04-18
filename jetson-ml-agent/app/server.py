@@ -1641,17 +1641,17 @@ def camera_stream():
     annotate = str(request.args.get("annotate", "1")).strip().lower() not in {"0", "false", "no", "off"}
     camera_source = request.args.get("camera_device") or request.args.get("camera_source") or CAMERA_DEVICE
     try:
-        fps = float(request.args.get("fps", "5"))
+        fps = float(request.args.get("fps", "15"))
     except (TypeError, ValueError):
-        fps = 5.0
+        fps = 15.0
 
     try:
-        jpeg_quality = int(request.args.get("quality", "75"))
+        jpeg_quality = int(request.args.get("quality", "65"))
     except (TypeError, ValueError):
-        jpeg_quality = 75
+        jpeg_quality = 65
 
-    fps = max(0.5, min(fps, 15.0))
-    jpeg_quality = max(50, min(jpeg_quality, 90))
+    fps = max(0.5, min(fps, 30.0))
+    jpeg_quality = max(30, min(jpeg_quality, 90))
     boundary = "frame"
 
     def generate():
@@ -1683,6 +1683,7 @@ def camera_stream():
                     warmup_reads += 1
 
                 while True:
+                    t_start = time.monotonic()
                     try:
                         ok, frame_bgr = cap.read()
                         if not ok or frame_bgr is None:
@@ -1691,7 +1692,7 @@ def camera_stream():
                             except Exception:
                                 pass
                             cap, actual_source = open_camera(camera_source, CAMERA_WIDTH, CAMERA_HEIGHT)
-                            time.sleep(0.05)
+                            time.sleep(0.02)
                             continue
 
                         if annotate:
@@ -1726,7 +1727,7 @@ def camera_stream():
                             [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality],
                         )
                         if not ok:
-                            time.sleep(0.05)
+                            time.sleep(0.02)
                             continue
 
                         frame_bytes = encoded.tobytes()
@@ -1741,9 +1742,13 @@ def camera_stream():
                     except GeneratorExit:
                         return
                     except Exception:
-                        time.sleep(0.25)
-                    finally:
-                        time.sleep(frame_delay)
+                        time.sleep(0.1)
+                    else:
+                        # Adaptive timing: only sleep the remaining time to hit target FPS
+                        elapsed = time.monotonic() - t_start
+                        remaining = frame_delay - elapsed
+                        if remaining > 0.001:
+                            time.sleep(remaining)
             finally:
                 if cap is not None:
                     try:
