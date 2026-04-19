@@ -6,6 +6,7 @@ services:
     privileged: true
     restart: unless-stopped
     ports:
+      - "80:8000"
       - "8000:8000"
     volumes:
       - 'model-data:/data'
@@ -17,8 +18,17 @@ services:
       - CAMERA_DEVICE=/dev/video0
       - CAMERA_WIDTH=640
       - CAMERA_HEIGHT=480
+      - CAMERA_USE_GSTREAMER=1
+      - CAMERA_GSTREAMER_FORMAT=auto
+      - CAMERA_GSTREAMER_PREFETCH_TIMEOUT=6
+      - CAMERA_CAPTURE_FPS=15
+      - CAMERA_STREAM_FPS=12
+      - CAMERA_STREAM_QUALITY=55
       - FALL_DETECT_DURATION_S=2.5
       - FALL_DETECT_MAX_FRAMES=16
+      - FALL_WATCH_WITH_STREAM=1
+      - FALL_WATCH_FPS=4
+      - FALL_WATCH_WINDOW_FRAMES=16
     labels:
       io.balena.features.balena-api: '1'
       io.balena.features.supervisor-api: '1'

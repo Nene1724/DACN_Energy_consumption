@@ -1344,6 +1344,7 @@ def get_device_camera_stream():
     device_uuid = request.args.get("device_uuid")
     annotate = request.args.get("annotate", "1")
     fps = request.args.get("fps", "15")
+    quality = request.args.get("quality", "55")
     camera_source = request.args.get("camera_source")
 
     if not bbb_ip and not device_uuid:
@@ -1361,19 +1362,19 @@ def get_device_camera_stream():
         return jsonify({"success": False, "error": "No valid endpoint available"}), 400
 
     last_error = None
-    params = {"annotate": annotate, "fps": fps}
+    params = {"annotate": annotate, "fps": fps, "quality": quality}
     if camera_source:
         params["camera_source"] = camera_source
 
     for base in base_urls:
         try:
-            upstream = requests.get(f"{base}/camera/stream", params=params, stream=True, timeout=10)
+            upstream = requests.get(f"{base}/camera/stream", params=params, stream=True, timeout=(5, 30))
             upstream.raise_for_status()
             content_type = upstream.headers.get("Content-Type") or "multipart/x-mixed-replace"
 
             def generate():
                 try:
-                    for chunk in upstream.iter_content(chunk_size=65536):
+                    for chunk in upstream.iter_content(chunk_size=8192):
                         if chunk:
                             yield chunk
                 finally:
@@ -1385,6 +1386,7 @@ def get_device_camera_stream():
             response = Response(stream_with_context(generate()), content_type=content_type)
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
             response.headers["Pragma"] = "no-cache"
+            response.headers["X-Accel-Buffering"] = "no"
             return response
         except Exception as exc:
             last_error = str(exc)
@@ -1394,6 +1396,49 @@ def get_device_camera_stream():
         "success": False,
         "error": f"Unable to stream camera from device: {last_error or 'unknown error'}",
         "device_offline": True
+    }), 502
+
+
+@app.route("/api/device/camera/fall-watch", methods=["POST"])
+def set_device_camera_fall_watch():
+    """Start/stop continuous fall detection on the selected edge device."""
+    data = request.get_json(force=True, silent=True) or {}
+    bbb_ip = data.get("bbb_ip")
+    device_uuid = data.get("device_uuid")
+    action = str(data.get("action") or "start").strip().lower()
+
+    if not bbb_ip and not device_uuid:
+        return jsonify({"success": False, "error": "bbb_ip or device_uuid is required"}), 400
+    if action not in {"start", "stop"}:
+        return jsonify({"success": False, "error": "action must be start or stop"}), 400
+
+    base_urls = []
+    if device_uuid:
+        public_url = get_device_public_url(device_uuid)
+        if public_url:
+            base_urls.append(public_url)
+    if bbb_ip:
+        base_urls.append(f"http://{bbb_ip}:8000")
+
+    payload = {
+        "camera_device": data.get("camera_device"),
+        "camera_source": data.get("camera_source"),
+    }
+    last_error = None
+    for base in base_urls:
+        try:
+            resp = requests.post(f"{base}/camera/fall-watch/{action}", json=payload, timeout=15)
+            body = resp.json()
+            if resp.ok and body.get("success"):
+                return jsonify(body)
+            last_error = body.get("error") or resp.text
+        except Exception as exc:
+            last_error = str(exc)
+
+    return jsonify({
+        "success": False,
+        "error": last_error or f"Unable to {action} continuous fall watch",
+        "device_offline": True,
     }), 502
 
 
@@ -1412,6 +1457,7 @@ def run_device_camera_fall_detect():
         "max_frames": data.get("max_frames"),
         "camera_device": data.get("camera_device"),
         "camera_source": data.get("camera_source"),
+        "prefer_latest": data.get("prefer_latest", True),
     }
 
     urls_to_try = []
@@ -1428,29 +1474,31 @@ def run_device_camera_fall_detect():
     last_error = None
     for url in urls_to_try:
         try:
-            resp = requests.post(url, json=payload, timeout=60)
+            resp = requests.post(url, json=payload, timeout=20)
             response_payload = resp.json()
             if resp.status_code < 400 and isinstance(response_payload, dict) and response_payload.get("success"):
-                event_item = {
-                    "event_id": f"fall-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}",
-                    "timestamp": response_payload.get("timestamp") or datetime.now(timezone.utc).isoformat(),
-                    "device_id": device_uuid,
-                    "device_ip": bbb_ip,
-                    "device_name": data.get("device_name"),
-                    "model_name": response_payload.get("model"),
-                    "camera_source": response_payload.get("camera_source"),
-                    "camera_ready": response_payload.get("camera_ready"),
-                    "fall_detected": bool(response_payload.get("fall_detected")),
-                    "fall_score": _safe_float(response_payload.get("fall_score")),
-                    "label": response_payload.get("label"),
-                    "frames_analyzed": response_payload.get("frames_analyzed"),
-                    "severity": "critical" if response_payload.get("fall_detected") else "normal",
-                    "acknowledged": False,
-                    "source": "controller_proxy",
-                    "details": response_payload.get("details") or {},
-                }
-                _append_fall_event(event_item)
-                response_payload["event"] = event_item
+                should_record = bool(response_payload.get("fall_detected")) or bool(data.get("record_normal_event"))
+                if should_record:
+                    event_item = {
+                        "event_id": f"fall-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}",
+                        "timestamp": response_payload.get("timestamp") or datetime.now(timezone.utc).isoformat(),
+                        "device_id": device_uuid,
+                        "device_ip": bbb_ip,
+                        "device_name": data.get("device_name"),
+                        "model_name": response_payload.get("model"),
+                        "camera_source": response_payload.get("camera_source"),
+                        "camera_ready": response_payload.get("camera_ready"),
+                        "fall_detected": bool(response_payload.get("fall_detected")),
+                        "fall_score": _safe_float(response_payload.get("fall_score")),
+                        "label": response_payload.get("label"),
+                        "frames_analyzed": response_payload.get("frames_analyzed"),
+                        "severity": "critical" if response_payload.get("fall_detected") else "normal",
+                        "acknowledged": False,
+                        "source": "controller_proxy",
+                        "details": response_payload.get("details") or {},
+                    }
+                    _append_fall_event(event_item)
+                    response_payload["event"] = event_item
             return jsonify(response_payload), resp.status_code
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
             last_error = str(exc)
