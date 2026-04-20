@@ -753,23 +753,36 @@ def _render_with_cache(template_name, **context):
 @app.route("/")
 @app.route("/deployment")
 def index():
-    return _render_with_cache("index.html", initial_view="deployment")
+    return _render_with_cache("index.html", initial_view="deployment", ui_mode="modern")
 
 
 @app.route("/monitoring")
 def monitoring():
-    return _render_with_cache("index.html", initial_view="monitoring")
+    return _render_with_cache("index.html", initial_view="monitoring", ui_mode="modern")
 
 
 @app.route("/medical")
 def medical():
-    return _render_with_cache("index.html", initial_view="medical")
+    return _render_with_cache("index.html", initial_view="medical", ui_mode="modern")
 
 
 @app.route("/analytics")
 def analytics():
     """Legacy analytics route: keep URL alive but render deployment view."""
-    return _render_with_cache("index.html", initial_view="deployment")
+    return _render_with_cache("index.html", initial_view="deployment", ui_mode="modern")
+
+
+@app.route("/dashboard-modern")
+def dashboard_modern():
+    """Modern dashboard variant with the same content and a refreshed layout."""
+    return _render_with_cache("index.html", initial_view="deployment", ui_mode="modern")
+
+
+@app.route("/brand/logo_v1.png")
+def brand_logo():
+    """Serve the supplied logo asset from the templates resource folder."""
+    logo_dir = os.path.join(BASE_DIR, "templates", "resource")
+    return send_from_directory(logo_dir, "logo_v1.png")
 
 
 @app.route("/favicon.ico")
