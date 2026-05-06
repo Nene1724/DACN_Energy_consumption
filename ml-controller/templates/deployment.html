@@ -165,8 +165,25 @@ window.currentAnalyzedModel = null;
 window.currentPredictionResult = null;
 window.currentUploadedArtifact = null;
 
+const DEPLOY_DEVICE_ENERGY_BUDGETS = {
+    jetson_nano: 29.98996075,
+    raspberry_pi5: 17.991197
+};
+
 function cleanNumericForDeploy(value) {
     return Number.isFinite(value) ? value : null;
+}
+
+function getEnergyBudgetForDevice(device) {
+    const deviceType = String(
+        device?.device_type
+        || device?.deviceType
+        || window.currentPredictionResult?.device_type
+        || document.getElementById('pred_device_type')?.value
+        || ''
+    ).toLowerCase();
+    const budget = DEPLOY_DEVICE_ENERGY_BUDGETS[deviceType];
+    return Number.isFinite(budget) ? budget : null;
 }
 
 function getCurrentProfileStub() {
@@ -570,8 +587,9 @@ async function deployCurrentPrediction() {
                 warmup_runs: 5,
                 benchmark_runs: 30
             };
-            if (Number.isFinite(modelInfo.predicted_energy_mwh)) {
-                deployPayload.energy_budget_mwh = modelInfo.predicted_energy_mwh;
+            const deviceEnergyBudget = getEnergyBudgetForDevice(device);
+            if (deviceEnergyBudget !== null) {
+                deployPayload.energy_budget_mwh = deviceEnergyBudget;
             }
 
             const response = await fetch('/api/balena/deploy', {

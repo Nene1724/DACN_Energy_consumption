@@ -1,10 +1,16 @@
 import os
 import pickle
 import json
+import warnings
 from typing import Dict, List, Tuple, Any, Optional
 
 import numpy as np
 import pandas as pd
+
+try:
+    from sklearn.exceptions import InconsistentVersionWarning
+except Exception:
+    InconsistentVersionWarning = None
 
 
 class EnergyPredictorService:
@@ -63,7 +69,12 @@ class EnergyPredictorService:
         if not os.path.exists(path):
             return default
         with open(path, "rb") as f:
-            return pickle.load(f)
+            with warnings.catch_warnings():
+                # Model artifacts may be persisted by a newer sklearn minor version.
+                # Keep loading as best-effort to avoid noisy startup logs.
+                if InconsistentVersionWarning is not None:
+                    warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
+                return pickle.load(f)
     
     def _load_json(self, filename: str, default=None):
         path = os.path.join(self.artifacts_dir, filename)

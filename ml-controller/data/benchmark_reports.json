@@ -400,5 +400,72 @@
     },
     "prediction_error": null,
     "used_url_type": "local"
+  },
+  {
+    "timestamp": "2026-05-06T16:42:56.696643+00:00",
+    "device_id": "7c5c93028893443c5105aaa5d739538f",
+    "device_ip": "192.168.137.164",
+    "device_name": "192.168.137.164",
+    "model_name": "movenet_singlepose_lightning_f16",
+    "device_type": "jetson_nano",
+    "benchmark": {
+      "benchmark_runs": 30,
+      "input_layout": "nhwc",
+      "input_size": [
+        3,
+        192,
+        192
+      ],
+      "iterations": 30,
+      "latency_avg_s": 0.082166,
+      "latency_p50_s": 0.082218,
+      "latency_p95_s": 0.082454,
+      "latency_std_s": 0.000254,
+      "model_name": "movenet_singlepose_lightning_f16",
+      "runtime": "tflite",
+      "sample_latencies_ms": [
+        82.412,
+        82.192,
+        82.359,
+        82.21,
+        81.851,
+        81.762,
+        81.992,
+        82.021,
+        82.451,
+        82.352
+      ],
+      "success": true,
+      "throughput_iter_per_s": 12.1706,
+      "timestamp": "2026-05-06T16:42:56.696643+00:00",
+      "warmup_runs": 5
+    },
+    "prediction": {
+      "model_name": "movenet_singlepose_lightning_f16",
+      "device_type": "jetson_nano",
+      "predicted_energy_mwh": 9.57,
+      "ci_lower_mwh": 7.55,
+      "ci_upper_mwh": 11.58,
+      "energy_category": "excellent",
+      "recommendation": "deploy",
+      "reason": "Energy consumption (9.6 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+      "thresholds": {
+        "p25": 29.98996075,
+        "p50": 98.606651,
+        "p75": 226.52004625
+      },
+      "model_info": {
+        "params_m": 2.318094,
+        "gflops": 0.542697,
+        "size_mb": 4.538071,
+        "latency_avg_s": 0.082166,
+        "throughput_iter_per_s": 12.1706
+      },
+      "model_used_for_prediction": "Extra Trees + log1p target",
+      "prediction_mape_pct": 21.07900438055828,
+      "model_downloaded": true
+    },
+    "prediction_error": null,
+    "used_url_type": "local"
   }
 ]

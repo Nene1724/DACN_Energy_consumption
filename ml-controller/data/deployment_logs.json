@@ -545,11 +545,70 @@
         },
         "used_url_type": "local"
       }
+    },
+    {
+      "timestamp": "2026-05-06T16:42:45.053715Z",
+      "type": "info",
+      "message": "Starting deployment of 'movenet_singlepose_lightning_f16' to device 192.168.137.164",
+      "metadata": {
+        "model_name": "movenet_singlepose_lightning_f16",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.164",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-05-06T16:42:49.340184Z",
+      "type": "success",
+      "message": "Deploy thành công model 'movenet_singlepose_lightning_f16' lên thiết bị 192.168.137.164 (via local URL)",
+      "metadata": {
+        "model_name": "movenet_singlepose_lightning_f16",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.164",
+        "model_path": "D:\\KLTN_Hub\\Repo_All\\DACN_Energy_consumption\\ml-controller\\model_store\\movenet_singlepose_lightning_f16.tflite",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": 10.29,
+          "message": "Deployment successful",
+          "model_info": {
+            "artifact_file": "movenet_singlepose_lightning_f16.tflite",
+            "artifact_format": "tflite",
+            "camera_device": "/dev/video0",
+            "camera_input": true,
+            "camera_resolution": [
+              640,
+              480
+            ],
+            "device_type": "jetson_nano",
+            "energy_avg_mwh": 10.29,
+            "energy_category": "excellent",
+            "gflops": 0.542697,
+            "gmacs": 0.27055,
+            "input_size": "3x192x192",
+            "latency_avg_s": 0.115195,
+            "model_name": "movenet_singlepose_lightning_f16",
+            "params_m": 2.318094,
+            "pose_model": "movenet_singlepose_lightning",
+            "predicted_energy_mwh": 10.29,
+            "prediction_mape_pct": 21.07900438055828,
+            "prediction_reason": "Energy consumption (10.3 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+            "size_mb": 4.538071,
+            "source_type": "fall_detection_camera_model",
+            "task": "pose_estimation",
+            "throughput_iter_per_s": 14.0306,
+            "use_case": "fall_detection_pose"
+          },
+          "model_name": "movenet_singlepose_lightning_f16",
+          "model_path": "/data/models/current_model.tflite",
+          "model_size_bytes": 4758512
+        },
+        "used_url_type": "local"
+      }
     }
   ],
   "metadata": {
     "created_at": "2025-12-13T00:00:00Z",
-    "last_updated": "2026-04-16T14:48:58.208604Z",
-    "total_deployments": 33
+    "last_updated": "2026-05-06T16:42:49.340184Z",
+    "total_deployments": 34
   }
 }

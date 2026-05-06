@@ -1,7 +1,7 @@
 import os
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, Response
 import requests
@@ -204,7 +204,8 @@ def _create_energy_metrics(budget=None, predicted_mwh=None):
         "latest_error_pct": None,
         "mape_pct": None,
         "status": "no_data",
-        "history": []
+        "history": [],
+        "budget_grace_until": None,
     }
 
 
@@ -519,7 +520,12 @@ def reset_energy_metrics(budget=None, predicted_mwh=None):
             or model_info.get("energy_avg_mwh")
             or model_info.get("predicted_mwh")
         )
-    STATE["energy_metrics"] = _create_energy_metrics(budget, predicted_mwh)
+    metrics = _create_energy_metrics(budget, predicted_mwh)
+    # Set 15-second grace period for model warmup before budget enforcement
+    if budget is not None:
+        grace_end = datetime.now(timezone.utc) + timedelta(seconds=15)
+        metrics["budget_grace_until"] = grace_end.isoformat()
+    STATE["energy_metrics"] = metrics
 
 
 def record_energy_sample(energy_mwh, power_mw=None, latency_s=None, note=None, timestamp=None, source=None):
@@ -568,7 +574,36 @@ def record_energy_sample(energy_mwh, power_mw=None, latency_s=None, note=None, t
             metrics["mape_pct"] = round(sum(error_samples) / len(error_samples), 4)
 
     budget = metrics.get("budget_mwh")
-    over_budget = budget is not None and sample["energy_mwh"] > budget
+    # Determine cumulative consumed energy (from meter or history sum)
+    meter = STATE.get("meter_metrics") or {}
+    consumed_mwh = None
+    try:
+        consumed_mwh = _safe_float(meter.get("measured_energy_mwh"))
+    except Exception:
+        consumed_mwh = None
+    if consumed_mwh is None:
+        try:
+            consumed_mwh = round(sum(entry.get("energy_mwh", 0.0) for entry in history), 4)
+        except Exception:
+            consumed_mwh = sample.get("energy_mwh")
+    metrics["consumed_mwh"] = consumed_mwh
+
+    # Check grace period: skip budget enforcement during warmup
+    grace_until_str = metrics.get("budget_grace_until")
+    in_grace_period = False
+    try:
+        if grace_until_str:
+            grace_until = datetime.fromisoformat(grace_until_str)
+            now = datetime.now(timezone.utc)
+            in_grace_period = now < grace_until
+    except Exception:
+        pass
+
+    # Apply budget check with tolerance (only outside grace period)
+    over_budget = False
+    if not in_grace_period and budget is not None and consumed_mwh is not None:
+        tol = max(0.01, abs(budget) * 0.001)
+        over_budget = consumed_mwh > (budget + tol)
     metrics["status"] = "over_budget" if over_budget else "ok"
 
     state_update = {
@@ -578,7 +613,7 @@ def record_energy_sample(energy_mwh, power_mw=None, latency_s=None, note=None, t
     if over_budget and STATE.get("status") == "running":
         message = (
             f"Energy budget exceeded: "
-            f"{sample['energy_mwh']} mWh > budget {budget} mWh"
+            f"{consumed_mwh} mWh > budget {budget} mWh"
         )
         log(message)
         state_update.update(

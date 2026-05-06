@@ -4,7 +4,7 @@ requests==2.32.3
 # Core analytics
 numpy>=2.0
 pandas>=1.5
-scikit-learn>=1.2
+scikit-learn>=1.2,<=1.7.2
 matplotlib>=3.8
 seaborn>=0.13
 
