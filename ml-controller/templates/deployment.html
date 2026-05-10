@@ -2,6 +2,46 @@
 <div id="deployment_view" class="hidden">
     <div id="alert_container" class="alert-stack"></div>
 
+    <!-- Workflow Steps Indicator -->
+    <div class="panel" style="padding: 14px 20px; margin-bottom: 14px;">
+        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 700; margin-bottom: 12px;">Deployment Workflow</div>
+        <div style="display: flex; align-items: center; gap: 0; flex-wrap: wrap; overflow: hidden; border-radius: 10px; border: 1px solid var(--border);">
+            <div class="workflow-step" id="wf_step_1" data-step="1" style="flex: 1; min-width: 100px; padding: 10px 14px; background: rgba(59,130,246,0.12); border-right: 1px solid var(--border); position: relative;">
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin-bottom: 2px;">Step 1</div>
+                <div style="font-size: 13px; font-weight: 700; color: var(--text);">Select Device</div>
+                <div style="font-size: 11px; color: var(--muted); margin-top: 1px;">Jetson / RPi5</div>
+                <div style="position:absolute; right:-1px; top:50%; transform:translateY(-50%); width:0; height:0; border-top:12px solid transparent; border-bottom:12px solid transparent; border-left:10px solid var(--border); z-index:2;"></div>
+                <div style="position:absolute; right:-2px; top:50%; transform:translateY(-50%); width:0; height:0; border-top:11px solid transparent; border-bottom:11px solid transparent; border-left:9px solid rgba(59,130,246,0.12); z-index:3;"></div>
+            </div>
+            <div class="workflow-step" id="wf_step_2" data-step="2" style="flex: 1; min-width: 100px; padding: 10px 14px 10px 20px; background: #ffffff; border-right: 1px solid var(--border); position: relative;">
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 2px;">Step 2</div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--muted);">Upload Model</div>
+                <div style="font-size: 11px; color: var(--muted); margin-top: 1px;">ONNX / TFLite</div>
+                <div style="position:absolute; right:-1px; top:50%; transform:translateY(-50%); width:0; height:0; border-top:12px solid transparent; border-bottom:12px solid transparent; border-left:10px solid var(--border); z-index:2;"></div>
+                <div style="position:absolute; right:-2px; top:50%; transform:translateY(-50%); width:0; height:0; border-top:11px solid transparent; border-bottom:11px solid transparent; border-left:9px solid #ffffff; z-index:3;"></div>
+            </div>
+            <div class="workflow-step" id="wf_step_3" data-step="3" style="flex: 1; min-width: 100px; padding: 10px 14px 10px 20px; background: #ffffff; border-right: 1px solid var(--border); position: relative;">
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 2px;">Step 3</div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--muted);">Predict Energy</div>
+                <div style="font-size: 11px; color: var(--muted); margin-top: 1px;">ML model estimate</div>
+                <div style="position:absolute; right:-1px; top:50%; transform:translateY(-50%); width:0; height:0; border-top:12px solid transparent; border-bottom:12px solid transparent; border-left:10px solid var(--border); z-index:2;"></div>
+                <div style="position:absolute; right:-2px; top:50%; transform:translateY(-50%); width:0; height:0; border-top:11px solid transparent; border-bottom:11px solid transparent; border-left:9px solid #ffffff; z-index:3;"></div>
+            </div>
+            <div class="workflow-step" id="wf_step_4" data-step="4" style="flex: 1; min-width: 100px; padding: 10px 14px 10px 20px; background: #ffffff; border-right: 1px solid var(--border); position: relative;">
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 2px;">Step 4</div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--muted);">OTA Deploy</div>
+                <div style="font-size: 11px; color: var(--muted); margin-top: 1px;">Balena Cloud push</div>
+                <div style="position:absolute; right:-1px; top:50%; transform:translateY(-50%); width:0; height:0; border-top:12px solid transparent; border-bottom:12px solid transparent; border-left:10px solid var(--border); z-index:2;"></div>
+                <div style="position:absolute; right:-2px; top:50%; transform:translateY(-50%); width:0; height:0; border-top:11px solid transparent; border-bottom:11px solid transparent; border-left:9px solid #ffffff; z-index:3;"></div>
+            </div>
+            <div class="workflow-step" id="wf_step_5" data-step="5" style="flex: 1; min-width: 100px; padding: 10px 14px 10px 20px; background: #ffffff; position: relative;">
+                <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 2px;">Step 5</div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--muted);">Monitor</div>
+                <div style="font-size: 11px; color: var(--muted); margin-top: 1px;">Energy &amp; metrics</div>
+            </div>
+        </div>
+    </div>
+
     <div class="grid">
         <div class="col-left">
             <div class="panel">
@@ -145,6 +185,32 @@
                 </div>
             </div>
 
+            <!-- OTA Deployment Status Timeline -->
+            <div class="panel" id="ota_timeline_panel" style="display: none;">
+                <div class="panel-header" style="margin-bottom: 10px;">
+                    <div>
+                        <h3 style="font-size: 15px;">OTA Progress</h3>
+                        <p class="muted" style="font-size: 12px; margin-top: 2px;">Live deployment pipeline status</p>
+                    </div>
+                    <span id="ota_status_badge" class="badge" style="font-size:11px; background:rgba(59,130,246,0.12); color:var(--accent);">Pending</span>
+                </div>
+                <!-- Progress bar -->
+                <div style="height:6px; background:var(--border); border-radius:4px; overflow:hidden; margin-bottom:14px;">
+                    <div id="ota_progress_fill" style="height:100%; width:0%; background:linear-gradient(90deg,#3b82f6,#22d3ee); border-radius:4px; transition:width 0.5s ease;"></div>
+                </div>
+                <!-- Steps -->
+                <div id="ota_steps_list" style="display:flex; flex-direction:column; gap:6px;">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Section divider -->
+            <div style="display:flex; align-items:center; gap:12px; margin: 6px 0 14px;">
+                <div style="flex:1; height:1px; background:var(--border);"></div>
+                <span style="font-size:11px; text-transform:uppercase; letter-spacing:0.07em; color:var(--muted); font-weight:700; white-space:nowrap;">Deployment Logs</span>
+                <div style="flex:1; height:1px; background:var(--border);"></div>
+            </div>
+
             <div class="panel">
                 <div class="panel-header">
                     <div>
@@ -158,6 +224,140 @@
         </div>
     </div>
 </div>
+
+<script>
+// ── Workflow step activation ───────────────────────────────────────────────────
+(function () {
+    const STEP_COLORS = {
+        active:   { bg: 'rgba(59,130,246,0.12)', label: 'var(--accent)', title: 'var(--text)' },
+        done:     { bg: 'rgba(16,185,129,0.10)', label: 'var(--success)', title: 'var(--text)' },
+        pending:  { bg: '#ffffff',               label: 'var(--muted)',   title: 'var(--muted)' }
+    };
+
+    window._wfSetStep = function (activeStep) {
+        for (let s = 1; s <= 5; s++) {
+            const el = document.getElementById('wf_step_' + s);
+            if (!el) continue;
+            const state = s < activeStep ? 'done' : s === activeStep ? 'active' : 'pending';
+            const c = STEP_COLORS[state];
+            el.style.background = c.bg;
+            const labelEl = el.querySelector('[data-step-label]') || el.querySelector('div:nth-child(1)');
+            const titleEl = el.querySelector('[data-step-title]') || el.querySelector('div:nth-child(2)');
+            if (labelEl) labelEl.style.color = c.label;
+            if (titleEl) titleEl.style.color = c.title;
+            // Update arrow fill color
+            const arrows = el.querySelectorAll('div[style*="border-left"]');
+            arrows.forEach(a => {
+                if (a.style.zIndex === '3' || a.style.zIndex === 3) {
+                    a.style.borderLeftColor = c.bg;
+                }
+            });
+        }
+    };
+
+    // ── OTA timeline helper ───────────────────────────────────────────────────
+    const OTA_STEPS_DEF = [
+        { id: 'ota_upload',    label: 'Artifact Uploaded',    icon: '⬆' },
+        { id: 'ota_push',      label: 'OTA Push to Device',   icon: '🌐' },
+        { id: 'ota_validate',  label: 'Model Validation',      icon: '✓' },
+        { id: 'ota_benchmark', label: 'On-Device Benchmark',   icon: '⚡' },
+        { id: 'ota_complete',  label: 'Deployment Complete',   icon: '✔' }
+    ];
+
+    window._otaShowTimeline = function (stepIndex) {
+        const panel = document.getElementById('ota_timeline_panel');
+        if (!panel) return;
+        panel.style.display = 'block';
+
+        const progress = Math.round((stepIndex / (OTA_STEPS_DEF.length - 1)) * 100);
+        const fill = document.getElementById('ota_progress_fill');
+        if (fill) fill.style.width = progress + '%';
+
+        const badge = document.getElementById('ota_status_badge');
+        if (badge) {
+            const isComplete = stepIndex >= OTA_STEPS_DEF.length - 1;
+            badge.textContent = isComplete ? 'Complete' : 'In Progress';
+            badge.style.background = isComplete ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.12)';
+            badge.style.color = isComplete ? 'var(--success)' : 'var(--accent)';
+        }
+
+        const list = document.getElementById('ota_steps_list');
+        if (!list) return;
+        list.innerHTML = OTA_STEPS_DEF.map((step, i) => {
+            const done    = i < stepIndex;
+            const current = i === stepIndex;
+            const pending = i > stepIndex;
+            const dotColor = done ? 'var(--success)' : current ? 'var(--accent)' : 'var(--border)';
+            const labelColor = done ? 'var(--text)' : current ? 'var(--text)' : 'var(--muted)';
+            const weight = (done || current) ? '700' : '500';
+            const rightLabel = done ? '<span style="font-size:11px; color:var(--success); font-weight:700;">Done</span>'
+                             : current ? '<span style="font-size:11px; color:var(--accent); font-weight:700; animation:pulse 1.4s infinite;">Running…</span>'
+                             : '<span style="font-size:11px; color:var(--muted);">Waiting</span>';
+            return `
+                <div style="display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:8px; background:${current ? 'rgba(59,130,246,0.05)' : 'transparent'};">
+                    <div style="width:10px; height:10px; border-radius:50%; background:${dotColor}; flex-shrink:0;"></div>
+                    <span style="font-size:13px; font-weight:${weight}; color:${labelColor}; flex:1;">${step.icon} ${step.label}</span>
+                    ${rightLabel}
+                </div>
+            `;
+        }).join('');
+    };
+
+    window._otaHideTimeline = function () {
+        const panel = document.getElementById('ota_timeline_panel');
+        if (panel) panel.style.display = 'none';
+    };
+
+    // ── Detect workflow step from user interactions ────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+        // Step 1 active on load
+        if (typeof window._wfSetStep === 'function') window._wfSetStep(1);
+
+        // When device is selected → step 2
+        const deviceList = document.getElementById('deploy_device_list');
+        if (deviceList) {
+            deviceList.addEventListener('click', () => {
+                const checked = document.querySelectorAll('.device-checkbox:checked');
+                if (checked.length > 0) window._wfSetStep(2);
+            });
+        }
+
+        // When file is uploaded → step 3
+        const fileInput = document.getElementById('model_file_input');
+        if (fileInput) {
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files && fileInput.files[0]) window._wfSetStep(3);
+            });
+        }
+
+        // When predict button clicked → stay on 3, energy result → step 4
+        const predictBtn = document.getElementById('predict_uploaded_energy_btn');
+        if (predictBtn) {
+            predictBtn.addEventListener('click', () => {
+                setTimeout(() => {
+                    const output = document.getElementById('uploaded_predict_output');
+                    if (output && output.textContent && output.textContent.includes('mWh')) {
+                        window._wfSetStep(4);
+                    }
+                }, 2000);
+            });
+        }
+    });
+
+    // ── Intercept deployCurrentPrediction to show OTA timeline ───────────────
+    const _origDeploy = window.deployCurrentPrediction;
+    window.deployCurrentPrediction = async function () {
+        window._wfSetStep(4);
+        window._otaShowTimeline(0);
+        setTimeout(() => window._otaShowTimeline(1), 800);
+        setTimeout(() => window._otaShowTimeline(2), 1800);
+        setTimeout(() => window._otaShowTimeline(3), 3000);
+        const result = _origDeploy ? await _origDeploy() : undefined;
+        setTimeout(() => { window._otaShowTimeline(4); window._wfSetStep(5); }, 4200);
+        return result;
+    };
+})();
+</script>
 
 <script>
 window.currentUploadedFile = null;

@@ -616,9 +616,15 @@ def analyze_pose(keypoints: np.ndarray, min_score: float = 0.25) -> Dict[str, An
 
     pose_confidence = float(np.mean(scores[visible_mask])) if np.any(visible_mask) else float(np.mean(scores))
 
+    # Head drop below hips: near-certain fall indicator
+    head_below_hips = False
+    if head is not None and hips is not None:
+        # y-axis increases downward; head[0] < hips[0] means head is above hips (normal)
+        head_below_hips = bool(float(head[0]) > float(hips[0]) + 0.05)
+
     fall_score = 0.0
     if torso_angle_deg is not None:
-        fall_score += min(max((torso_angle_deg - 35.0) / 55.0, 0.0), 1.0) * 0.40
+        fall_score += min(max((torso_angle_deg - 35.0) / 55.0, 0.0), 1.0) * 0.35
     if aspect_ratio > 0.8:
         fall_score += min(max((aspect_ratio - 0.8) / 0.8, 0.0), 1.0) * 0.25
     if vertical_span < 0.45:
@@ -627,9 +633,11 @@ def analyze_pose(keypoints: np.ndarray, min_score: float = 0.25) -> Dict[str, An
         fall_score += min(max((center_y - 0.45) / 0.35, 0.0), 1.0) * 0.10
     if torso_vertical_delta is not None and torso_vertical_delta < 0.14:
         fall_score += min(max((0.14 - torso_vertical_delta) / 0.12, 0.0), 1.0) * 0.10
+    if head_below_hips:
+        fall_score += 0.05  # strong anatomical indicator of prone/fallen position
 
     fall_score = float(min(max(fall_score, 0.0), 1.0))
-    fall_detected_frame = bool(fall_score >= 0.62 and pose_confidence >= min_score)
+    fall_detected_frame = bool(fall_score >= 0.60 and pose_confidence >= min_score)
 
     label = "uncertain"
     if fall_detected_frame:
@@ -648,6 +656,7 @@ def analyze_pose(keypoints: np.ndarray, min_score: float = 0.25) -> Dict[str, An
         "head_to_ankle_span_norm": round(head_to_ankle_span, 4) if head_to_ankle_span is not None else None,
         "torso_angle_deg": round(torso_angle_deg, 2) if torso_angle_deg is not None else None,
         "torso_vertical_delta": round(torso_vertical_delta, 4) if torso_vertical_delta is not None else None,
+        "head_below_hips": head_below_hips,
         "fall_score": round(fall_score, 4),
         "fall_detected_frame": fall_detected_frame,
         "label": label,
@@ -686,7 +695,63 @@ def summarize_detection_window(frame_results: List[Dict[str, Any]]) -> Dict[str,
     frames_analyzed = len(frame_results)
     fall_ratio = fall_frames / float(frames_analyzed)
     avg_score = float(np.mean([float(item.get("fall_score") or 0.0) for item in frame_results]))
-    fall_detected = bool(max_consecutive >= 3 or (fall_frames >= 4 and fall_ratio >= 0.4) or avg_score >= 0.72)
+
+    # --- Velocity analysis: detect the fall motion itself, not just post-fall posture ---
+    # Extract center_y and aspect_ratio sequences (only from valid-pose frames)
+    center_ys = [
+        float(f["center_y_norm"])
+        for f in frame_results
+        if f.get("valid_pose") and f.get("center_y_norm") is not None
+    ]
+    aspect_ratios = [
+        float(f["aspect_ratio"])
+        for f in frame_results
+        if f.get("valid_pose") and f.get("aspect_ratio") is not None
+    ]
+
+    # Max downward displacement over any 2-frame window (y increases downward in normalized coords)
+    max_center_y_drop = 0.0
+    if len(center_ys) >= 2:
+        for i in range(1, len(center_ys)):
+            drop = center_ys[i] - center_ys[i - 1]
+            if drop > max_center_y_drop:
+                max_center_y_drop = drop
+
+    # Aspect ratio expansion: body becoming horizontal is a strong fall indicator
+    aspect_ratio_rise = 0.0
+    if len(aspect_ratios) >= 2:
+        for i in range(1, len(aspect_ratios)):
+            rise = aspect_ratios[i] - aspect_ratios[i - 1]
+            if rise > aspect_ratio_rise:
+                aspect_ratio_rise = rise
+
+    # Motion fall score: rapid drop + horizontal expansion = fall in progress
+    motion_fall_score = 0.0
+    motion_fall_score += min(max(max_center_y_drop / 0.18, 0.0), 1.0) * 0.55
+    motion_fall_score += min(max(aspect_ratio_rise / 0.5, 0.0), 1.0) * 0.45
+    motion_fall_score = float(min(motion_fall_score, 1.0))
+
+    # Motion-triggered fall: strong downward velocity followed by fall-like posture
+    motion_triggered = (
+        motion_fall_score >= 0.55
+        and avg_score >= 0.35
+    )
+
+    # Trend: scores rising across the window (escalating situation)
+    score_trend_rising = False
+    if frames_analyzed >= 4:
+        half = frames_analyzed // 2
+        early_avg = float(np.mean([float(f.get("fall_score") or 0) for f in frame_results[:half]]))
+        late_avg = float(np.mean([float(f.get("fall_score") or 0) for f in frame_results[half:]]))
+        score_trend_rising = bool(late_avg - early_avg >= 0.18)
+
+    fall_detected = bool(
+        max_consecutive >= 3
+        or (fall_frames >= 4 and fall_ratio >= 0.4)
+        or avg_score >= 0.72
+        or motion_triggered
+        or (score_trend_rising and fall_frames >= 2 and avg_score >= 0.50)
+    )
 
     return {
         "frames_analyzed": frames_analyzed,
@@ -696,6 +761,10 @@ def summarize_detection_window(frame_results: List[Dict[str, Any]]) -> Dict[str,
         "fall_frames": fall_frames,
         "fall_frame_ratio": round(fall_ratio, 4),
         "max_consecutive_fall_frames": max_consecutive,
+        "motion_fall_score": round(motion_fall_score, 4),
+        "max_center_y_drop": round(max_center_y_drop, 4),
+        "max_aspect_ratio_rise": round(aspect_ratio_rise, 4),
+        "score_trend_rising": score_trend_rising,
         "label": "fall_detected" if fall_detected else (best_frame or {}).get("label", "no_fall"),
         "best_frame": best_frame,
     }

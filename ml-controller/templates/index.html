@@ -395,6 +395,7 @@
         <div class="view-tabs" id="view_tabs">
             <button class="view-tab" data-view="deployment">Deployment</button>
             <button class="view-tab" data-view="monitoring">Monitoring</button>
+            <button class="view-tab" data-view="analytics">Analytics</button>
             <button class="view-tab" data-view="medical">Medical Watch</button>
         </div>
 
@@ -404,6 +405,7 @@
 
         {% include 'deployment.html' %}
         {% include 'monitoring.html' %}
+        {% include 'analytics.html' %}
         {% include 'medical.html' %}
 
     </div> <!-- end shell -->
@@ -471,17 +473,12 @@
 
         function setActiveView(view) {
             console.log('Switching to view:', view);
-            
+
             const deploymentView = document.getElementById('deployment_view');
             const monitoringView = document.getElementById('monitoring_view');
+            const analyticsView = document.getElementById('analytics_view');
             const medicalView = document.getElementById('medical_view');
             const viewTabs = document.getElementById('view_tabs');
-
-            console.log('Found elements:', {
-                deploymentView: !!deploymentView,
-                monitoringView: !!monitoringView,
-                viewTabs: !!viewTabs
-            });
 
             if (viewTabs) {
                 viewTabs.querySelectorAll('.view-tab').forEach(el => {
@@ -491,27 +488,26 @@
             }
             if (deploymentView) deploymentView.classList.toggle('hidden', view !== 'deployment');
             if (monitoringView) monitoringView.classList.toggle('hidden', view !== 'monitoring');
+            if (analyticsView) analyticsView.classList.toggle('hidden', view !== 'analytics');
             if (medicalView) medicalView.classList.toggle('hidden', view !== 'medical');
 
             if (view === 'deployment') {
-                console.log('Deployment view activated');
                 loadDeploymentLogs();
                 stopMetricsPolling();
                 stopCameraPolling();
-                
-                // Ensure fleets and devices are populated
-                if (balenaFleetsLoaded) {
-                    populateFleetSelector();
-                }
-                if (balenaDevicesLoaded) {
-                    populateDeviceSelectors(balenaDevices);
-                }
+                if (balenaFleetsLoaded) populateFleetSelector();
+                if (balenaDevicesLoaded) populateDeviceSelectors(balenaDevices);
                 stopMedicalPolling();
             } else if (view === 'monitoring') {
                 startMetricsPolling();
                 stopCameraPolling();
                 stopMedicalPolling();
                 renderMonitoringTab('trends');
+            } else if (view === 'analytics') {
+                stopMetricsPolling();
+                stopCameraPolling();
+                stopMedicalPolling();
+                loadModelAnalytics();
             } else if (view === 'medical') {
                 startMetricsPolling();
                 stopCameraPolling();
@@ -530,6 +526,8 @@
             let initial = INITIAL_VIEW || 'deployment';
             if (path.includes('/monitoring')) {
                 initial = 'monitoring';
+            } else if (path.includes('/analytics')) {
+                initial = 'analytics';
             } else if (path.includes('/deployment')) {
                 initial = 'deployment';
             } else if (path.includes('/medical')) {
@@ -2135,11 +2133,14 @@
                 setText('medical_fall_label', latestEvent?.label || fall?.label || 'N/A');
                 const score = Number(latestEvent?.fall_score ?? fall?.fall_score);
                 setText('medical_fall_score', Number.isFinite(score) ? score.toFixed(3) : 'N/A');
+                const motionScore = Number(fall?.details?.motion_fall_score ?? fall?.motion_fall_score);
+                setText('medical_motion_score', Number.isFinite(motionScore) ? motionScore.toFixed(3) : 'N/A');
                 setText('medical_frames_analyzed', fall?.frames_analyzed != null ? String(fall.frames_analyzed) : 'N/A');
                 setText('medical_last_check', formatTimestamp(latestEvent?.timestamp || fall?.updated_at || null));
             } else {
                 setText('medical_fall_label', 'Waiting (watch stopped)');
                 setText('medical_fall_score', 'N/A');
+                setText('medical_motion_score', 'N/A');
                 setText('medical_frames_analyzed', 'N/A');
                 setText('medical_last_check', '--');
             }
@@ -4354,22 +4355,23 @@
                 `;
             }
             
-            fetch('/api/models/all')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success && data.models) {
-                        renderParetoAnalysis(data.models);
-                        showAnalyticsAlert(''); // Clear any errors
-                    } else {
-                        showAnalyticsAlert(data.error || 'Failed to load analytics.');
-                        renderParetoPlaceholder();
-                    }
-                })
-                .catch(err => {
-                    console.error('Failed to load model analytics:', err);
-                    showAnalyticsAlert('⚠️ Failed to load analytics: ' + err);
-                    renderParetoPlaceholder('Unable to connect to the server. Please check your connection and try again.');
-                });
+            Promise.all([
+                fetch('/api/models/all').then(r => r.json()).catch(() => ({ success: false })),
+                fetch('/api/analytics/summary').then(r => r.json()).catch(() => ({ success: false })),
+            ]).then(([modelsData, summaryData]) => {
+                window._anaSummary = summaryData.success ? summaryData : null;
+                if (modelsData.success && modelsData.models) {
+                    renderParetoAnalysis(modelsData.models);
+                    showAnalyticsAlert('');
+                } else {
+                    showAnalyticsAlert(modelsData.error || 'Failed to load analytics data.');
+                    renderParetoPlaceholder();
+                }
+            }).catch(err => {
+                console.error('Failed to load model analytics:', err);
+                showAnalyticsAlert('⚠️ Failed to load analytics: ' + err);
+                renderParetoPlaceholder('Unable to connect to the server. Please check your connection and try again.');
+            });
         }
 
         // ============================================================================
@@ -4790,7 +4792,107 @@
         // ============================================================================
         // END MODEL ANALYTICS
         // ============================================================================
-    
+
+        // ============================================================================
+        // UI INTEGRATION PATCHES — wire redesigned partials to existing JS data flow
+        // ============================================================================
+
+        // ── Medical: replace fall events renderer with enhanced version ─────────
+        const _origRenderMedicalFallEvents = window.renderMedicalFallEvents || renderMedicalFallEvents;
+        renderMedicalFallEvents = function (items) {
+            if (typeof window._medRenderEventList === 'function') {
+                window._medRenderEventList(items);
+            } else {
+                _origRenderMedicalFallEvents(items);
+            }
+        };
+
+        // ── Medical: extend updateMedicalBanner to also drive new banner + score chart ──
+        const _origUpdateMedicalBanner = window.updateMedicalBanner || updateMedicalBanner;
+        updateMedicalBanner = function (state, severity, text, mode) {
+            _origUpdateMedicalBanner(state, severity, text, mode);
+            // Map legacy mode/severity to new banner severity
+            const sev = mode === 'alert' ? 'critical' : mode === 'watch' ? 'warning' : 'normal';
+            const latestScore = medicalLatestEvents && medicalLatestEvents[0]
+                ? Number(medicalLatestEvents[0].fall_score)
+                : NaN;
+            if (typeof window._medUpdateBanner === 'function') {
+                window._medUpdateBanner(sev, Number.isFinite(latestScore) ? latestScore : null, null, text);
+            }
+            // Push score to trend chart
+            if (typeof window._medPushScore === 'function' && Number.isFinite(latestScore)) {
+                window._medPushScore(latestScore);
+            }
+        };
+
+        // ── Monitoring: extend renderEnergyComparison to update monitoring gauges ──
+        if (typeof renderEnergyComparison === 'function') {
+            const __origEC = renderEnergyComparison;
+            renderEnergyComparison = function (modelInfo, energyMetrics, meterMetrics, latestEnergyReport, latestBenchmarkReport) {
+                __origEC.apply(this, arguments);
+                // Recompute predicted/measured cleanly from the same sources
+                const reportedPredicted = latestEnergyReport && latestEnergyReport.predicted_mwh != null
+                    ? Number(latestEnergyReport.predicted_mwh) : NaN;
+                const reportedMeasured = latestEnergyReport && latestEnergyReport.actual_energy_mwh != null
+                    ? Number(latestEnergyReport.actual_energy_mwh) : NaN;
+                const benchmarkPredicted = latestBenchmarkReport?.prediction?.predicted_energy_mwh != null
+                    ? Number(latestBenchmarkReport.prediction.predicted_energy_mwh) : NaN;
+                const predNum = Number.isFinite(reportedPredicted) ? reportedPredicted
+                              : Number.isFinite(benchmarkPredicted) ? benchmarkPredicted : NaN;
+                const measNum = Number.isFinite(reportedMeasured) ? reportedMeasured : NaN;
+                // Update meter data in monitoring panel
+                if (meterMetrics && typeof window._monUpdateMeter === 'function') {
+                    window._monUpdateMeter(meterMetrics);
+                }
+                if (typeof window._monUpdateComparison === 'function') {
+                    window._monUpdateComparison(predNum, measNum);
+                }
+            };
+        }
+
+        // ── Monitoring: extend renderMeterStatus to update FNB58 panel ────────
+        if (typeof renderMeterStatus === 'function') {
+            const __origMS = renderMeterStatus;
+            renderMeterStatus = function (status, meterData) {
+                __origMS.apply(this, arguments);
+                const meter = meterData || (status && (status.meter || status.meter_metrics)) || null;
+                if (meter && typeof window._monUpdateMeter === 'function') {
+                    window._monUpdateMeter(meter);
+                }
+            };
+        }
+
+        // ── Monitoring: update gauges whenever renderMonitoringTab is called ───
+        if (typeof renderMonitoringTab === 'function') {
+            const __origRMT = renderMonitoringTab;
+            renderMonitoringTab = function (tab) {
+                __origRMT.apply(this, arguments);
+                if (lastDeviceMetrics && typeof window._monUpdateGauges === 'function') {
+                    window._monUpdateGauges(lastDeviceMetrics);
+                }
+            };
+        }
+
+        // ── Deployment: cache logs for monitoring history table ───────────────
+        const _origLoadDeploymentLogs = window.loadDeploymentLogs || loadDeploymentLogs;
+        if (typeof loadDeploymentLogs === 'function') {
+            const __origLDL = loadDeploymentLogs;
+            loadDeploymentLogs = function () {
+                const result = __origLDL.apply(this, arguments);
+                if (result && typeof result.then === 'function') {
+                    result.then(logs => {
+                        if (Array.isArray(logs)) window._cachedDeployLogs = logs;
+                        else {
+                            // Try reading from rendered DOM (fallback)
+                            const logItems = document.querySelectorAll('#logs_container .log-entry');
+                            // minimal parse attempt
+                        }
+                    }).catch(() => {});
+                }
+                return result;
+            };
+        }
+
     </script>
     
     <!-- Download model -->

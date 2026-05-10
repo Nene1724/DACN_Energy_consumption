@@ -25,11 +25,11 @@ class ModelAnalyzer:
             self.df_rpi5['device'] = 'raspberry_pi5'
             # Combine both datasets
             self.df = pd.concat([self.df_jetson, self.df_rpi5], ignore_index=True)
-            print(f"✅ Loaded {len(self.df_jetson)} Jetson models + {len(self.df_rpi5)} RPi5 models")
+            print(f"[OK] Loaded {len(self.df_jetson)} Jetson models + {len(self.df_rpi5)} RPi5 models")
         else:
             self.df = self.df_jetson.copy()
             self.df_rpi5 = None
-            print(f"✅ Loaded {len(self.df_jetson)} Jetson models only")
+            print(f"[OK] Loaded {len(self.df_jetson)} Jetson models only")
         
         self.df = self.df.sort_values('energy_avg_mwh')
         self.predictor_service = predictor_service

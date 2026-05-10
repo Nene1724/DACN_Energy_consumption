@@ -4,11 +4,13 @@ import json
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 from typing import Optional
+from uuid import uuid4
 from flask import Flask, request, render_template, jsonify, send_from_directory, make_response, Response, stream_with_context
 import requests
 from requests.utils import requote_uri
 from model_analyzer import ModelAnalyzer
 from energy_predictor_service import EnergyPredictorService
+from experiment_logger import ExperimentLogger, normalize_deployment_mode
 from log_manager import LogManager
 from onnx_feature_extractor import extract_features as extract_model_features
 
@@ -119,6 +121,7 @@ analyzer = ModelAnalyzer(
     extra_model_dirs=[NEW_MODELS_DIR],
 )
 log_manager = LogManager(LOG_FILE_PATH, max_logs=50)
+experiment_logger = ExperimentLogger()
 
 
 def _normalize_key(value: str) -> str:
@@ -482,6 +485,20 @@ def _wait_for_device_ready_for_benchmark(bbb_ip=None, device_uuid=None, timeout_
     return last_status
 
 
+def _fetch_device_metrics(bbb_ip=None, device_uuid=None):
+    urls_to_try = _build_device_urls(bbb_ip, device_uuid, "/metrics")
+    for _, url in urls_to_try:
+        try:
+            resp = requests.get(url, timeout=15)
+            resp.raise_for_status()
+            payload = resp.json()
+            if isinstance(payload, dict):
+                return payload
+        except Exception:
+            continue
+    return {}
+
+
 def _benchmark_and_repredict_device(
     *,
     bbb_ip=None,
@@ -529,6 +546,8 @@ def _benchmark_and_repredict_device(
     status_payload = _wait_for_device_ready_for_benchmark(bbb_ip=bbb_ip, device_uuid=device_uuid, timeout_s=20.0)
     if isinstance(status_payload, dict) and isinstance(status_payload.get("model_info"), dict):
         merged_model_info = {**merged_model_info, **status_payload["model_info"]}
+    if isinstance(benchmark_result.get("model_info"), dict):
+        merged_model_info = {**merged_model_info, **benchmark_result["model_info"]}
 
     inferred_device_type = (
         device_type
@@ -559,6 +578,19 @@ def _benchmark_and_repredict_device(
     else:
         prediction_error = "Missing model features required for calibrated prediction"
 
+    device_metrics = _fetch_device_metrics(bbb_ip=bbb_ip, device_uuid=device_uuid)
+    experiment_run_id = (
+        benchmark_result.get("experiment_run_id")
+        or merged_model_info.get("experiment_run_id")
+        or f"run_{uuid4().hex}"
+    )
+    deployment_mode = normalize_deployment_mode(
+        benchmark_result.get("deployment_mode") or merged_model_info.get("deployment_mode")
+    )
+    benchmark_device_metrics = benchmark_result.get("device_metrics") if isinstance(benchmark_result.get("device_metrics"), dict) else {}
+    if benchmark_device_metrics and not device_metrics:
+        device_metrics = benchmark_device_metrics
+
     report_item = {
         "timestamp": benchmark_result.get("timestamp") or datetime.now(timezone.utc).isoformat(),
         "device_id": device_uuid,
@@ -569,9 +601,39 @@ def _benchmark_and_repredict_device(
         "benchmark": benchmark_result,
         "prediction": adjusted_prediction,
         "prediction_error": prediction_error,
+        "device_metrics": device_metrics,
+        "experiment_run_id": experiment_run_id,
+        "deployment_mode": deployment_mode,
         "used_url_type": used_url_type,
     }
     _append_benchmark_report(report_item)
+
+    experiment_logger.upsert_record({
+        "experiment_run_id": experiment_run_id,
+        "timestamp": report_item["timestamp"],
+        "scenario": "live_device_benchmark",
+        "deployment_mode": deployment_mode,
+        "event_source": "benchmark_report",
+        "device_name": device_name or (status_payload.get("device_name") if isinstance(status_payload, dict) else None),
+        "device_id": device_uuid,
+        "device_ip": bbb_ip,
+        "device_type": inferred_device_type,
+        "model_name": effective_model_name,
+        "model_format": merged_model_info.get("artifact_format") or benchmark_result.get("runtime"),
+        "model_size_mb": _safe_float(merged_model_info.get("size_mb")),
+        "input_resolution": merged_model_info.get("input_resolution") or merged_model_info.get("input_size") or benchmark_result.get("input_size"),
+        "latency_ms": _safe_float(benchmark_result.get("latency_avg_s")) * 1000.0 if _safe_float(benchmark_result.get("latency_avg_s")) is not None else None,
+        "predicted_energy_mwh": (adjusted_prediction or {}).get("predicted_energy_mwh") if isinstance(adjusted_prediction, dict) else None,
+        "cpu_usage": _safe_float((device_metrics.get("cpu") or {}).get("percent") or device_metrics.get("cpu_usage")),
+        "ram_usage": _safe_float((device_metrics.get("memory") or {}).get("used_percent") or device_metrics.get("ram_usage")),
+        "temperature": _safe_float(device_metrics.get("temperature_c") or device_metrics.get("temperature")),
+        "accuracy": _safe_float(merged_model_info.get("accuracy")),
+        "benchmark_runs": benchmark_result.get("benchmark_runs"),
+        "throughput_iter_per_s": benchmark_result.get("throughput_iter_per_s"),
+        "notes": "Logged from controller benchmark wrapper.",
+        "model_info": merged_model_info,
+        "device_metrics": device_metrics,
+    })
     return report_item
 
 
@@ -784,6 +846,94 @@ def get_all_models():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route("/api/analytics/summary", methods=["GET"])
+def get_analytics_summary():
+    """Analytics summary: leaderboard, device stats, pareto frontier, family distribution."""
+    try:
+        import numpy as np
+
+        import pandas as pd_inner
+        df = analyzer.df.copy()
+        if "device_type" not in df.columns:
+            df["device_type"] = "jetson_nano"
+        rpi5_path = os.path.join(DATA_DIR, "253_models_benchmark_rpi5.csv")
+        if os.path.exists(rpi5_path):
+            rpi5_df = pd_inner.read_csv(rpi5_path)
+            rpi5_df["device_type"] = "raspberry_pi5"
+            all_df = pd_inner.concat([df, rpi5_df], ignore_index=True)
+        else:
+            all_df = df
+
+        # Leaderboard: top 50 by energy
+        leaderboard_cols = ["model", "energy_avg_mwh", "latency_avg_s", "params_m", "gflops", "size_mb"]
+        available_cols = [c for c in leaderboard_cols if c in all_df.columns]
+        leaderboard = (
+            all_df[available_cols]
+            .dropna(subset=["energy_avg_mwh"])
+            .sort_values("energy_avg_mwh")
+            .head(50)
+            .replace({float("nan"): None, float("inf"): None, float("-inf"): None})
+            .to_dict(orient="records")
+        )
+
+        # Device statistics
+        device_stats = {}
+        dev_types = all_df["device_type"].unique().tolist() if "device_type" in all_df.columns else ["jetson_nano"]
+        for dev in dev_types:
+            sub = all_df[all_df["device_type"] == dev]["energy_avg_mwh"].dropna()
+            device_stats[dev] = {
+                "count": int(len(sub)),
+                "mean_mwh": round(float(sub.mean()), 3),
+                "median_mwh": round(float(sub.median()), 3),
+                "min_mwh": round(float(sub.min()), 3),
+                "max_mwh": round(float(sub.max()), 3),
+                "p25_mwh": round(float(np.percentile(sub, 25)), 3),
+                "p75_mwh": round(float(np.percentile(sub, 75)), 3),
+            }
+
+        # Family distribution
+        family_stats = []
+        if "model_family" in all_df.columns:
+            for fam, grp in all_df.groupby("model_family"):
+                en = grp["energy_avg_mwh"].dropna()
+                if len(en) > 0:
+                    family_stats.append({
+                        "family": str(fam),
+                        "count": int(len(grp)),
+                        "mean_energy": round(float(en.mean()), 3),
+                        "min_energy": round(float(en.min()), 3),
+                    })
+            family_stats.sort(key=lambda x: x["mean_energy"])
+
+        # Pareto frontier: energy vs latency (lower is better for both)
+        pareto_data = []
+        if "latency_avg_s" in all_df.columns:
+            pareto_df = all_df[["model", "energy_avg_mwh", "latency_avg_s"]].dropna()
+            pareto_df = pareto_df.sort_values("energy_avg_mwh").head(100)
+            pareto_data = pareto_df.replace(
+                {float("nan"): None, float("inf"): None, float("-inf"): None}
+            ).to_dict(orient="records")
+
+        # Predictor metrics
+        pred_meta = {}
+        try:
+            pred_meta = predictor_service.get_metadata() if hasattr(predictor_service, "get_metadata") else {}
+        except Exception:
+            pass
+
+        return jsonify({
+            "success": True,
+            "leaderboard": leaderboard,
+            "device_stats": device_stats,
+            "family_stats": family_stats,
+            "pareto_data": pareto_data,
+            "predictor_metrics": pred_meta,
+            "total_benchmarked": int(len(all_df)),
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route("/api/models/<model_name>", methods=["GET"])
 def get_model_details(model_name):
     """API: Lấy chi tiết 1 model"""
@@ -929,7 +1079,7 @@ def download_model_from_hub():
                     }), 500
                 
                 file_size_mb = file_size / (1024 * 1024)
-                print(f"✓ Successfully converted to ONNX: {output_filename} ({file_size_mb:.2f} MB)")
+                print(f"[OK] Successfully converted to ONNX: {output_filename} ({file_size_mb:.2f} MB)")
                 return jsonify({
                     "success": True,
                     "message": f"Successfully downloaded and converted {model_name} to ONNX ({file_size_mb:.2f} MB)",
@@ -979,6 +1129,9 @@ def deploy():
         model_name = data.get("model_name")
         max_energy = data.get("max_energy")
         force = bool(data.get("force", False))
+        deployment_mode = normalize_deployment_mode(data.get("deployment_mode"))
+        experiment_run_id = data.get("experiment_run_id") or f"run_{uuid4().hex}"
+        requested_accuracy = _safe_float(data.get("accuracy"))
 
         # Parse bbb_ip: handle cases where multiple IPs are provided (space-separated)
         # Extract first IPv4 address
@@ -1078,6 +1231,12 @@ def deploy():
                 )
             }), 400
 
+        model_info["experiment_run_id"] = experiment_run_id
+        model_info["deployment_mode"] = deployment_mode
+        model_info.setdefault("artifact_format", artifact_ext)
+        if requested_accuracy is not None:
+            model_info["accuracy"] = requested_accuracy
+
         controller_base_url = _get_controller_base_url(request, prefer_connect_to_ip=bbb_ip)
         model_url = f"{controller_base_url}/models/{artifact}"
         log_manager.add_log(
@@ -1134,7 +1293,9 @@ def deploy():
                 "device_ip": bbb_ip,
                 "energy_mwh": model_energy,
                 "energy_budget_mwh": energy_budget,
-                "artifact": artifact
+                "artifact": artifact,
+                "deployment_mode": deployment_mode,
+                "experiment_run_id": experiment_run_id,
             }
         )
 
@@ -1143,7 +1304,9 @@ def deploy():
             "result": result,
             "model_info": model_info,
             "artifact": artifact,
-            "energy_budget_mwh": energy_budget
+            "energy_budget_mwh": energy_budget,
+            "deployment_mode": deployment_mode,
+            "experiment_run_id": experiment_run_id,
         })
 
     except requests.exceptions.RequestException as e:
@@ -1758,7 +1921,7 @@ def get_device_logs(device_uuid):
         "logs": [
             {
                 "timestamp": "2026-01-04T02:00:00Z",
-                "message": "⚠️ Device logs require Supervisor API access or Balena Enterprise plan",
+                "message": "[WARNING] Device logs require Supervisor API access or Balena Enterprise plan",
                 "isError": False,
                 "isSystem": True
             },
@@ -1802,6 +1965,15 @@ def deploy_model():
         auto_benchmark_after_deploy = data.get("auto_benchmark_after_deploy", True)
         warmup_runs = data.get("warmup_runs", 5)
         benchmark_runs = data.get("benchmark_runs", 30)
+        deployment_mode = normalize_deployment_mode(
+            data.get("deployment_mode") or provided_model_info.get("deployment_mode")
+        )
+        experiment_run_id = (
+            data.get("experiment_run_id")
+            or provided_model_info.get("experiment_run_id")
+            or f"run_{uuid4().hex}"
+        )
+        requested_accuracy = _safe_float(data.get("accuracy") or provided_model_info.get("accuracy"))
         
         if not model_name:
             return jsonify({"success": False, "error": "model_name required"}), 400
@@ -1819,7 +1991,9 @@ def deploy_model():
                 "model_name": model_name,
                 "device_uuid": device_uuid,
                 "device_endpoint": device_endpoint,
-                "fleet": fleet
+                "fleet": fleet,
+                "deployment_mode": deployment_mode,
+                "experiment_run_id": experiment_run_id,
             }
         )
         
@@ -1891,6 +2065,10 @@ def deploy_model():
         if model_ext:
             model_info.setdefault("artifact_format", model_ext.lstrip("."))
         model_info.setdefault("artifact_file", os.path.basename(model_path) if model_path else requested_artifact)
+        model_info["deployment_mode"] = deployment_mode
+        model_info["experiment_run_id"] = experiment_run_id
+        if requested_accuracy is not None:
+            model_info["accuracy"] = requested_accuracy
 
         predicted_energy = None
         for key in ("predicted_energy_mwh", "energy_avg_mwh", "predicted_mwh"):
@@ -1965,7 +2143,9 @@ def deploy_model():
                         "model_path": model_path,
                         "fleet": fleet,
                         "device_response": device_response,
-                        "used_url_type": url_type
+                        "used_url_type": url_type,
+                        "deployment_mode": deployment_mode,
+                        "experiment_run_id": experiment_run_id,
                     }
                 )
                 
@@ -2004,7 +2184,9 @@ def deploy_model():
                     "device_response": device_response,
                     "used_url_type": url_type,
                     "benchmark": benchmark_report,
-                    "benchmark_warning": benchmark_warning
+                    "benchmark_warning": benchmark_warning,
+                    "deployment_mode": deployment_mode,
+                    "experiment_run_id": experiment_run_id,
                 })
                 
             except requests.exceptions.RequestException as e:
@@ -2250,9 +2432,18 @@ def report_measured_energy():
 
     model_name = data.get("model_name") or "unknown"
     device_type = data.get("device_type") or "unknown"
+    model_info = data.get("model_info") if isinstance(data.get("model_info"), dict) else {}
+    experiment_run_id = (
+        data.get("experiment_run_id")
+        or model_info.get("experiment_run_id")
+        or f"run_{uuid4().hex}"
+    )
+    deployment_mode = normalize_deployment_mode(
+        data.get("deployment_mode")
+        or model_info.get("deployment_mode")
+    )
 
     predicted_mwh = None
-    model_info = data.get("model_info")
     if isinstance(model_info, dict):
         for key in ("predicted_energy_mwh", "energy_avg_mwh", "predicted_mwh"):
             predicted_mwh = _safe_float(model_info.get(key))
@@ -2273,6 +2464,8 @@ def report_measured_energy():
         "device_id": data.get("device_id"),
         "device_type": device_type,
         "model_name": model_name,
+        "experiment_run_id": experiment_run_id,
+        "deployment_mode": deployment_mode,
         "actual_energy_mwh": round(actual_energy_mwh, 4),
         "predicted_mwh": round(predicted_mwh, 4) if predicted_mwh is not None else None,
         "abs_error_mwh": round(abs_error_mwh, 4) if abs_error_mwh is not None else None,
@@ -2287,6 +2480,29 @@ def report_measured_energy():
     items.append(item)
     items = items[-500:]
     _save_energy_reports(items)
+
+    device_metrics = data.get("device_metrics") if isinstance(data.get("device_metrics"), dict) else {}
+    experiment_logger.upsert_record({
+        "experiment_run_id": experiment_run_id,
+        "timestamp": item["timestamp"],
+        "scenario": "live_energy_measurement",
+        "deployment_mode": deployment_mode,
+        "event_source": "energy_report",
+        "device_id": item.get("device_id"),
+        "device_type": device_type,
+        "model_name": model_name,
+        "energy_mwh": actual_energy_mwh,
+        "predicted_energy_mwh": predicted_mwh,
+        "cpu_usage": _safe_float((device_metrics.get("cpu") or {}).get("percent") or data.get("cpu_usage")),
+        "ram_usage": _safe_float((device_metrics.get("memory") or {}).get("used_percent") or data.get("ram_usage")),
+        "temperature": _safe_float(device_metrics.get("temperature_c") or data.get("temperature")),
+        "accuracy": _safe_float((model_info or {}).get("accuracy") or data.get("accuracy")),
+        "sensor_type": item["sensor_type"],
+        "prediction_error_pct": pct_error,
+        "notes": "Logged from controller energy report wrapper.",
+        "model_info": model_info,
+        "device_metrics": device_metrics,
+    })
 
     return jsonify({
         "success": True,

@@ -1,24 +1,466 @@
 <!-- Model Analytics View -->
 <div id="analytics_view" class="hidden">
-    <div class="panel">
-        <div class="panel-header">
-            <div>
-                <h3>Model Analytics</h3>
-                <p class="muted">Pareto frontier analysis, efficiency rankings, and comprehensive benchmark insights</p>
-            </div>
-            <div class="panel-actions">
-                <button class="btn ghost" id="analytics_refresh_btn">Refresh Analytics</button>
-            </div>
+
+    <!-- Stats summary cards -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 14px;">
+        <div class="panel" style="margin-bottom:0; padding:16px 18px;">
+            <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); font-weight:700; margin-bottom:8px;">Models Benchmarked</div>
+            <div style="font-size:36px; font-weight:800; color:var(--text); line-height:1;" id="ana_stat_total">—</div>
+            <div style="font-size:12px; color:var(--muted); margin-top:4px;">across all families</div>
         </div>
-
-        <div id="analytics_alert_container" class="alert" style="display:none;"></div>
-
-        <div id="analytics_content" class="analytics-grid">
-            <div class="monitor-card" style="grid-column: 1 / -1; text-align: center; padding: 40px 20px;">
-
-                <p style="color: var(--muted); font-size: 15px; margin-bottom: 12px;">Click <strong>Refresh Analytics</strong> to analyze model benchmarks</p>
-                <p style="color: var(--muted); font-size: 13px;">This will calculate Pareto frontiers, efficiency rankings, and statistical insights</p>
-            </div>
+        <div class="panel" style="margin-bottom:0; padding:16px 18px;">
+            <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); font-weight:700; margin-bottom:8px;">Best Model (Energy)</div>
+            <div style="font-size:16px; font-weight:800; color:var(--success); line-height:1.2; word-break:break-word;" id="ana_stat_best">—</div>
+            <div style="font-size:12px; color:var(--muted); margin-top:4px;" id="ana_stat_best_energy">lowest mWh</div>
+        </div>
+        <div class="panel" style="margin-bottom:0; padding:16px 18px;">
+            <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); font-weight:700; margin-bottom:8px;">Avg Energy</div>
+            <div style="font-size:36px; font-weight:800; color:var(--accent); line-height:1;" id="ana_stat_avg_energy">—</div>
+            <div style="font-size:12px; color:var(--muted); margin-top:4px;">mWh per inference</div>
+        </div>
+        <div class="panel" style="margin-bottom:0; padding:16px 18px;">
+            <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); font-weight:700; margin-bottom:8px;">Avg Latency</div>
+            <div style="font-size:36px; font-weight:800; color:#7c3aed; line-height:1;" id="ana_stat_avg_lat">—</div>
+            <div style="font-size:12px; color:var(--muted); margin-top:4px;">seconds</div>
+        </div>
+        <div class="panel" style="margin-bottom:0; padding:16px 18px;">
+            <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); font-weight:700; margin-bottom:8px;">Pareto Optimal</div>
+            <div style="font-size:36px; font-weight:800; color:#f59e0b; line-height:1;" id="ana_stat_pareto">—</div>
+            <div style="font-size:12px; color:var(--muted); margin-top:4px;">frontier models</div>
         </div>
     </div>
+
+    <!-- Alert container -->
+    <div id="analytics_alert_container" class="alert" style="display:none; margin-bottom:14px;"></div>
+
+    <!-- Main analytics content: leaderboard + charts -->
+    <div id="analytics_content">
+        <div class="panel" style="text-align:center; padding:48px 24px;">
+            <div style="font-size:40px; margin-bottom:16px; opacity:0.3;">📊</div>
+            <div style="font-size:16px; font-weight:700; color:var(--text); margin-bottom:8px;">Model Analytics</div>
+            <p style="color:var(--muted); font-size:14px; margin-bottom:20px; max-width:400px; margin-left:auto; margin-right:auto; line-height:1.6;">
+                Pareto frontier analysis, leaderboard rankings, and energy distribution charts for all benchmarked models.
+            </p>
+            <button class="btn primary" id="analytics_refresh_btn" style="padding:12px 28px;">Load Analytics</button>
+        </div>
+    </div>
+
 </div>
+
+<script>
+(function () {
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    const fmt = (v, d=2) => Number.isFinite(Number(v)) ? Number(v).toFixed(d) : '—';
+
+    // ── Chart instances ────────────────────────────────────────────────────────
+    let histChart = null;
+    let paretoChart = null;
+    let deviceBarChart = null;
+
+    function destroyChart(c) { try { if (c) c.destroy(); } catch(_){} }
+
+    // ── Main render ───────────────────────────────────────────────────────────
+    window._anaRender = function (models) {
+        const normalized = (Array.isArray(models) ? models : []).map(m => ({
+            model: m.model || m.name || m.model_name || 'Unknown',
+            energy: Number(m.energy_mwh ?? m.energy_avg_mwh ?? m.energy ?? NaN),
+            latency: Number(m.latency_s ?? m.latency ?? m.latency_avg_s ?? NaN),
+            size:    Number(m.size_mb ?? m.model_size_mb ?? m.size ?? NaN),
+            throughput: Number(m.throughput ?? m.throughput_iter_per_s ?? m.fps ?? NaN),
+            device: m.device_type || m.device || '',
+            mape:   Number(m.mape ?? m.prediction_mape_pct ?? NaN)
+        })).filter(m => Number.isFinite(m.energy) && m.energy > 0);
+
+        if (!normalized.length) {
+            renderAnaPlaceholder('No valid benchmark data found.');
+            return;
+        }
+
+        // Stats
+        const sortedE = [...normalized].sort((a,b) => a.energy - b.energy);
+        const avgEnergy = normalized.reduce((s,m) => s + m.energy, 0) / normalized.length;
+        const avgLat    = normalized.filter(m => Number.isFinite(m.latency)).reduce((s,m) => s + m.latency, 0) /
+                          (normalized.filter(m => Number.isFinite(m.latency)).length || 1);
+        const best = sortedE[0];
+
+        // Pareto frontier
+        const paretoSet = [];
+        for (const m of sortedE) {
+            if (!Number.isFinite(m.latency)) continue;
+            const dominated = sortedE.some(o =>
+                Number.isFinite(o.latency) &&
+                (o.energy <= m.energy && o.latency <= m.latency) &&
+                (o.energy < m.energy || o.latency < m.latency)
+            );
+            if (!dominated) paretoSet.push(m);
+        }
+
+        // Update stat cards
+        document.getElementById('ana_stat_total').textContent = normalized.length;
+        document.getElementById('ana_stat_best').textContent = best ? best.model.split('/').pop().replace(/_/g,' ') : '—';
+        document.getElementById('ana_stat_best_energy').textContent = best ? `${best.energy.toFixed(2)} mWh` : 'lowest mWh';
+        document.getElementById('ana_stat_avg_energy').textContent = fmt(avgEnergy);
+        document.getElementById('ana_stat_avg_lat').textContent = fmt(avgLat, 3);
+        document.getElementById('ana_stat_pareto').textContent = paretoSet.length;
+
+        // Build main content
+        const container = document.getElementById('analytics_content');
+        container.innerHTML = `
+            <!-- Leaderboard -->
+            <div class="panel" style="margin-bottom:14px;">
+                <div class="panel-header" style="margin-bottom:12px;">
+                    <div>
+                        <h3 style="font-size:15px;">Model Leaderboard</h3>
+                        <p class="muted" style="font-size:12px; margin-top:2px;">Sorted by energy consumption (ascending). Stars = Pareto optimal.</p>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <label style="font-size:12px; color:var(--muted); font-weight:600;">Sort by:</label>
+                        <select id="ana_sort_select" class="filter-select" style="padding:6px 10px; font-size:12px; min-width:130px;">
+                            <option value="energy">Energy (mWh)</option>
+                            <option value="latency">Latency (s)</option>
+                            <option value="size">Size (MB)</option>
+                            <option value="throughput">Throughput</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table id="ana_leaderboard_table" style="width:100%; border-collapse:collapse; font-size:13px;">
+                        <thead>
+                            <tr style="border-bottom:2px solid var(--border);">
+                                <th style="text-align:left; padding:8px 10px; color:var(--muted); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.04em;">#</th>
+                                <th style="text-align:left; padding:8px 10px; color:var(--muted); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.04em;">Model</th>
+                                <th style="text-align:right; padding:8px 10px; color:var(--muted); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.04em;">Energy (mWh)</th>
+                                <th style="text-align:right; padding:8px 10px; color:var(--muted); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.04em;">Latency (s)</th>
+                                <th style="text-align:right; padding:8px 10px; color:var(--muted); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.04em;">Size (MB)</th>
+                                <th style="text-align:right; padding:8px 10px; color:var(--muted); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.04em;">Throughput</th>
+                                <th style="text-align:center; padding:8px 10px; color:var(--muted); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.04em;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ana_leaderboard_body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Charts row -->
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); gap:14px; margin-bottom:14px;">
+
+                <!-- Energy distribution histogram -->
+                <div class="panel" style="margin-bottom:0;">
+                    <div class="panel-header" style="margin-bottom:10px;">
+                        <div>
+                            <h3 style="font-size:14px;">Energy Distribution</h3>
+                            <p class="muted" style="font-size:11px; margin-top:2px;">Histogram of model energy consumption</p>
+                        </div>
+                    </div>
+                    <div style="position:relative; height:220px;">
+                        <canvas id="ana_hist_chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Pareto frontier chart -->
+                <div class="panel" style="margin-bottom:0;">
+                    <div class="panel-header" style="margin-bottom:10px;">
+                        <div>
+                            <h3 style="font-size:14px;">Pareto Frontier (Energy vs Latency)</h3>
+                            <p class="muted" style="font-size:11px; margin-top:2px;">Optimal trade-off points highlighted in blue</p>
+                        </div>
+                    </div>
+                    <div style="position:relative; height:220px;">
+                        <canvas id="ana_pareto_chart"></canvas>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Efficiency ranking bars -->
+            <div class="panel" style="margin-bottom:14px;">
+                <div class="panel-header" style="margin-bottom:12px;">
+                    <div>
+                        <h3 style="font-size:15px;">Efficiency Ranking</h3>
+                        <p class="muted" style="font-size:12px; margin-top:2px;">Throughput per mWh — best performance-per-energy ratio (top 10)</p>
+                    </div>
+                </div>
+                <div id="ana_efficiency_list" style="display:flex; flex-direction:column; gap:8px;"></div>
+            </div>
+
+            <!-- Summary statistics -->
+            <div class="panel" style="margin-bottom:0;">
+                <div class="panel-header" style="margin-bottom:12px;">
+                    <div>
+                        <h3 style="font-size:15px;">Summary Statistics</h3>
+                        <p class="muted" style="font-size:12px; margin-top:2px;">Complete benchmark dataset overview</p>
+                    </div>
+                    <span class="badge" style="background:rgba(59,130,246,0.12); color:var(--accent); font-size:11px;">${normalized.length} models</span>
+                </div>
+                <div id="ana_summary_stats" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap:10px;"></div>
+            </div>
+        `;
+
+        // Render leaderboard rows
+        renderAnaLeaderboard(normalized, paretoSet, 'energy');
+
+        // Sort select handler
+        const sortSel = document.getElementById('ana_sort_select');
+        if (sortSel) {
+            sortSel.addEventListener('change', () => {
+                renderAnaLeaderboard(normalized, paretoSet, sortSel.value);
+            });
+        }
+
+        // Render efficiency ranking
+        renderAnaEfficiency(normalized);
+
+        // Render summary stats
+        renderAnaSummary(normalized);
+
+        // Render charts (next microtask so DOM is ready)
+        setTimeout(() => {
+            renderAnaHistogram(normalized);
+            renderAnaPareto(normalized, paretoSet);
+        }, 50);
+    };
+
+    // ── Leaderboard ───────────────────────────────────────────────────────────
+    function renderAnaLeaderboard(models, paretoSet, sortKey) {
+        const sorted = [...models].sort((a,b) => {
+            const av = Number(a[sortKey] ?? a.energy);
+            const bv = Number(b[sortKey] ?? b.energy);
+            if (!Number.isFinite(av)) return 1;
+            if (!Number.isFinite(bv)) return -1;
+            return av - bv;
+        });
+        const paretoNames = new Set(paretoSet.map(p => p.model));
+        const maxEnergy = Math.max(...sorted.map(m => m.energy), 1);
+
+        const tbody = document.getElementById('ana_leaderboard_body');
+        if (!tbody) return;
+        tbody.innerHTML = sorted.map((m, i) => {
+            const isPareto = paretoNames.has(m.model);
+            const energyPct = Math.min(100, (m.energy / maxEnergy) * 100);
+            const rowBg = i === 0 ? 'background:rgba(16,185,129,0.04);' : isPareto ? 'background:rgba(59,130,246,0.03);' : '';
+            return `
+                <tr style="border-bottom:1px solid var(--border); ${rowBg}">
+                    <td style="padding:9px 10px; font-weight:700; color:var(--muted); font-size:12px;">${i+1}</td>
+                    <td style="padding:9px 10px;">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            ${isPareto ? '<span style="color:#3b82f6; font-size:13px;" title="Pareto optimal">★</span>' : '<span style="width:13px; display:inline-block;"></span>'}
+                            <span style="font-weight:600; color:var(--text); font-size:13px;">${escapeHtml((m.model||'').split('/').pop().replace(/_/g,' '))}</span>
+                            ${i===0 ? '<span style="padding:2px 6px; border-radius:4px; font-size:9px; font-weight:700; background:rgba(16,185,129,0.15); color:var(--success); text-transform:uppercase; letter-spacing:0.04em;">Best</span>' : ''}
+                        </div>
+                        <div style="height:4px; border-radius:2px; background:var(--border); margin-top:5px; overflow:hidden;">
+                            <div style="height:100%; width:${energyPct}%; background:linear-gradient(90deg,#3b82f6,#22d3ee); border-radius:2px;"></div>
+                        </div>
+                    </td>
+                    <td style="padding:9px 10px; text-align:right; font-weight:700; color:var(--accent);">${fmt(m.energy)}</td>
+                    <td style="padding:9px 10px; text-align:right; color:var(--text);">${Number.isFinite(m.latency) ? fmt(m.latency,3) : '—'}</td>
+                    <td style="padding:9px 10px; text-align:right; color:var(--text);">${Number.isFinite(m.size) ? fmt(m.size,1) : '—'}</td>
+                    <td style="padding:9px 10px; text-align:right; color:var(--text);">${Number.isFinite(m.throughput) ? fmt(m.throughput,2) : '—'}</td>
+                    <td style="padding:9px 10px; text-align:center;">
+                        ${isPareto
+                            ? '<span style="padding:3px 7px; border-radius:5px; font-size:10px; font-weight:700; background:rgba(59,130,246,0.12); color:var(--accent); text-transform:uppercase; letter-spacing:0.04em;">Pareto</span>'
+                            : '<span style="padding:3px 7px; border-radius:5px; font-size:10px; font-weight:700; background:rgba(148,163,184,0.1); color:var(--muted); text-transform:uppercase; letter-spacing:0.04em;">Normal</span>'
+                        }
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // ── Efficiency ranking ────────────────────────────────────────────────────
+    function renderAnaEfficiency(models) {
+        const el = document.getElementById('ana_efficiency_list');
+        if (!el) return;
+        const ranked = models
+            .filter(m => Number.isFinite(m.throughput) && m.throughput > 0)
+            .map(m => ({ ...m, eff: m.throughput / m.energy }))
+            .filter(m => Number.isFinite(m.eff) && m.eff > 0)
+            .sort((a,b) => b.eff - a.eff)
+            .slice(0, 10);
+        if (!ranked.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;">No throughput data available.</div>'; return; }
+        const maxEff = ranked[0].eff;
+        el.innerHTML = ranked.map((m, i) => {
+            const pct = (m.eff / maxEff) * 100;
+            const colors = ['#3b82f6','#10b981','#8b5cf6','#f59e0b','#ef4444','#06b6d4','#84cc16','#f97316','#ec4899','#6366f1'];
+            const col = colors[i % colors.length];
+            return `
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="width:18px; text-align:right; font-size:12px; font-weight:700; color:var(--muted);">${i+1}</span>
+                    <span style="min-width:180px; max-width:260px; font-size:13px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(m.model)}">${escapeHtml((m.model||'').split('/').pop().replace(/_/g,' '))}</span>
+                    <div style="flex:1; height:8px; border-radius:4px; background:var(--border); overflow:hidden;">
+                        <div style="height:100%; width:${pct}%; background:${col}; border-radius:4px; transition:width 0.4s ease;"></div>
+                    </div>
+                    <span style="min-width:80px; text-align:right; font-size:12px; font-weight:700; color:${col};">${m.eff.toFixed(2)} iter/mWh</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // ── Summary statistics ────────────────────────────────────────────────────
+    function renderAnaSummary(models) {
+        const el = document.getElementById('ana_summary_stats');
+        if (!el) return;
+        const finiteEnergy = models.filter(m => Number.isFinite(m.energy));
+        const finiteLatency = models.filter(m => Number.isFinite(m.latency));
+        const finiteSize = models.filter(m => Number.isFinite(m.size));
+        const stats = [
+            { label: 'Total Models', val: models.length, unit: '', color: 'var(--accent)' },
+            { label: 'Min Energy', val: finiteEnergy.length ? Math.min(...finiteEnergy.map(m=>m.energy)).toFixed(2) : '—', unit: ' mWh', color: 'var(--success)' },
+            { label: 'Max Energy', val: finiteEnergy.length ? Math.max(...finiteEnergy.map(m=>m.energy)).toFixed(2) : '—', unit: ' mWh', color: 'var(--danger)' },
+            { label: 'Avg Energy', val: finiteEnergy.length ? (finiteEnergy.reduce((s,m)=>s+m.energy,0)/finiteEnergy.length).toFixed(2) : '—', unit: ' mWh', color: 'var(--accent)' },
+            { label: 'Avg Latency', val: finiteLatency.length ? (finiteLatency.reduce((s,m)=>s+m.latency,0)/finiteLatency.length).toFixed(3) : '—', unit: ' s', color: '#7c3aed' },
+            { label: 'Avg Size', val: finiteSize.length ? (finiteSize.reduce((s,m)=>s+m.size,0)/finiteSize.length).toFixed(1) : '—', unit: ' MB', color: '#f59e0b' },
+        ];
+        el.innerHTML = stats.map(s => `
+            <div style="padding:12px; border:1px solid var(--border); border-radius:10px; background:#ffffff;">
+                <div style="font-size:11px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px;">${s.label}</div>
+                <div style="font-size:22px; font-weight:800; color:${s.color}; line-height:1;">${s.val}<span style="font-size:13px; color:var(--muted); font-weight:400;">${s.unit}</span></div>
+            </div>
+        `).join('');
+    }
+
+    // ── Energy histogram ──────────────────────────────────────────────────────
+    function renderAnaHistogram(models) {
+        const canvas = document.getElementById('ana_hist_chart');
+        if (!canvas) return;
+        destroyChart(histChart);
+
+        const energies = models.map(m => m.energy).filter(Number.isFinite);
+        if (!energies.length) return;
+
+        const min = Math.min(...energies);
+        const max = Math.max(...energies);
+        const binCount = 12;
+        const binWidth = (max - min) / binCount || 1;
+        const bins = Array(binCount).fill(0);
+        energies.forEach(e => {
+            const idx = Math.min(binCount - 1, Math.floor((e - min) / binWidth));
+            bins[idx]++;
+        });
+        const labels = bins.map((_, i) => `${(min + i * binWidth).toFixed(0)}–${(min + (i+1) * binWidth).toFixed(0)}`);
+
+        histChart = new Chart(canvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Models',
+                    data: bins,
+                    backgroundColor: 'rgba(59,130,246,0.65)',
+                    borderColor: '#3b82f6',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            title: ctx => `Energy: ${ctx[0].label} mWh`,
+                            label: ctx => `${ctx.parsed.y} model(s)`
+                        }
+                    }
+                },
+                scales: {
+                    x: { ticks: { font:{size:10}, color:'#94a3b8', maxRotation:45 }, grid: { display:false } },
+                    y: { title:{display:true,text:'Count',font:{size:11},color:'#94a3b8'}, ticks:{font:{size:11},color:'#94a3b8',stepSize:1}, grid:{color:'rgba(148,163,184,0.12)'} }
+                }
+            }
+        });
+    }
+
+    // ── Pareto scatter ────────────────────────────────────────────────────────
+    function renderAnaPareto(models, paretoSet) {
+        const canvas = document.getElementById('ana_pareto_chart');
+        if (!canvas) return;
+        destroyChart(paretoChart);
+
+        const paretoNames = new Set(paretoSet.map(p => p.model));
+        const valid = models.filter(m => Number.isFinite(m.energy) && Number.isFinite(m.latency));
+        if (!valid.length) return;
+
+        const nonPareto = valid.filter(m => !paretoNames.has(m.model));
+        const pareto    = valid.filter(m =>  paretoNames.has(m.model));
+
+        paretoChart = new Chart(canvas.getContext('2d'), {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'Models',
+                        data: nonPareto.map(m => ({ x: m.energy, y: m.latency, label: m.model })),
+                        backgroundColor: 'rgba(148,163,184,0.45)',
+                        borderColor: 'rgba(148,163,184,0.7)',
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Pareto Optimal',
+                        data: pareto.map(m => ({ x: m.energy, y: m.latency, label: m.model })),
+                        backgroundColor: 'rgba(59,130,246,0.75)',
+                        borderColor: '#2563eb',
+                        pointRadius: 7,
+                        pointHoverRadius: 9,
+                        borderWidth: 2,
+                        pointStyle: 'star'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position:'top', labels:{ font:{size:11}, boxWidth:12, usePointStyle:true } },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => {
+                                const d = ctx.raw;
+                                const name = (d.label||'').split('/').pop().replace(/_/g,' ');
+                                return [`${name}`, `Energy: ${d.x.toFixed(2)} mWh`, `Latency: ${d.y.toFixed(3)} s`];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { title:{display:true,text:'Energy (mWh)',font:{size:11},color:'#94a3b8'}, ticks:{font:{size:11},color:'#94a3b8'}, grid:{color:'rgba(148,163,184,0.12)'} },
+                    y: { title:{display:true,text:'Latency (s)',font:{size:11},color:'#94a3b8'}, ticks:{font:{size:11},color:'#94a3b8'}, grid:{color:'rgba(148,163,184,0.12)'} }
+                }
+            }
+        });
+    }
+
+    // ── Placeholder ───────────────────────────────────────────────────────────
+    function renderAnaPlaceholder(msg) {
+        const container = document.getElementById('analytics_content');
+        if (container) container.innerHTML = `
+            <div class="panel" style="text-align:center; padding:48px 24px;">
+                <p style="color:var(--muted); font-size:14px;">${escapeHtml(msg)}</p>
+                <button class="btn ghost" id="analytics_refresh_btn" style="margin-top:16px;" onclick="loadModelAnalytics()">Try Again</button>
+            </div>`;
+    }
+
+    // ── Hook into loadModelAnalytics ─────────────────────────────────────────
+    // The main index.html calls renderParetoAnalysis(models) after fetching data.
+    // We override it to also call _anaRender.
+    const _origRender = window.renderParetoAnalysis;
+    window.renderParetoAnalysis = function (models) {
+        window._anaRender(models);
+        // Keep original for analytics_content DOM used by index.html JS
+        // (our _anaRender rebuilds analytics_content entirely, so skip orig)
+    };
+
+    // ── Refresh button (initial state) ────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('analytics_refresh_btn');
+        if (btn && !btn.dataset.bound) {
+            btn.dataset.bound = '1';
+            btn.addEventListener('click', () => {
+                if (typeof loadModelAnalytics === 'function') loadModelAnalytics();
+            });
+        }
+    });
+})();
+</script>

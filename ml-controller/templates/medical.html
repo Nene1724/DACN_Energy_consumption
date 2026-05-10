@@ -1,14 +1,16 @@
 <div id="medical_view" class="hidden">
-    <div class="panel">
+
+    <!-- Header panel -->
+    <div class="panel" style="margin-bottom: 14px;">
         <div class="panel-header">
             <div>
                 <h3>Medical Safety Watch</h3>
-                <p class="muted" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <p class="muted" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:4px;">
                     <span>Clinical device:</span>
                     <select id="medical_device_selector" class="filter-select" style="min-width: 280px;">
                         <option value="">Select a device</option>
                     </select>
-                    <span style="color: var(--muted); font-size: 12px;">| Last update: <span id="medical_last_update">--</span></span>
+                    <span style="color: var(--muted); font-size: 12px;">| Last update: <span id="medical_last_update">—</span></span>
                 </p>
             </div>
             <div class="panel-actions medical-actions-fixed">
@@ -16,90 +18,377 @@
                 <button class="btn primary" id="medical_watch_toggle_btn" type="button">Start Clinical Watch</button>
             </div>
         </div>
+    </div>
 
-        <div id="medical_alert_banner" class="medical-banner medical-banner-safe">
-            <div>
-                <div class="medical-banner-title">System ready for patient safety monitoring</div>
-                <div class="medical-banner-text" id="medical_alert_text">Select a Jetson device and start the clinical watch to monitor fall events.</div>
+    <!-- Status Banner (prominent, color-coded) -->
+    <div id="medical_alert_banner" class="medical-banner medical-banner-safe" style="margin-bottom: 14px; position: relative; overflow: hidden;">
+        <!-- Animated background pulse for critical state -->
+        <div id="medical_banner_pulse" style="position:absolute;inset:0;background:transparent;pointer-events:none;border-radius:16px;transition:background 0.4s;"></div>
+        <div style="position:relative; z-index:1;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+                <span id="medical_severity_icon" style="font-size:22px; line-height:1;">✅</span>
+                <div class="medical-banner-title" id="medical_alert_title">System Ready — Patient Safety Monitoring</div>
             </div>
-            <div class="medical-banner-meta">
-                <span><strong>State:</strong> <span id="medical_alert_state">Idle</span></span>
-                <span><strong>Severity:</strong> <span id="medical_alert_severity">Normal</span></span>
-                <span><strong>Watch:</strong> <span id="medical_watch_state">Stopped</span></span>
+            <div class="medical-banner-text" id="medical_alert_text">
+                Select a Jetson device and start the clinical watch to monitor fall events.
+            </div>
+        </div>
+        <div class="medical-banner-meta" style="position:relative; z-index:1;">
+            <span><strong>State:</strong> <span id="medical_alert_state">Idle</span></span>
+            <span><strong>Severity:</strong> <span id="medical_alert_severity">Normal</span></span>
+            <span><strong>Watch:</strong> <span id="medical_watch_state">Stopped</span></span>
+            <span><strong>Score:</strong> <span id="medical_banner_score">—</span></span>
+        </div>
+    </div>
+
+    <!-- Camera + Snapshot -->
+    <div style="display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; margin-bottom: 14px; align-items: start;">
+        <!-- Camera Feed -->
+        <div class="panel" style="margin-bottom:0; padding:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px; flex-wrap:wrap;">
+                <h3 style="font-size:15px; margin:0;">Live Patient Camera</h3>
+                <div class="chip-row" style="margin:0;">
+                    <span class="chip">USB Camera</span>
+                    <span class="chip">MoveNet</span>
+                    <span class="chip">Jetson Edge</span>
+                </div>
+            </div>
+            <div class="medical-live-shell">
+                <img id="medical_camera_image" alt="Medical camera feed"
+                     style="display:none; width:100%; height:100%; min-height:380px; object-fit:cover; background:#020617;">
+                <div id="medical_camera_placeholder" class="medical-camera-placeholder">
+                    Select a device to load the clinical camera stream.
+                </div>
+                <!-- Fall score overlay on video -->
+                <div id="medical_score_overlay" style="position:absolute; bottom:12px; left:12px; right:12px; display:none;">
+                    <div style="background:rgba(2,6,23,0.75); backdrop-filter:blur(4px); border-radius:10px; padding:8px 12px; display:flex; align-items:center; gap:12px;">
+                        <div>
+                            <div style="font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:rgba(255,255,255,0.6); font-weight:700;">Fall Score</div>
+                            <div style="font-size:22px; font-weight:800; color:white; line-height:1;" id="overlay_fall_score">—</div>
+                        </div>
+                        <div style="flex:1; height:6px; border-radius:4px; background:rgba(255,255,255,0.15); overflow:hidden;">
+                            <div id="overlay_score_bar" style="height:100%; width:0%; border-radius:4px; transition:width 0.4s ease; background:linear-gradient(90deg,#10b981,#f59e0b,#ef4444);"></div>
+                        </div>
+                        <div style="font-size:13px; font-weight:700;" id="overlay_fall_label">—</div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="monitor-row" style="margin-top: 16px;">
-            <div class="monitor-card" style="flex: 1.5;">
-                <div style="display:flex; justify-content:space-between; align-items:center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap;">
-                    <h4 style="margin: 0;">Live Patient Camera</h4>
-                    <div class="chip-row" style="margin: 0;">
-                        <span class="chip">USB Camera</span>
-                        <span class="chip">MoveNet Fall Detection</span>
-                        <span class="chip">Jetson Edge Inference</span>
-                    </div>
-                </div>
-                <div class="medical-live-shell">
-                    <img id="medical_camera_image" alt="Medical camera feed"
-                         style="display:none; width:100%; height:100%; min-height:420px; object-fit:cover; background:#020617;">
-                    <div id="medical_camera_placeholder" class="medical-camera-placeholder">
-                        Select a device to load the clinical camera stream.
-                    </div>
+        <!-- Clinical Snapshot -->
+        <div class="panel" style="margin-bottom:0; padding:14px;">
+            <h3 style="font-size:15px; margin-bottom:12px;">Clinical Snapshot</h3>
+
+            <!-- Fall score trend chart -->
+            <div style="margin-bottom:14px;">
+                <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); font-weight:700; margin-bottom:6px;">Fall Score Trend (last 20)</div>
+                <div style="position:relative; height:100px;">
+                    <canvas id="medical_score_chart"></canvas>
                 </div>
             </div>
 
-            <div class="monitor-card">
-                <h4>Clinical Snapshot</h4>
-                <div class="metric-list" style="margin-top: 8px;">
-                    <div class="metric-line"><span class="label">Camera:</span><span class="value" id="medical_camera_state">N/A</span></div>
-                    <div class="metric-line"><span class="label">Source:</span><span class="value" id="medical_camera_source">N/A</span></div>
-                    <div class="metric-line"><span class="label">Feed:</span><span class="value" id="medical_camera_transport">N/A</span></div>
-                    <div class="metric-line"><span class="label">Mode:</span><span class="value" id="medical_model_mode">N/A</span></div>
-                    <div class="metric-line"><span class="label">Watch Loop:</span><span class="value" id="medical_snapshot_watch">Stopped</span></div>
-                    <div class="metric-line"><span class="label">Alert Queue:</span><span class="value" id="medical_snapshot_alert">None</span></div>
-                    <div class="metric-line"><span class="label">Latest Label:</span><span class="value" id="medical_fall_label">N/A</span></div>
-                    <div class="metric-line"><span class="label">Fall Score:</span><span class="value" id="medical_fall_score">N/A</span></div>
-                    <div class="metric-line"><span class="label">Frames:</span><span class="value" id="medical_frames_analyzed">N/A</span></div>
-                    <div class="metric-line"><span class="label">Last Check:</span><span class="value" id="medical_last_check">N/A</span></div>
-                    <div class="metric-line"><span class="label">Last Status:</span><span class="value" id="medical_camera_error">No camera activity yet</span></div>
+            <!-- Metric rows -->
+            <div class="metric-list" style="font-size:13px; margin-bottom:12px;">
+                <div class="metric-line"><span class="label">Camera:</span><span class="value" id="medical_camera_state">N/A</span></div>
+                <div class="metric-line"><span class="label">Source:</span><span class="value" id="medical_camera_source">N/A</span></div>
+                <div class="metric-line"><span class="label">Feed:</span><span class="value" id="medical_camera_transport">N/A</span></div>
+                <div class="metric-line"><span class="label">Mode:</span><span class="value" id="medical_model_mode">N/A</span></div>
+                <div class="metric-line"><span class="label">Watch Loop:</span><span class="value" id="medical_snapshot_watch">Stopped</span></div>
+                <div class="metric-line"><span class="label">Alert Queue:</span><span class="value" id="medical_snapshot_alert">None</span></div>
+                <div class="metric-line"><span class="label">Latest Label:</span><span class="value" id="medical_fall_label">N/A</span></div>
+                <div class="metric-line"><span class="label">Fall Score:</span><span class="value" id="medical_fall_score">N/A</span></div>
+                <div class="metric-line"><span class="label">Motion Score:</span><span class="value" id="medical_motion_score">N/A</span></div>
+                <div class="metric-line"><span class="label">Frames:</span><span class="value" id="medical_frames_analyzed">N/A</span></div>
+                <div class="metric-line"><span class="label">Last Check:</span><span class="value" id="medical_last_check">N/A</span></div>
+                <div class="metric-line"><span class="label">Last Status:</span><span class="value" id="medical_camera_error" style="color:var(--muted);">No camera activity yet</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Benchmark + Guidance -->
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-bottom:14px;">
+        <div class="panel" style="margin-bottom:0; padding:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px;">
+                <div>
+                    <h3 style="font-size:15px; margin:0;">Benchmark-Calibrated Energy</h3>
+                    <p class="muted" style="font-size:12px; margin-top:2px;">On-device measurement (FNB58)</p>
                 </div>
+                <button class="btn ghost" id="medical_benchmark_btn" type="button" style="padding:8px 14px; font-size:13px;">Benchmark</button>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
+                <div style="padding:10px; background:#f8fafc; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:3px;">Latency Avg</div>
+                    <div style="font-size:18px; font-weight:800; color:var(--text);" id="medical_benchmark_latency">N/A</div>
+                </div>
+                <div style="padding:10px; background:#f8fafc; border-radius:8px; border:1px solid var(--border);">
+                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:3px;">P95 Latency</div>
+                    <div style="font-size:18px; font-weight:800; color:var(--text);" id="medical_benchmark_p95">N/A</div>
+                </div>
+                <div style="padding:10px; background:rgba(59,130,246,0.06); border-radius:8px; border:1px solid rgba(59,130,246,0.15);">
+                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:3px;">Throughput</div>
+                    <div style="font-size:18px; font-weight:800; color:var(--accent);" id="medical_benchmark_throughput">N/A</div>
+                </div>
+                <div style="padding:10px; background:rgba(16,185,129,0.06); border-radius:8px; border:1px solid rgba(16,185,129,0.15);">
+                    <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:3px;">Energy</div>
+                    <div style="font-size:18px; font-weight:800; color:var(--success);" id="medical_benchmark_energy">N/A</div>
+                </div>
+            </div>
+            <div class="metric-list" style="font-size:12px;">
+                <div class="metric-line"><span class="label">Benchmark Time:</span><span class="value" id="medical_benchmark_updated">N/A</span></div>
+                <div class="metric-line"><span class="label">Note:</span><span class="value" id="medical_benchmark_note" style="color:var(--muted);">Waiting for on-device benchmark</span></div>
             </div>
         </div>
 
-        <div class="monitor-row" style="margin-top: 16px;">
-            <div class="monitor-card">
-                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-                    <h4 style="margin: 0;">Benchmark-Calibrated Energy</h4>
-                    <button class="btn ghost" id="medical_benchmark_btn" type="button">Benchmark</button>
-                </div>
-                <div class="metric-list" style="margin-top: 8px;">
-                    <div class="metric-line"><span class="label">Latency Avg:</span><span class="value" id="medical_benchmark_latency">N/A</span></div>
-                    <div class="metric-line"><span class="label">Latency P95:</span><span class="value" id="medical_benchmark_p95">N/A</span></div>
-                    <div class="metric-line"><span class="label">Throughput:</span><span class="value" id="medical_benchmark_throughput">N/A</span></div>
-                    <div class="metric-line"><span class="label">Predicted Energy:</span><span class="value" id="medical_benchmark_energy">N/A</span></div>
-                    <div class="metric-line"><span class="label">Benchmark Time:</span><span class="value" id="medical_benchmark_updated">N/A</span></div>
-                    <div class="metric-line"><span class="label">Benchmark Note:</span><span class="value" id="medical_benchmark_note">Waiting for on-device benchmark</span></div>
-                </div>
+        <div class="panel" style="margin-bottom:0; padding:14px;">
+            <h3 style="font-size:15px; margin-bottom:10px;">Operator Guidance</h3>
+            <div id="medical_response_guidance" style="color:var(--muted); font-size:13px; line-height:1.65; margin-bottom:14px;">
+                Keep the camera view visible and enable Clinical Watch for periodic fall checks. When an alert is raised, review the live frame, acknowledge the event, and dispatch a caregiver if needed.
             </div>
-
-            <div class="monitor-card">
-                <h4>Operator Guidance</h4>
-                <div id="medical_response_guidance" style="color: var(--muted); font-size: 13px; line-height: 1.65;">
-                    Keep the camera view visible and enable Clinical Watch for periodic fall checks. When an alert is raised, review the live frame, acknowledge the event, and dispatch a caregiver if needed.
+            <!-- Severity reference legend -->
+            <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); margin-bottom:8px;">Severity Reference</div>
+            <div style="display:flex; flex-direction:column; gap:5px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="width:12px; height:12px; border-radius:50%; background:var(--success); flex-shrink:0;"></div>
+                    <span style="font-size:12px; font-weight:600; color:var(--success);">Safe (score &lt; 0.35)</span>
+                    <span style="font-size:12px; color:var(--muted);">— Normal posture, no action needed</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="width:12px; height:12px; border-radius:50%; background:var(--warning); flex-shrink:0;"></div>
+                    <span style="font-size:12px; font-weight:600; color:var(--warning);">Warning (0.35–0.65)</span>
+                    <span style="font-size:12px; color:var(--muted);">— Unusual posture, monitor closely</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="width:12px; height:12px; border-radius:50%; background:var(--danger); flex-shrink:0;"></div>
+                    <span style="font-size:12px; font-weight:600; color:var(--danger);">Critical (&gt; 0.65)</span>
+                    <span style="font-size:12px; color:var(--muted);">— Fall detected, dispatch caregiver</span>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Fall Event Timeline -->
     <div class="panel">
-        <div class="panel-header">
+        <div class="panel-header" style="margin-bottom:12px;">
             <div>
                 <h3>Fall Event Timeline</h3>
-                <p class="muted">Recent detections and acknowledgements for the selected medical device</p>
+                <p class="muted" style="font-size:12px; margin-top:2px;">Recent detections and acknowledgements for the selected device</p>
             </div>
+            <span id="med_event_count_badge" class="badge" style="font-size:11px; background:rgba(148,163,184,0.15); color:var(--muted);">0 events</span>
         </div>
         <div id="medical_event_list" class="medical-event-list">
             <div class="timeline-empty">No fall detection events recorded yet.</div>
         </div>
     </div>
+
 </div>
+
+<script>
+(function () {
+    // ── Fall score trend chart ─────────────────────────────────────────────────
+    let scoreChart = null;
+    const scoreSamples = [];
+    const MAX_SCORE_SAMPLES = 20;
+
+    function initScoreChart() {
+        const canvas = document.getElementById('medical_score_chart');
+        if (!canvas || scoreChart) return;
+        scoreChart = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: Array(MAX_SCORE_SAMPLES).fill(''),
+                datasets: [{
+                    label: 'Fall Score',
+                    data: Array(MAX_SCORE_SAMPLES).fill(null),
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239,68,68,0.08)',
+                    borderWidth: 2,
+                    tension: 0.35,
+                    pointRadius: 2,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 250 },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: { label: ctx => `Score: ${ctx.parsed.y != null ? ctx.parsed.y.toFixed(3) : 'N/A'}` }
+                    }
+                },
+                scales: {
+                    x: { display: false },
+                    y: {
+                        min: 0, max: 1,
+                        ticks: { font:{size:10}, color:'#94a3b8', stepSize: 0.25 },
+                        grid: { color:'rgba(148,163,184,0.12)' },
+                        // Reference lines at 0.35 and 0.65
+                    }
+                }
+            }
+        });
+    }
+
+    window._medPushScore = function (score) {
+        scoreSamples.push(Number.isFinite(Number(score)) ? Number(score) : null);
+        if (scoreSamples.length > MAX_SCORE_SAMPLES) scoreSamples.shift();
+        if (!scoreChart) initScoreChart();
+        if (!scoreChart) return;
+        scoreChart.data.datasets[0].data = [...scoreSamples];
+
+        // Color the line based on latest score
+        const last = scoreSamples[scoreSamples.length - 1];
+        if (last != null) {
+            scoreChart.data.datasets[0].borderColor = last > 0.65 ? '#ef4444' : last > 0.35 ? '#f59e0b' : '#10b981';
+            scoreChart.data.datasets[0].backgroundColor = last > 0.65 ? 'rgba(239,68,68,0.08)' : last > 0.35 ? 'rgba(245,158,11,0.08)' : 'rgba(16,185,129,0.08)';
+        }
+        scoreChart.update('none');
+    };
+
+    // ── Update banner with severity color-coding ──────────────────────────────
+    window._medUpdateBanner = function (severity, score, label, text) {
+        const banner = document.getElementById('medical_alert_banner');
+        const iconEl = document.getElementById('medical_severity_icon');
+        const titleEl = document.getElementById('medical_alert_title');
+        const textEl = document.getElementById('medical_alert_text');
+        const scoreEl = document.getElementById('medical_banner_score');
+        const pulse = document.getElementById('medical_banner_pulse');
+
+        if (!banner) return;
+
+        const sev = (severity || 'normal').toLowerCase();
+        banner.className = 'medical-banner ' + (
+            sev === 'critical' ? 'medical-banner-alert' :
+            sev === 'warning'  ? 'medical-banner-watch' :
+                                 'medical-banner-safe'
+        );
+
+        if (iconEl) iconEl.textContent = sev === 'critical' ? '🚨' : sev === 'warning' ? '⚠️' : '✅';
+
+        const titleMap = {
+            critical: 'CRITICAL — Fall Detected!',
+            warning:  'Warning — Unusual Posture Detected',
+            normal:   'Safe — No Fall Events Detected'
+        };
+        if (titleEl) titleEl.textContent = titleMap[sev] || 'Monitoring Active';
+        if (textEl && text) textEl.textContent = text;
+        if (scoreEl && score != null) scoreEl.textContent = Number(score).toFixed(3);
+
+        // Pulse animation for critical
+        if (pulse) {
+            if (sev === 'critical') {
+                pulse.style.animation = 'medBannerPulse 1.2s ease-in-out infinite';
+                pulse.style.background = 'rgba(220,38,38,0.08)';
+            } else {
+                pulse.style.animation = 'none';
+                pulse.style.background = 'transparent';
+            }
+        }
+
+        // Update overlay on camera
+        const overlay = document.getElementById('medical_score_overlay');
+        const overlayScore = document.getElementById('overlay_fall_score');
+        const overlayBar = document.getElementById('overlay_score_bar');
+        const overlayLabel = document.getElementById('overlay_fall_label');
+        if (overlay && score != null) {
+            overlay.style.display = 'block';
+            if (overlayScore) overlayScore.textContent = Number(score).toFixed(3);
+            if (overlayBar) overlayBar.style.width = Math.min(100, Number(score) * 100) + '%';
+            if (overlayLabel) {
+                overlayLabel.textContent = sev === 'critical' ? '🚨 FALL' : sev === 'warning' ? '⚠ WATCH' : '✓ SAFE';
+                overlayLabel.style.color = sev === 'critical' ? '#ef4444' : sev === 'warning' ? '#f59e0b' : '#10b981';
+            }
+        }
+    };
+
+    // ── Render event list with color-coded severity ───────────────────────────
+    const _origRenderEvents = window.renderMedicalEvents;
+
+    window._medRenderEventList = function (events, container) {
+        if (!container) container = document.getElementById('medical_event_list');
+        if (!container) return;
+
+        const badge = document.getElementById('med_event_count_badge');
+        if (badge) {
+            badge.textContent = `${(events||[]).length} event${(events||[]).length !== 1 ? 's' : ''}`;
+        }
+
+        if (!events || !events.length) {
+            container.innerHTML = '<div class="timeline-empty">No fall detection events recorded yet.</div>';
+            return;
+        }
+
+        container.innerHTML = events.map(ev => {
+            const score = Number(ev.fall_score ?? ev.score ?? NaN);
+            const sev = ev.severity || (score > 0.65 ? 'critical' : score > 0.35 ? 'warning' : 'normal');
+            const sevLower = sev.toLowerCase();
+            const borderColor = sevLower === 'critical' ? 'rgba(220,38,38,0.28)' : sevLower === 'warning' ? 'rgba(245,158,11,0.3)' : 'rgba(22,163,74,0.2)';
+            const bgGrad = sevLower === 'critical'
+                ? 'linear-gradient(135deg, rgba(220,38,38,0.07), rgba(255,255,255,0.95))'
+                : sevLower === 'warning'
+                ? 'linear-gradient(135deg, rgba(245,158,11,0.07), rgba(255,255,255,0.95))'
+                : '';
+            const sevColor = sevLower === 'critical' ? 'var(--danger)' : sevLower === 'warning' ? 'var(--warning)' : 'var(--success)';
+            const sevIcon  = sevLower === 'critical' ? '🚨' : sevLower === 'warning' ? '⚠️' : '✅';
+            const sevLabel = sevLower.toUpperCase();
+
+            let ts = ev.timestamp || ev.created_at || ev.time || '';
+            try { if (ts) ts = new Date(ts).toLocaleString(); } catch(_) {}
+
+            const acknowledged = ev.acknowledged || ev.acked;
+            const modelLabel = ev.label || ev.fall_label || ev.prediction || '';
+
+            return `
+                <div class="medical-event ${sevLower === 'critical' ? 'medical-event-critical' : 'medical-event-normal'}"
+                     style="border-color:${borderColor}; ${bgGrad ? 'background:' + bgGrad + ';' : ''}">
+                    <div style="flex:1;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                            <span style="font-size:16px;">${sevIcon}</span>
+                            <span class="medical-event-status" style="color:${sevColor};">${sevLabel}</span>
+                            ${acknowledged ? '<span style="font-size:10px; padding:2px 6px; border-radius:4px; background:rgba(148,163,184,0.12); color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Acked</span>' : ''}
+                        </div>
+                        <div style="font-size:13px; font-weight:600; color:var(--text); margin-bottom:4px;">
+                            ${escapeHtml(modelLabel || 'Fall event detected')}
+                        </div>
+                        ${ev.message || ev.details ? `<div style="font-size:12px; color:var(--muted); margin-bottom:4px; line-height:1.5;">${escapeHtml(ev.message || ev.details || '')}</div>` : ''}
+                        <div class="medical-event-meta">
+                            ${ts ? `<span>🕐 ${escapeHtml(ts)}</span>` : ''}
+                            ${ev.device_name || ev.device ? `<span>📟 ${escapeHtml(ev.device_name || ev.device)}</span>` : ''}
+                            ${ev.model_name || ev.model ? `<span>🤖 ${escapeHtml(ev.model_name || ev.model)}</span>` : ''}
+                        </div>
+                    </div>
+                    <div style="text-align:right; flex-shrink:0; min-width:80px;">
+                        ${Number.isFinite(score) ? `
+                            <div style="font-size:26px; font-weight:800; color:${sevColor}; line-height:1;">${score.toFixed(3)}</div>
+                            <div style="font-size:10px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.04em; margin-top:2px;">Fall Score</div>
+                            <div style="height:5px; border-radius:3px; background:var(--border); margin-top:6px; overflow:hidden;">
+                                <div style="height:100%; width:${Math.min(100,score*100).toFixed(0)}%; background:${sevColor}; border-radius:3px;"></div>
+                            </div>
+                        ` : '<div style="font-size:13px; color:var(--muted);">Score N/A</div>'}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    };
+
+    // ── Init chart on DOM ready ────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+        initScoreChart();
+    });
+    if (document.readyState !== 'loading') initScoreChart();
+
+    // ── Inject CSS for banner pulse animation ─────────────────────────────────
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes medBannerPulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+        #medical_score_overlay { transition: opacity 0.3s; }
+        .medical-event { transition: box-shadow 0.2s; }
+        .medical-event:hover { box-shadow: 0 4px 16px rgba(15,23,42,0.08); }
+    `;
+    document.head.appendChild(style);
+})();
+</script>

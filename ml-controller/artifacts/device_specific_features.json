@@ -11,6 +11,8 @@
   "compute_intensity",
   "model_complexity",
   "computational_density",
+  "latency_per_gflop",
+  "size_per_param",
   "log_params_m",
   "log_gflops",
   "log_size_mb",
@@ -19,6 +21,7 @@
   "log_throughput",
   "log_model_complexity",
   "log_compute_intensity",
+  "log_latency_per_gflop",
   "log_params_x_log_latency",
   "log_gflops_x_log_latency",
   "batch_high_power"

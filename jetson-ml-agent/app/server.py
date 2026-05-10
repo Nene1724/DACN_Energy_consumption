@@ -1167,6 +1167,10 @@ def _build_fall_watch_result(summary, actual_source, duration_s=0.0):
             "fall_frames": summary.get("fall_frames"),
             "fall_frame_ratio": summary.get("fall_frame_ratio"),
             "max_consecutive_fall_frames": summary.get("max_consecutive_fall_frames"),
+            "motion_fall_score": summary.get("motion_fall_score"),
+            "max_center_y_drop": summary.get("max_center_y_drop"),
+            "max_aspect_ratio_rise": summary.get("max_aspect_ratio_rise"),
+            "score_trend_rising": summary.get("score_trend_rising"),
             "mode": "continuous_watch",
             "watch_fps": FALL_WATCH_FPS,
             "window_frames": FALL_WATCH_WINDOW_FRAMES,
@@ -1850,39 +1854,14 @@ def metrics_debug():
     })
 
 
-@app.route("/status", methods=["GET"])
-def status():
-    """Return current agent status with runtime capabilities"""
-    response = dict(STATE)
-    response["runtime_capabilities"] = {
-        "tflite_available": TFLITE_AVAILABLE,
-        "onnx_available": ONNX_AVAILABLE,
-        "numpy_available": np is not None
-    }
-    response["camera_backend"] = _camera_backend_snapshot()
-    response["fall_detection"]["enabled"] = _is_fall_detection_model_info()
-    response["benchmark_metrics"]["runtime"] = STATE.get("runtime")
-    response["camera"] = CAMERA_WORKER.status()
-    response["fall_watch"] = {
-        "running": _fall_watch_is_running(),
-        "fps": FALL_WATCH_FPS,
-        "window_frames": FALL_WATCH_WINDOW_FRAMES,
-        "last_result": _fall_watch_snapshot(),
-    }
-    return jsonify(response)
-
-
-@app.route("/metrics", methods=["GET"])
-def metrics():
-    """Lightweight device metrics without native deps (works on armv7)."""
+def _collect_device_metrics_snapshot():
     cpu = _cpu_percent_from_proc()
     mem = _memory_from_proc()
     storage = _storage_for_path("/")
     real_temp = _temperature_c()
     temp = real_temp if real_temp is not None else _simulated_temperature_c()
     temp_source = "sysfs" if real_temp is not None else "simulated"
-
-    return jsonify({
+    return {
         "success": True,
         "timestamp": _now_iso(),
         "cpu": {"percent": round(cpu, 2) if cpu is not None else None},
@@ -1928,7 +1907,35 @@ def metrics():
             "updated_at": STATE.get("benchmark_metrics", {}).get("updated_at"),
             "last_error": STATE.get("benchmark_metrics", {}).get("last_error"),
         },
-    })
+    }
+
+
+@app.route("/status", methods=["GET"])
+def status():
+    """Return current agent status with runtime capabilities"""
+    response = dict(STATE)
+    response["runtime_capabilities"] = {
+        "tflite_available": TFLITE_AVAILABLE,
+        "onnx_available": ONNX_AVAILABLE,
+        "numpy_available": np is not None
+    }
+    response["camera_backend"] = _camera_backend_snapshot()
+    response["fall_detection"]["enabled"] = _is_fall_detection_model_info()
+    response["benchmark_metrics"]["runtime"] = STATE.get("runtime")
+    response["camera"] = CAMERA_WORKER.status()
+    response["fall_watch"] = {
+        "running": _fall_watch_is_running(),
+        "fps": FALL_WATCH_FPS,
+        "window_frames": FALL_WATCH_WINDOW_FRAMES,
+        "last_result": _fall_watch_snapshot(),
+    }
+    return jsonify(response)
+
+
+@app.route("/metrics", methods=["GET"])
+def metrics():
+    """Lightweight device metrics without native deps (works on armv7)."""
+    return jsonify(_collect_device_metrics_snapshot())
 
 
 @app.route("/deploy", methods=["POST"])
@@ -2307,6 +2314,11 @@ def benchmark_model():
     try:
         _update_benchmark_snapshot(status="running", error=None)
         result = benchmark_loaded_model(warmup_runs=warmup_runs, benchmark_runs=benchmark_runs)
+        result["device_metrics"] = _collect_device_metrics_snapshot()
+        result["experiment_run_id"] = (STATE.get("model_info") or {}).get("experiment_run_id")
+        result["deployment_mode"] = (STATE.get("model_info") or {}).get("deployment_mode")
+        result["accuracy"] = (STATE.get("model_info") or {}).get("accuracy")
+        result["model_info"] = STATE.get("model_info")
         return jsonify(result)
     except Exception as exc:
         _update_benchmark_snapshot(status="error", error=exc)
@@ -2691,6 +2703,8 @@ def measure_energy_endpoint():
     report = measure_energy_during_inference(duration_s=duration_s)
     if not report.get("success"):
         return jsonify(report), 400
+    device_metrics = _collect_device_metrics_snapshot()
+    report["device_metrics"] = device_metrics
 
     # Optionally post to controller
     try:
@@ -2706,6 +2720,9 @@ def measure_energy_endpoint():
                 "duration_s": report.get("duration_s"),
                 "sensor_type": report.get("sensor_type"),
                 "model_info": STATE.get("model_info"),
+                "experiment_run_id": (STATE.get("model_info") or {}).get("experiment_run_id"),
+                "deployment_mode": (STATE.get("model_info") or {}).get("deployment_mode"),
+                "device_metrics": device_metrics,
             }
             try:
                 requests.post(f"{controller.rstrip('/')}/api/energy/report", json=payload, timeout=10)
@@ -2772,6 +2789,7 @@ def measure_energy_fnb58():
         if start_total_wh is not None and end_total_wh is not None:
             actual_energy_mwh = max(end_total_wh - start_total_wh, 0.0) * 1000.0
             avg_power_mw = (actual_energy_mwh * 3600.0 / duration_s) if duration_s > 0 else None
+            device_metrics = _collect_device_metrics_snapshot()
             response = {
                 "success": True,
                 "sensor_type": "fnb58",
@@ -2780,6 +2798,7 @@ def measure_energy_fnb58():
                 "actual_energy_mwh": round(actual_energy_mwh, 4),
                 "avg_power_mw": round(avg_power_mw, 4) if avg_power_mw is not None else None,
                 "last_values": meter_after.get("last_values"),
+                "device_metrics": device_metrics,
             }
             try:
                 controller = data.get("controller_url") or STATE.get("controller_url") or CONTROLLER_URL
@@ -2794,6 +2813,9 @@ def measure_energy_fnb58():
                         "duration_s": duration_s,
                         "sensor_type": "fnb58",
                         "model_info": STATE.get("model_info"),
+                        "experiment_run_id": (STATE.get("model_info") or {}).get("experiment_run_id"),
+                        "deployment_mode": (STATE.get("model_info") or {}).get("deployment_mode"),
+                        "device_metrics": device_metrics,
                     }
                     requests.post(f"{controller.rstrip('/')}/api/energy/report", json=payload, timeout=10)
                     response["posted_to_controller"] = True
@@ -2877,6 +2899,7 @@ def measure_energy_fnb58():
             "last_values": result.get('last_values'),
             "meter_source": result.get("meter_source"),
             "transport": result.get("transport"),
+            "device_metrics": _collect_device_metrics_snapshot(),
         }
         _update_meter_snapshot(result, status="connected", connected=True, port=resolved_port, error=None)
         
@@ -2894,6 +2917,9 @@ def measure_energy_fnb58():
                     "duration_s": duration_s,
                     "sensor_type": "fnb58",
                     "model_info": STATE.get("model_info"),
+                    "experiment_run_id": (STATE.get("model_info") or {}).get("experiment_run_id"),
+                    "deployment_mode": (STATE.get("model_info") or {}).get("deployment_mode"),
+                    "device_metrics": response.get("device_metrics"),
                 }
                 try:
                     requests.post(f"{controller.rstrip('/')}/api/energy/report", json=payload, timeout=10)

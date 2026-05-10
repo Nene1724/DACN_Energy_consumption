@@ -298,3 +298,22 @@ class EnergyPredictorService:
                 })
         
         return outputs
+
+    def get_metadata(self) -> dict:
+        """Return metadata about loaded models for analytics display."""
+        meta = {}
+        if self.jetson_cfg["model"] is not None:
+            meta["jetson"] = {
+                "model_name": self.jetson_cfg["model_name"],
+                "mape_pct": round(self.jetson_cfg["mape"] * 100, 2),
+                "log_transform": self.jetson_cfg.get("log_transform_target", False),
+            }
+        if self.rpi5_cfg["model"] is not None:
+            meta["rpi5"] = {
+                "model_name": self.rpi5_cfg["model_name"],
+                "mape_pct": round(self.rpi5_cfg["mape"] * 100, 2),
+                "log_transform": self.rpi5_cfg.get("log_transform_target", False),
+            }
+        meta["feature_count"] = len(self.feature_names)
+        meta["features"] = self.feature_names[:10]
+        return meta
