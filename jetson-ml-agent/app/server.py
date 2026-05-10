@@ -1,7 +1,7 @@
 import os
 import threading
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, Response
 import requests
@@ -40,20 +40,6 @@ except ImportError:
     ONNX_AVAILABLE = False
 
 try:
-    import tensorrt as trt
-    TENSORRT_AVAILABLE = True
-except ImportError:
-    trt = None
-    TENSORRT_AVAILABLE = False
-
-try:
-    from cuda import cudart
-    CUDA_RUNTIME_AVAILABLE = True
-except ImportError:
-    cudart = None
-    CUDA_RUNTIME_AVAILABLE = False
-
-try:
     from fnb58_reader import FNB58Reader as FNB58SerialReader, detect_fnb58_port
 except ImportError:
     FNB58SerialReader = None
@@ -85,6 +71,7 @@ except ImportError:
 try:
     from movenet_fall_detection import (
         analyze_pose,
+        camera_backend_info,
         capture_camera_snapshot,
         extract_keypoints,
         open_camera,
@@ -93,6 +80,7 @@ try:
     )
 except ImportError:
     analyze_pose = None
+    camera_backend_info = None
     capture_camera_snapshot = None
     extract_keypoints = None
     open_camera = None
@@ -114,12 +102,15 @@ FNB58_RETRY_INTERVAL_S = max(2.0, float(os.getenv("FNB58_RETRY_INTERVAL_S", "5")
 CAMERA_DEVICE = (os.getenv("CAMERA_DEVICE") or "/dev/video0").strip()
 CAMERA_WIDTH = int(os.getenv("CAMERA_WIDTH", "640") or "640")
 CAMERA_HEIGHT = int(os.getenv("CAMERA_HEIGHT", "480") or "480")
+CAMERA_CAPTURE_FPS = max(1.0, min(float(os.getenv("CAMERA_CAPTURE_FPS", "15") or "15"), 30.0))
+CAMERA_STREAM_FPS = max(1.0, min(float(os.getenv("CAMERA_STREAM_FPS", "12") or "12"), 30.0))
+CAMERA_STREAM_QUALITY = max(30, min(int(os.getenv("CAMERA_STREAM_QUALITY", "55") or "55"), 90))
 FALL_DETECT_DURATION_S = max(0.5, float(os.getenv("FALL_DETECT_DURATION_S", "2.5")))
 FALL_DETECT_MAX_FRAMES = max(4, int(os.getenv("FALL_DETECT_MAX_FRAMES", "16") or "16"))
-FALL_DETECT_MAX_READ_FAILURES = max(1, int(os.getenv("FALL_DETECT_MAX_READ_FAILURES", "6") or "6"))
-TENSORRT_ENGINE_ENABLED = (os.getenv("TENSORRT_ENGINE_ENABLED", "1").strip().lower() in ("1", "true", "yes", "on"))
-TENSORRT_FP16_ENABLED = (os.getenv("TENSORRT_FP16_ENABLED", "1").strip().lower() in ("1", "true", "yes", "on"))
-TENSORRT_WORKSPACE_BYTES = max(1 << 20, int(os.getenv("TENSORRT_WORKSPACE_BYTES", str(512 * 1024 * 1024))))
+FALL_WATCH_FPS = max(0.5, min(float(os.getenv("FALL_WATCH_FPS", "4") or "4"), 15.0))
+FALL_WATCH_WINDOW_FRAMES = max(4, int(os.getenv("FALL_WATCH_WINDOW_FRAMES", "16") or "16"))
+FALL_WATCH_WITH_STREAM = (os.getenv("FALL_WATCH_WITH_STREAM", "true").strip().lower() in ("1", "true", "yes", "on"))
+FALL_WATCH_AUTO_START = (os.getenv("FALL_WATCH_AUTO_START", "false").strip().lower() in ("1", "true", "yes", "on"))
 VIDEO_UPLOAD_DIR = (os.getenv("VIDEO_UPLOAD_DIR") or "/data/uploaded_videos").strip()
 
 # Used only for simulated fallback telemetry when the OS doesn't expose temp sensors.
@@ -167,7 +158,6 @@ def _current_model_path_for_ext(ext: str):
 
 def _current_model_candidates():
     return [
-        _current_model_path_for_ext(".engine"),
         _current_model_path_for_ext(".tflite"),
         _current_model_path_for_ext(".onnx"),
     ]
@@ -204,8 +194,7 @@ def _create_energy_metrics(budget=None, predicted_mwh=None):
         "latest_error_pct": None,
         "mape_pct": None,
         "status": "no_data",
-        "history": [],
-        "budget_grace_until": None,
+        "history": []
     }
 
 
@@ -280,7 +269,6 @@ STATE = {
 # In-memory runtime cache
 LOADED_INTERPRETER = None
 LOADED_ONNX_SESSION = None
-LOADED_TRT_RUNNER = None
 LOADED_RUNTIME = None
 LOADED_MODEL_NAME = None
 LOADED_MODEL_PATH = None
@@ -292,216 +280,198 @@ MODEL_LOCK = threading.RLock()
 CAMERA_LOCK = threading.RLock()
 FNB58_MONITOR = {"reader": None, "thread": None}
 FNB58_RETRY_LOOP = {"thread": None}
-CAMERA_FEED = {
-    "cap": None,
-    "source": None,
-    "requested_source": None,
-    "is_file_source": False,
-    "last_error": None,
-    "latest_frame": None,
-    "latest_frame_ts": None,
-    "last_good_frame": None,
-    "last_good_frame_ts": None,
-    "worker": None,
-    "running": False,
-    "condition": threading.Condition(CAMERA_LOCK),
-}
+FALL_WATCH = {"thread": None, "stop": threading.Event(), "running": False, "last_result": None}
+FALL_WATCH_LOCK = threading.RLock()
 
 
-def _get_cv2_module():
-    try:
-        import movenet_fall_detection as _mfd
+class SharedCameraWorker:
+    """Single-owner camera capture loop shared by stream, snapshots, and inference."""
 
-        return getattr(_mfd, "cv2", None)
-    except Exception:
-        return None
+    def __init__(self):
+        self.lock = threading.RLock()
+        self.condition = threading.Condition(self.lock)
+        self.stop_event = threading.Event()
+        self.thread = None
+        self.requested_source = None
+        self.actual_source = None
+        self.width = CAMERA_WIDTH
+        self.height = CAMERA_HEIGHT
+        self.capture_fps = CAMERA_CAPTURE_FPS
+        self.frame = None
+        self.frame_seq = 0
+        self.frame_ts = None
+        self.error = None
+        self.running = False
+        self.measured_fps = None
+        self._last_capture_monotonic = None
 
-
-def _release_camera_feed_locked():
-    CAMERA_FEED["running"] = False
-    cap = CAMERA_FEED.get("cap")
-    if cap is not None:
-        try:
-            cap.release()
-        except Exception:
-            pass
-    CAMERA_FEED["cap"] = None
-    CAMERA_FEED["source"] = None
-    CAMERA_FEED["requested_source"] = None
-    CAMERA_FEED["latest_frame"] = None
-    CAMERA_FEED["latest_frame_ts"] = None
-
-
-def _drop_camera_capture_locked():
-    """Release only the active capture handle, keep worker state for auto-retry."""
-    cap = CAMERA_FEED.get("cap")
-    if cap is not None:
-        try:
-            cap.release()
-        except Exception:
-            pass
-    CAMERA_FEED["cap"] = None
-    CAMERA_FEED["source"] = None
-
-
-def _camera_worker(requested_source):
-    source = requested_source or CAMERA_DEVICE
-    backoff_s = 0.05
-    while True:
-        with CAMERA_LOCK:
-            if not CAMERA_FEED.get("running") or CAMERA_FEED.get("requested_source") != source:
-                break
-
-            cap = CAMERA_FEED.get("cap")
-            if cap is None or not getattr(cap, "isOpened", lambda: False)():
-                try:
-                    cap, actual_source = open_camera(source, CAMERA_WIDTH, CAMERA_HEIGHT)
-                    CAMERA_FEED["cap"] = cap
-                    CAMERA_FEED["source"] = actual_source
-                    CAMERA_FEED["requested_source"] = source
-                    CAMERA_FEED["is_file_source"] = _is_file_camera_source(source)
-                    CAMERA_FEED["last_error"] = None
-                except Exception as exc:
-                    CAMERA_FEED["last_error"] = str(exc)
-                    cap = None
-
-            if cap is None:
-                if CAMERA_FEED.get("latest_frame") is None:
-                    # Nothing to serve yet, keep retrying.
-                    pass
-                else:
-                    backoff_s = 0.05
-
-        if cap is None:
-            time.sleep(backoff_s)
-            backoff_s = min(backoff_s * 1.5, 0.5)
-            continue
-
-        try:
-            ok, frame_bgr = cap.read()
-            if ok and frame_bgr is not None:
-                with CAMERA_LOCK:
-                    CAMERA_FEED["latest_frame"] = frame_bgr.copy()
-                    CAMERA_FEED["latest_frame_ts"] = time.time()
-                    CAMERA_FEED["last_good_frame"] = frame_bgr.copy()
-                    CAMERA_FEED["last_good_frame_ts"] = CAMERA_FEED["latest_frame_ts"]
-                    CAMERA_FEED["last_error"] = None
-                    if CAMERA_FEED.get("source") is None:
-                        CAMERA_FEED["source"] = source
-                    with CAMERA_FEED["condition"]:
-                        CAMERA_FEED["condition"].notify_all()
-                backoff_s = 0.05
-            else:
-                with CAMERA_LOCK:
-                    CAMERA_FEED["last_error"] = f"Camera frame read failed for source: {source}"
-                time.sleep(backoff_s)
-                backoff_s = min(backoff_s * 1.5, 0.5)
-        except Exception as exc:
-            with CAMERA_LOCK:
-                CAMERA_FEED["last_error"] = str(exc)
-                _drop_camera_capture_locked()
-            time.sleep(backoff_s)
-            backoff_s = min(backoff_s * 1.5, 0.5)
-
-
-def _ensure_camera_worker_locked(requested_source):
-    source = requested_source or CAMERA_DEVICE
-    current_source = CAMERA_FEED.get("requested_source")
-    worker = CAMERA_FEED.get("worker")
-    if worker is not None and worker.is_alive() and current_source == source and CAMERA_FEED.get("running"):
-        return
-
-    _release_camera_feed_locked()
-    CAMERA_FEED["requested_source"] = source
-    CAMERA_FEED["running"] = True
-    worker = threading.Thread(target=_camera_worker, args=(source,), daemon=True)
-    CAMERA_FEED["worker"] = worker
-    worker.start()
-
-
-def _ensure_camera_feed_locked(requested_source):
-    source = requested_source or CAMERA_DEVICE
-    _ensure_camera_worker_locked(source)
-    return CAMERA_FEED.get("cap"), CAMERA_FEED.get("source")
-
-
-def _read_camera_frame(requested_source=None, wait_timeout_s=0.35):
-    with CAMERA_LOCK:
-        def _fallback_last_good(actual_source, err):
-            stale_frame = CAMERA_FEED.get("last_good_frame")
-            stale_ts = CAMERA_FEED.get("last_good_frame_ts")
-            if stale_frame is None or stale_ts is None:
-                return None, actual_source, err
-            age_s = max(0.0, time.time() - float(stale_ts))
-            # Use recent cached frame to avoid no-frames spikes during brief camera reopen failures.
-            if age_s <= 2.5:
-                return stale_frame.copy(), actual_source, err
-            return None, actual_source, err
-
+    def ensure_started(self, camera_source=None, width=None, height=None, capture_fps=None):
         if open_camera is None:
-            err = "Camera helper open_camera is unavailable in the agent image"
-            CAMERA_FEED["last_error"] = err
-            return _fallback_last_good(requested_source or CAMERA_DEVICE, err)
+            raise RuntimeError("Camera helper is not available in the agent image.")
+
+        requested_source = camera_source or CAMERA_DEVICE
+        requested_key = str(requested_source)
+        requested_width = int(width or CAMERA_WIDTH)
+        requested_height = int(height or CAMERA_HEIGHT)
+        requested_fps = float(capture_fps or CAMERA_CAPTURE_FPS)
+
+        with self.lock:
+            alive = self.thread is not None and self.thread.is_alive()
+            same_config = (
+                str(self.requested_source) == requested_key
+                and self.width == requested_width
+                and self.height == requested_height
+                and abs(float(self.capture_fps) - requested_fps) < 0.01
+            )
+            if alive and same_config:
+                return
+
+        self.stop()
+
+        with self.lock:
+            self.stop_event.clear()
+            self.requested_source = requested_source
+            self.actual_source = None
+            self.width = requested_width
+            self.height = requested_height
+            self.capture_fps = requested_fps
+            self.frame = None
+            self.frame_seq = 0
+            self.frame_ts = None
+            self.measured_fps = None
+            self._last_capture_monotonic = None
+            self.error = None
+            self.running = True
+            self.thread = threading.Thread(target=self._capture_loop, name="shared-camera", daemon=True)
+            self.thread.start()
+
+    def stop(self):
+        with self.lock:
+            thread = self.thread
+            if thread is None:
+                return
+            self.stop_event.set()
+            self.condition.notify_all()
+        if thread.is_alive():
+            thread.join(timeout=2.0)
+        with self.lock:
+            self.thread = None
+            self.running = False
+
+    def _capture_loop(self):
+        cap = None
+        min_delay = 1.0 / max(float(self.capture_fps or 1.0), 1.0)
+        while not self.stop_event.is_set():
+            try:
+                if cap is None:
+                    cap, actual_source = open_camera(
+                        self.requested_source,
+                        self.width,
+                        self.height,
+                        fps=self.capture_fps,
+                    )
+                    with self.lock:
+                        self.actual_source = actual_source
+                        self.error = None
+                        self.running = True
+                        self.condition.notify_all()
+                    _mark_camera_ready(actual_source)
+
+                loop_start = time.monotonic()
+                ok, frame_bgr = cap.read()
+                if not ok or frame_bgr is None or getattr(frame_bgr, "size", 0) == 0:
+                    raise RuntimeError("Camera frame read failed")
+
+                now = time.monotonic()
+                with self.lock:
+                    if self._last_capture_monotonic is not None:
+                        instant_fps = 1.0 / max(now - self._last_capture_monotonic, 1e-6)
+                        self.measured_fps = (
+                            instant_fps
+                            if self.measured_fps is None
+                            else (self.measured_fps * 0.85) + (instant_fps * 0.15)
+                        )
+                    self._last_capture_monotonic = now
+                    self.frame = frame_bgr
+                    self.frame_seq += 1
+                    self.frame_ts = time.time()
+                    self.error = None
+                    self.running = True
+                    self.condition.notify_all()
+
+                elapsed = time.monotonic() - loop_start
+                remaining = min_delay - elapsed
+                if remaining > 0.001:
+                    time.sleep(remaining)
+            except Exception as exc:
+                with self.lock:
+                    self.error = str(exc)
+                    self.running = False
+                    self.condition.notify_all()
+                try:
+                    if cap is not None:
+                        cap.release()
+                except Exception:
+                    pass
+                cap = None
+                time.sleep(0.4)
 
         try:
-            _ensure_camera_feed_locked(requested_source)
-            latest_frame = CAMERA_FEED.get("latest_frame")
-            actual_source = CAMERA_FEED.get("source") or requested_source or CAMERA_DEVICE
-            if latest_frame is not None:
-                CAMERA_FEED["last_error"] = None
-                return latest_frame.copy(), actual_source, None
+            if cap is not None:
+                cap.release()
+        except Exception:
+            pass
+        with self.lock:
+            self.running = False
+            self.condition.notify_all()
 
-            # Wait briefly for the worker to produce its first frame.
-            condition = CAMERA_FEED["condition"]
-            with condition:
-                condition.wait(timeout=max(0.05, float(wait_timeout_s or 0.35)))
-            latest_frame = CAMERA_FEED.get("latest_frame")
-            actual_source = CAMERA_FEED.get("source") or requested_source or CAMERA_DEVICE
-            if latest_frame is not None:
-                CAMERA_FEED["last_error"] = None
-                return latest_frame.copy(), actual_source, None
+    def get_frame(self, camera_source=None, timeout=2.0, after_seq=None):
+        self.ensure_started(camera_source=camera_source)
+        deadline = time.monotonic() + float(timeout)
+        with self.condition:
+            while True:
+                has_frame = self.frame is not None
+                is_new = after_seq is None or self.frame_seq > int(after_seq)
+                if has_frame and is_new:
+                    return self.frame, self.frame_seq, self.frame_ts, self.actual_source or self.requested_source
 
-            err = CAMERA_FEED.get("last_error") or f"Camera frame read failed for source: {requested_source or CAMERA_DEVICE}"
-            return _fallback_last_good(actual_source, err)
-        except Exception as exc:
-            err = f"Unable to open camera source: {requested_source or CAMERA_DEVICE} ({exc})"
-            CAMERA_FEED["last_error"] = err
-            return _fallback_last_good(requested_source or CAMERA_DEVICE, err)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise RuntimeError(self.error or "Timed out waiting for camera frame")
+                self.condition.wait(timeout=remaining)
+
+    def status(self):
+        with self.lock:
+            source_text = str(self.actual_source or self.requested_source or CAMERA_DEVICE)
+            backend = "gstreamer" if source_text.startswith("gstreamer-") else "opencv"
+            return {
+                "running": bool(self.thread is not None and self.thread.is_alive()),
+                "camera_ready": self.frame is not None and not self.error,
+                "requested_source": str(self.requested_source or CAMERA_DEVICE),
+                "camera_source": source_text,
+                "backend": backend,
+                "width": self.width,
+                "height": self.height,
+                "capture_fps": round(float(self.capture_fps or 0.0), 2),
+                "measured_fps": round(float(self.measured_fps), 2) if self.measured_fps is not None else None,
+                "frame_seq": self.frame_seq,
+                "frame_age_s": round(time.time() - self.frame_ts, 3) if self.frame_ts else None,
+                "error": self.error,
+            }
 
 
-def _get_cached_camera_frame(requested_source=None, max_age_s=8.0):
-    with CAMERA_LOCK:
-        actual_source = CAMERA_FEED.get("source") or requested_source or CAMERA_DEVICE
-        now_ts = time.time()
-
-        latest = CAMERA_FEED.get("latest_frame")
-        latest_ts = CAMERA_FEED.get("latest_frame_ts")
-        if latest is not None and latest_ts is not None and (now_ts - float(latest_ts)) <= float(max_age_s):
-            return latest.copy(), actual_source, None
-
-        stale = CAMERA_FEED.get("last_good_frame")
-        stale_ts = CAMERA_FEED.get("last_good_frame_ts")
-        if stale is not None and stale_ts is not None and (now_ts - float(stale_ts)) <= float(max_age_s):
-            return stale.copy(), actual_source, None
-
-        return None, actual_source, CAMERA_FEED.get("last_error") or "No cached camera frame available"
+CAMERA_WORKER = SharedCameraWorker()
 
 
 def _unload_loaded_model(reason: str = ""):
     """Drop the in-memory model cache to avoid mixing weights across deploys."""
-    global LOADED_INTERPRETER, LOADED_ONNX_SESSION, LOADED_TRT_RUNNER, LOADED_RUNTIME
+    global LOADED_INTERPRETER, LOADED_ONNX_SESSION, LOADED_RUNTIME
     global LOADED_MODEL_NAME, LOADED_MODEL_PATH, LOADED_INPUT_SIZE, LOADED_INPUT_LAYOUT, LOADED_INPUT_META, LOADED_AT
     with MODEL_LOCK:
-        if LOADED_INTERPRETER is not None or LOADED_ONNX_SESSION is not None or LOADED_TRT_RUNNER is not None:
+        if LOADED_INTERPRETER is not None or LOADED_ONNX_SESSION is not None:
             log(f"Unloading cached model{': ' + reason if reason else ''}")
-        if LOADED_TRT_RUNNER is not None:
-            try:
-                LOADED_TRT_RUNNER.close()
-            except Exception:
-                pass
         LOADED_INTERPRETER = None
         LOADED_ONNX_SESSION = None
-        LOADED_TRT_RUNNER = None
         LOADED_RUNTIME = None
         LOADED_MODEL_NAME = None
         LOADED_MODEL_PATH = None
@@ -520,12 +490,7 @@ def reset_energy_metrics(budget=None, predicted_mwh=None):
             or model_info.get("energy_avg_mwh")
             or model_info.get("predicted_mwh")
         )
-    metrics = _create_energy_metrics(budget, predicted_mwh)
-    # Set 15-second grace period for model warmup before budget enforcement
-    if budget is not None:
-        grace_end = datetime.now(timezone.utc) + timedelta(seconds=15)
-        metrics["budget_grace_until"] = grace_end.isoformat()
-    STATE["energy_metrics"] = metrics
+    STATE["energy_metrics"] = _create_energy_metrics(budget, predicted_mwh)
 
 
 def record_energy_sample(energy_mwh, power_mw=None, latency_s=None, note=None, timestamp=None, source=None):
@@ -574,36 +539,7 @@ def record_energy_sample(energy_mwh, power_mw=None, latency_s=None, note=None, t
             metrics["mape_pct"] = round(sum(error_samples) / len(error_samples), 4)
 
     budget = metrics.get("budget_mwh")
-    # Determine cumulative consumed energy (from meter or history sum)
-    meter = STATE.get("meter_metrics") or {}
-    consumed_mwh = None
-    try:
-        consumed_mwh = _safe_float(meter.get("measured_energy_mwh"))
-    except Exception:
-        consumed_mwh = None
-    if consumed_mwh is None:
-        try:
-            consumed_mwh = round(sum(entry.get("energy_mwh", 0.0) for entry in history), 4)
-        except Exception:
-            consumed_mwh = sample.get("energy_mwh")
-    metrics["consumed_mwh"] = consumed_mwh
-
-    # Check grace period: skip budget enforcement during warmup
-    grace_until_str = metrics.get("budget_grace_until")
-    in_grace_period = False
-    try:
-        if grace_until_str:
-            grace_until = datetime.fromisoformat(grace_until_str)
-            now = datetime.now(timezone.utc)
-            in_grace_period = now < grace_until
-    except Exception:
-        pass
-
-    # Apply budget check with tolerance (only outside grace period)
-    over_budget = False
-    if not in_grace_period and budget is not None and consumed_mwh is not None:
-        tol = max(0.01, abs(budget) * 0.001)
-        over_budget = consumed_mwh > (budget + tol)
+    over_budget = budget is not None and sample["energy_mwh"] > budget
     metrics["status"] = "over_budget" if over_budget else "ok"
 
     state_update = {
@@ -613,7 +549,7 @@ def record_energy_sample(energy_mwh, power_mw=None, latency_s=None, note=None, t
     if over_budget and STATE.get("status") == "running":
         message = (
             f"Energy budget exceeded: "
-            f"{consumed_mwh} mWh > budget {budget} mWh"
+            f"{sample['energy_mwh']} mWh > budget {budget} mWh"
         )
         log(message)
         state_update.update(
@@ -826,11 +762,7 @@ def _detect_fnb58_target(preferred=None):
                 return ("usb", preferred_text)
             return ("serial", preferred_text)
 
-    try:
-        usb_target = detect_fnb58_usb() if FNB58USBReader is not None else None
-    except Exception as exc:
-        log(f"[FNB58] USB detection skipped: {exc}")
-        usb_target = None
+    usb_target = detect_fnb58_usb() if FNB58USBReader is not None else None
     if usb_target:
         return ("usb", usb_target)
 
@@ -1096,59 +1028,311 @@ def _build_camera_overlay_lines():
     return lines
 
 
-def _draw_overlay_lines(frame_bgr, lines):
-    cv2 = _get_cv2_module()
-    if cv2 is None or frame_bgr is None:
+def _get_cv2_module():
+    try:
+        import movenet_fall_detection as _mfd
+        cv2_module = getattr(_mfd, "cv2", None)
+    except Exception:
+        cv2_module = None
+    if cv2_module is None:
+        raise RuntimeError("OpenCV is not available in the agent image")
+    return cv2_module
+
+
+def _camera_backend_snapshot():
+    if camera_backend_info is None:
+        return {
+            "opencv_available": False,
+            "error": "Camera backend helper is not available in the agent image.",
+        }
+    info = camera_backend_info()
+    info["camera_device"] = CAMERA_DEVICE
+    info["width"] = CAMERA_WIDTH
+    info["height"] = CAMERA_HEIGHT
+    info["capture_fps"] = CAMERA_CAPTURE_FPS
+    info["stream_fps"] = CAMERA_STREAM_FPS
+    return info
+
+
+def _draw_camera_overlay(frame_bgr, lines=None):
+    cv2_module = _get_cv2_module()
+    overlay_lines = [str(line).strip() for line in (lines or _build_camera_overlay_lines()) if str(line).strip()]
+    if not overlay_lines:
         return frame_bgr
 
     origin_y = 28
-    for idx, line in enumerate((lines or [])[:6]):
+    for idx, line in enumerate(overlay_lines[:6]):
         y = origin_y + (idx * 24)
-        cv2.putText(
+        cv2_module.putText(
             frame_bgr,
-            str(line),
+            line,
             (14, y),
-            cv2.FONT_HERSHEY_SIMPLEX,
+            cv2_module.FONT_HERSHEY_SIMPLEX,
             0.62,
             (255, 255, 255),
             2,
-            cv2.LINE_AA,
+            cv2_module.LINE_AA,
         )
-        cv2.putText(
+        cv2_module.putText(
             frame_bgr,
-            str(line),
+            line,
             (14, y),
-            cv2.FONT_HERSHEY_SIMPLEX,
+            cv2_module.FONT_HERSHEY_SIMPLEX,
             0.62,
             (24, 24, 24),
             1,
-            cv2.LINE_AA,
+            cv2_module.LINE_AA,
         )
     return frame_bgr
 
 
-def _capture_camera_snapshot_result(camera_source=None, annotate=True):
-    cv2 = _get_cv2_module()
-    if cv2 is None:
-        raise RuntimeError("OpenCV is not available in the agent image.")
-
-    frame_bgr, actual_source, err = _read_camera_frame(camera_source or CAMERA_DEVICE)
-    if frame_bgr is None:
-        raise RuntimeError(err or "Unable to capture camera frame")
-
+def _encode_camera_frame(frame_bgr, jpeg_quality=CAMERA_STREAM_QUALITY, annotate=True):
+    cv2_module = _get_cv2_module()
+    quality = max(30, min(int(jpeg_quality), 90))
+    output_frame = frame_bgr.copy() if annotate else frame_bgr
     if annotate:
-        frame_bgr = _draw_overlay_lines(frame_bgr, _build_camera_overlay_lines())
-
-    ok, encoded = cv2.imencode(".jpg", frame_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+        _draw_camera_overlay(output_frame)
+    ok, encoded = cv2_module.imencode(
+        ".jpg",
+        output_frame,
+        [int(cv2_module.IMWRITE_JPEG_QUALITY), quality],
+    )
     if not ok:
         raise RuntimeError("Failed to encode camera frame as JPEG")
+    return encoded.tobytes()
 
-    frame_bytes = encoded.tobytes()
+
+def _run_movenet_on_frame(frame_bgr, frame_index=0):
+    if preprocess_frame_bgr is None or extract_keypoints is None or analyze_pose is None:
+        raise RuntimeError("MoveNet fall-detection helpers are not available in the agent image.")
+
+    with MODEL_LOCK:
+        runtime = LOADED_RUNTIME
+        interpreter = LOADED_INTERPRETER
+        input_meta = LOADED_INPUT_META
+        input_size = LOADED_INPUT_SIZE
+        if runtime != "tflite" or interpreter is None or input_size is None:
+            raise RuntimeError("Fall detection currently requires a loaded TFLite MoveNet model.")
+        input_details = input_meta if isinstance(input_meta, dict) else interpreter.get_input_details()[0]
+        output_details = interpreter.get_output_details()[0]
+        input_dtype = input_details.get("dtype", np.uint8)
+        _, h, w = input_size
+        target_size = int(max(h, w))
+
+    input_tensor, _ = preprocess_frame_bgr(frame_bgr, target_size, input_dtype=input_dtype)
+
+    with MODEL_LOCK:
+        if interpreter is not LOADED_INTERPRETER:
+            raise RuntimeError("Model changed while preparing camera frame")
+        interpreter.set_tensor(input_details["index"], input_tensor)
+        interpreter.invoke()
+        output = interpreter.get_tensor(output_details["index"])
+
+    keypoints = extract_keypoints(output)
+    pose_result = analyze_pose(keypoints, min_score=0.2)
+    pose_result["frame_index"] = frame_index
+    return pose_result
+
+
+def _fall_watch_snapshot():
+    with FALL_WATCH_LOCK:
+        item = FALL_WATCH.get("last_result")
+        if item:
+            return dict(item)
+    return None
+
+
+def _fall_watch_is_running():
+    with FALL_WATCH_LOCK:
+        thread = FALL_WATCH.get("thread")
+        return bool(FALL_WATCH.get("running") and thread is not None and thread.is_alive())
+
+
+def _build_fall_watch_result(summary, actual_source, duration_s=0.0):
+    result = {
+        "success": True,
+        "timestamp": _now_iso(),
+        "model": STATE.get("model_name"),
+        "runtime": LOADED_RUNTIME,
+        "camera_source": str(actual_source),
+        "camera_ready": True,
+        "duration_s": round(float(duration_s or 0.0), 3),
+        "frames_requested": FALL_WATCH_WINDOW_FRAMES,
+        "frames_analyzed": summary.get("frames_analyzed", 0),
+        "fall_detected": summary.get("fall_detected", False),
+        "fall_score": summary.get("fall_score", 0.0),
+        "label": summary.get("label"),
+        "details": {
+            "avg_fall_score": summary.get("avg_fall_score"),
+            "fall_frames": summary.get("fall_frames"),
+            "fall_frame_ratio": summary.get("fall_frame_ratio"),
+            "max_consecutive_fall_frames": summary.get("max_consecutive_fall_frames"),
+            "mode": "continuous_watch",
+            "watch_fps": FALL_WATCH_FPS,
+            "window_frames": FALL_WATCH_WINDOW_FRAMES,
+        },
+    }
+    _update_fall_detection_snapshot(result)
+    return result
+
+
+def _fall_watch_loop(camera_source=None):
+    requested_source = camera_source or CAMERA_DEVICE
+    frame_results = []
+    frame_index = 0
+    last_seq = None
+    last_inference_ts = 0.0
+    min_delay = 1.0 / max(float(FALL_WATCH_FPS or 1.0), 0.5)
+
+    with FALL_WATCH_LOCK:
+        FALL_WATCH["running"] = True
+        FALL_WATCH["last_result"] = None
+
+    while not FALL_WATCH["stop"].is_set():
+        if not _is_fall_detection_model_info():
+            reset_fall_detection_metrics(error="Current deployed model is not configured for camera fall detection.")
+            time.sleep(1.0)
+            continue
+
+        now = time.monotonic()
+        delay = min_delay - (now - last_inference_ts)
+        if delay > 0.001:
+            time.sleep(min(delay, 0.1))
+            continue
+
+        try:
+            frame_bgr, seq, _, actual_source = CAMERA_WORKER.get_frame(
+                camera_source=requested_source,
+                timeout=2.5,
+                after_seq=last_seq,
+            )
+            last_seq = seq
+            pose_result = _run_movenet_on_frame(frame_bgr, frame_index=frame_index)
+            frame_index += 1
+            last_inference_ts = time.monotonic()
+
+            frame_results.append(pose_result)
+            if len(frame_results) > FALL_WATCH_WINDOW_FRAMES:
+                frame_results = frame_results[-FALL_WATCH_WINDOW_FRAMES:]
+
+            summary = summarize_detection_window(frame_results) if summarize_detection_window is not None else {
+                "frames_analyzed": len(frame_results),
+                "fall_detected": False,
+                "fall_score": 0.0,
+                "label": "unsupported",
+            }
+            result = _build_fall_watch_result(summary, actual_source, duration_s=len(frame_results) / FALL_WATCH_FPS)
+            with FALL_WATCH_LOCK:
+                FALL_WATCH["last_result"] = result
+                FALL_WATCH["running"] = True
+        except Exception as exc:
+            reset_fall_detection_metrics(error=exc)
+            with FALL_WATCH_LOCK:
+                FALL_WATCH["last_result"] = {
+                    "success": False,
+                    "timestamp": _now_iso(),
+                    "error": str(exc),
+                    "camera_ready": False,
+                    "fall_detected": False,
+                    "fall_score": 0.0,
+                    "label": "watch_error",
+                }
+            time.sleep(0.4)
+
+    with FALL_WATCH_LOCK:
+        FALL_WATCH["running"] = False
+
+
+def start_fall_watch(camera_source=None):
+    if not _is_fall_detection_model_info():
+        return {
+            "success": False,
+            "error": "Current deployed model is not configured for camera fall detection.",
+        }, 400
+
+    with MODEL_LOCK:
+        if LOADED_RUNTIME != "tflite" or LOADED_INTERPRETER is None:
+            return {
+                "success": False,
+                "error": "Fall detection currently requires a loaded TFLite MoveNet model.",
+            }, 400
+
+    requested_source = camera_source or CAMERA_DEVICE
+    if _is_file_camera_source(requested_source):
+        return {"success": False, "error": "Continuous fall watch requires a live camera source."}, 400
+
+    CAMERA_WORKER.ensure_started(camera_source=requested_source)
+
+    with FALL_WATCH_LOCK:
+        thread = FALL_WATCH.get("thread")
+        if thread is not None and thread.is_alive():
+            return {
+                "success": True,
+                "message": "Continuous fall watch already running",
+                "watch": _fall_watch_snapshot(),
+                "camera": CAMERA_WORKER.status(),
+            }, 200
+
+        FALL_WATCH["stop"].clear()
+        FALL_WATCH["running"] = True
+        FALL_WATCH["thread"] = threading.Thread(
+            target=_fall_watch_loop,
+            args=(requested_source,),
+            name="fall-watch",
+            daemon=True,
+        )
+        FALL_WATCH["thread"].start()
+
+    return {
+        "success": True,
+        "message": "Continuous fall watch started",
+        "watch": _fall_watch_snapshot(),
+        "camera": CAMERA_WORKER.status(),
+    }, 200
+
+
+def stop_fall_watch():
+    with FALL_WATCH_LOCK:
+        thread = FALL_WATCH.get("thread")
+        FALL_WATCH["stop"].set()
+    if thread is not None and thread.is_alive():
+        thread.join(timeout=2.0)
+    with FALL_WATCH_LOCK:
+        FALL_WATCH["running"] = False
+        FALL_WATCH["thread"] = None
+    return {
+        "success": True,
+        "message": "Continuous fall watch stopped",
+        "watch": _fall_watch_snapshot(),
+        "camera": CAMERA_WORKER.status(),
+    }
+
+
+def _capture_camera_snapshot_result(camera_source=None, annotate=True):
+    if capture_camera_snapshot is None:
+        raise RuntimeError("Camera snapshot helper is not available in the agent image.")
+
+    requested_source = camera_source or CAMERA_DEVICE
+    if not _is_file_camera_source(requested_source):
+        frame_bgr, _, _, actual_source = CAMERA_WORKER.get_frame(camera_source=requested_source, timeout=3.0)
+        frame_bytes = _encode_camera_frame(frame_bgr, jpeg_quality=85, annotate=annotate)
+        _mark_camera_ready(actual_source)
+        return frame_bytes, actual_source
+
+    overlay_lines = _build_camera_overlay_lines() if annotate else None
+    with CAMERA_LOCK:
+        frame_bytes, actual_source = capture_camera_snapshot(
+            camera_source=requested_source,
+            width=CAMERA_WIDTH,
+            height=CAMERA_HEIGHT,
+            jpeg_quality=85,
+            overlay_lines=overlay_lines,
+        )
     _mark_camera_ready(actual_source)
     return frame_bytes, actual_source
 
 
-def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=None, fast_mode=False):
+def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=None, prefer_latest=True):
     if not _is_fall_detection_model_info():
         return {
             "success": False,
@@ -1164,16 +1348,8 @@ def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=N
     with MODEL_LOCK:
         runtime = LOADED_RUNTIME
         interpreter = LOADED_INTERPRETER
-        input_meta = LOADED_INPUT_META
-        input_size = LOADED_INPUT_SIZE
 
-    if not TFLITE_AVAILABLE:
-        return {
-            "success": False,
-            "error": "TFLite runtime is not available. Install tensorflow or tflite_runtime to run camera fall detection.",
-        }, 500
-
-    if runtime != "tflite" or interpreter is None or input_size is None:
+    if runtime != "tflite" or interpreter is None:
         return {
             "success": False,
             "error": "Fall detection currently requires a loaded TFLite MoveNet model.",
@@ -1181,285 +1357,81 @@ def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=N
 
     duration_s = max(0.5, float(duration_s if duration_s is not None else FALL_DETECT_DURATION_S))
     max_frames = max(4, int(max_frames if max_frames is not None else FALL_DETECT_MAX_FRAMES))
-    fast_mode = bool(fast_mode)
     requested_source = camera_source or CAMERA_DEVICE
     is_file_source = _is_file_camera_source(requested_source)
-    c, h, w = input_size
-    target_size = int(max(h, w))
+
+    if not is_file_source and prefer_latest:
+        if not _fall_watch_is_running():
+            start_fall_watch(requested_source)
+        latest = _fall_watch_snapshot()
+        if latest and latest.get("success") and int(latest.get("frames_analyzed") or 0) > 0:
+            latest["camera"] = CAMERA_WORKER.status()
+            return latest, 200
 
     frame_results = []
     frame_count = 0
-    frame_read_failures = 0
-    max_read_failures = max(FALL_DETECT_MAX_READ_FAILURES, 6)
     start_ts = time.time()
     last_error = None
     actual_source = requested_source
-    first_frame_wait_s = max(1.2, min(3.0, duration_s + 0.4))
-    detection_window_s = max(duration_s, first_frame_wait_s + 0.35)
-
-    if fast_mode:
-        frame_bgr, actual_source, frame_err = _get_cached_camera_frame(requested_source, max_age_s=1.6)
-        if frame_bgr is None:
-            frame_bgr, actual_source, frame_err = _read_camera_frame(requested_source, wait_timeout_s=0.22)
-        if frame_bgr is None:
-            last_error = frame_err or f"Camera frame read failed for source: {requested_source}"
-        else:
-            try:
-                input_details = input_meta if isinstance(input_meta, dict) else interpreter.get_input_details()[0]
-                output_details = interpreter.get_output_details()[0]
-                input_dtype = input_details.get("dtype", np.uint8)
-
-                input_tensor, _ = preprocess_frame_bgr(frame_bgr, target_size, input_dtype=input_dtype)
-                with MODEL_LOCK:
-                    interpreter.set_tensor(input_details["index"], input_tensor)
-                    interpreter.invoke()
-                    output = interpreter.get_tensor(output_details["index"])
-
-                keypoints = extract_keypoints(output)
-                pose_result = analyze_pose(keypoints)
-                pose_result["frame_index"] = 0
-                frame_results.append(pose_result)
-                frame_count = 1
-            except Exception as exc:
-                last_error = f"Fall inference failed: {exc}"
-
-        try:
-            summary = summarize_detection_window(frame_results) if summarize_detection_window is not None else {
-                "frames_analyzed": len(frame_results),
-                "fall_detected": False,
-                "fall_score": 0.0,
-                "label": "unsupported",
-            }
-        except Exception as exc:
-            last_error = f"Fall summary failed: {exc}"
-            summary = {
-                "frames_analyzed": len(frame_results),
-                "fall_detected": False,
-                "fall_score": 0.0,
-                "label": "no_frames" if not frame_results else "uncertain",
-                "avg_fall_score": None,
-                "fall_frames": 0,
-                "fall_frame_ratio": None,
-                "max_consecutive_fall_frames": 0,
-                "best_frame": None,
-            }
-
-        summary = summary if isinstance(summary, dict) else {
-            "frames_analyzed": len(frame_results),
-            "fall_detected": False,
-            "fall_score": 0.0,
-            "label": "unsupported",
-        }
-        result = {
-            "success": True,
-            "timestamp": _now_iso(),
-            "model": STATE.get("model_name"),
-            "runtime": runtime,
-            "camera_source": str(actual_source),
-            "camera_ready": bool(frame_results),
-            "duration_s": round(time.time() - start_ts, 3),
-            "frames_requested": 1,
-            "frames_analyzed": summary.get("frames_analyzed", len(frame_results)),
-            "fall_detected": summary.get("fall_detected", False),
-            "fall_score": summary.get("fall_score", 0.0),
-            "label": summary.get("label"),
-            "details": {
-                "avg_fall_score": summary.get("avg_fall_score"),
-                "fall_frames": summary.get("fall_frames"),
-                "fall_frame_ratio": summary.get("fall_frame_ratio"),
-                "max_consecutive_fall_frames": summary.get("max_consecutive_fall_frames"),
-                "best_frame": summary.get("best_frame"),
-                "last_frame_error": last_error or ("No camera frame available for fast-mode inference" if not frame_results else None),
-                "frame_read_failures": frame_read_failures,
-                "detection_mode": "fast_cached_frame",
-            },
-        }
-        if not frame_results and last_error:
-            result["error"] = last_error
-        elif not frame_results:
-            result["error"] = "No camera frame available for fast-mode inference"
-        _update_fall_detection_snapshot(result)
-        return result, 200
-
-    def _capture_frame_with_fallback():
-        shared_wait_s = 0.35 if frame_count == 0 else 0.2
-        frame_bgr, frame_source, frame_err = _read_camera_frame(requested_source, wait_timeout_s=shared_wait_s)
-        if frame_bgr is not None:
-            return frame_bgr, frame_source, frame_err
-
-        # For live camera devices (e.g. /dev/video0), avoid opening a second
-        # capture handle because it can contend with the shared feed.
-        if not is_file_source:
-            return None, frame_source, frame_err
-
-        if open_camera is None:
-            return None, frame_source, frame_err
-
-        try:
-            cap, fallback_source = open_camera(requested_source, CAMERA_WIDTH, CAMERA_HEIGHT)
-        except Exception as exc:
-            return None, frame_source, frame_err or str(exc)
-
-        try:
-            fallback_frame = None
-            fallback_error = frame_err
-            for _ in range(3):
-                ok, candidate_frame = cap.read()
-                if ok and candidate_frame is not None:
-                    fallback_frame = candidate_frame
-                    break
-                time.sleep(0.03)
-            if fallback_frame is None:
-                return None, fallback_source, fallback_error or f"Camera frame read failed for source: {requested_source}"
-            return fallback_frame, fallback_source, None
-        finally:
-            try:
-                cap.release()
-            except Exception:
-                pass
-
-    while (time.time() - start_ts) < detection_window_s and frame_count < max_frames:
-        frame_bgr, actual_source, frame_err = _capture_frame_with_fallback()
-        if frame_bgr is None:
-            frame_read_failures += 1
-            last_error = frame_err or f"Camera frame read failed ({frame_read_failures}/{max_read_failures})"
-
-            # When no frame has been captured yet, allow a longer grace period
-            # before aborting the detection window.
-            elapsed = time.time() - start_ts
-            if frame_count == 0 and elapsed < first_frame_wait_s:
-                time.sleep(0.03 if is_file_source else 0.07)
-                continue
-
-            # After at least one frame is seen, stop earlier on sustained failures.
-            if frame_count > 0 and frame_read_failures >= max_read_failures:
-                break
-
-            # If no frame ever arrived, keep trying a bit longer before giving up.
-            if frame_count == 0 and frame_read_failures >= (max_read_failures * 3):
-                break
-
-            time.sleep(0.01 if is_file_source else 0.05)
-            continue
-
-        try:
-            frame_read_failures = 0
-
-            input_details = input_meta if isinstance(input_meta, dict) else interpreter.get_input_details()[0]
-            output_details = interpreter.get_output_details()[0]
-            input_dtype = input_details.get("dtype", np.uint8)
-
-            input_tensor, _ = preprocess_frame_bgr(frame_bgr, target_size, input_dtype=input_dtype)
-
-            # Keep lock scope minimal: protect only interpreter state mutations.
-            with MODEL_LOCK:
-                interpreter.set_tensor(input_details["index"], input_tensor)
-                interpreter.invoke()
-                output = interpreter.get_tensor(output_details["index"])
-
-            keypoints = extract_keypoints(output)
-            pose_result = analyze_pose(keypoints)
-            pose_result["frame_index"] = frame_count
-            frame_results.append(pose_result)
-            frame_count += 1
-        except Exception as exc:
-            frame_read_failures += 1
-            last_error = f"Fall inference failed: {exc}"
-            if frame_count > 0 and frame_read_failures >= max_read_failures:
-                break
-            time.sleep(0.01 if is_file_source else 0.03)
-            continue
-
-    # Final safety net: if no frame was analyzed in the window, try one cached frame.
-    if frame_count == 0:
-        cached_frame, cached_source, cached_err = _get_cached_camera_frame(requested_source)
-        if cached_frame is not None:
-            try:
-                input_details = input_meta if isinstance(input_meta, dict) else interpreter.get_input_details()[0]
-                output_details = interpreter.get_output_details()[0]
-                input_dtype = input_details.get("dtype", np.uint8)
-
-                input_tensor, _ = preprocess_frame_bgr(cached_frame, target_size, input_dtype=input_dtype)
-                with MODEL_LOCK:
-                    interpreter.set_tensor(input_details["index"], input_tensor)
-                    interpreter.invoke()
-                    output = interpreter.get_tensor(output_details["index"])
-
-                keypoints = extract_keypoints(output)
-                pose_result = analyze_pose(keypoints)
-                pose_result["frame_index"] = frame_count
-                frame_results.append(pose_result)
-                frame_count += 1
-                actual_source = cached_source
-            except Exception as exc:
-                last_error = f"Fall inference failed on cached frame: {exc}"
-        elif not last_error:
-            last_error = cached_err
-
-    # Last-resort fallback: for live sources, attempt a one-shot direct capture.
-    if frame_count == 0 and not is_file_source and open_camera is not None:
-        cap = None
-        try:
-            cap, fallback_source = open_camera(requested_source, CAMERA_WIDTH, CAMERA_HEIGHT)
-            direct_frame = None
-            for _ in range(4):
-                ok, candidate = cap.read()
-                if ok and candidate is not None:
-                    direct_frame = candidate
-                    break
-                time.sleep(0.03)
-
-            if direct_frame is not None:
-                input_details = input_meta if isinstance(input_meta, dict) else interpreter.get_input_details()[0]
-                output_details = interpreter.get_output_details()[0]
-                input_dtype = input_details.get("dtype", np.uint8)
-
-                input_tensor, _ = preprocess_frame_bgr(direct_frame, target_size, input_dtype=input_dtype)
-                with MODEL_LOCK:
-                    interpreter.set_tensor(input_details["index"], input_tensor)
-                    interpreter.invoke()
-                    output = interpreter.get_tensor(output_details["index"])
-
-                keypoints = extract_keypoints(output)
-                pose_result = analyze_pose(keypoints)
-                pose_result["frame_index"] = frame_count
-                frame_results.append(pose_result)
-                frame_count += 1
-                actual_source = fallback_source
-            elif not last_error:
-                last_error = f"Direct camera fallback could not read frame from source: {requested_source}"
-        except Exception as exc:
-            if not last_error:
-                last_error = f"Direct camera fallback failed: {exc}"
-        finally:
-            if cap is not None:
-                try:
-                    cap.release()
-                except Exception:
-                    pass
 
     try:
-        summary = summarize_detection_window(frame_results) if summarize_detection_window is not None else {
-            "frames_analyzed": len(frame_results),
-            "fall_detected": False,
-            "fall_score": 0.0,
-            "label": "unsupported",
-        }
-    except Exception as exc:
-        last_error = f"Fall summary failed: {exc}"
-        summary = {
-            "frames_analyzed": len(frame_results),
-            "fall_detected": False,
-            "fall_score": 0.0,
-            "label": "no_frames" if not frame_results else "uncertain",
-            "avg_fall_score": None,
-            "fall_frames": 0,
-            "fall_frame_ratio": None,
-            "max_consecutive_fall_frames": 0,
-            "best_frame": None,
-        }
+        if not is_file_source:
+            last_seq = None
+            CAMERA_WORKER.ensure_started(camera_source=requested_source)
+            while (time.time() - start_ts) < duration_s and frame_count < max_frames:
+                try:
+                    frame_bgr, last_seq, _, actual_source = CAMERA_WORKER.get_frame(
+                        camera_source=requested_source,
+                        timeout=2.5,
+                        after_seq=last_seq,
+                    )
+                except Exception as frame_exc:
+                    last_error = str(frame_exc)
+                    time.sleep(0.05)
+                    continue
 
-    summary = summary if isinstance(summary, dict) else {
+                pose_result = _run_movenet_on_frame(frame_bgr, frame_index=frame_count)
+                frame_results.append(pose_result)
+                frame_count += 1
+        else:
+            with CAMERA_LOCK:
+                cap, actual_source = open_camera(requested_source, CAMERA_WIDTH, CAMERA_HEIGHT, fps=CAMERA_CAPTURE_FPS)
+                try:
+                    warmup_reads = 0
+                    while warmup_reads < 2:
+                        ok, _ = cap.read()
+                        if not ok:
+                            break
+                        warmup_reads += 1
+
+                    while (time.time() - start_ts) < duration_s and frame_count < max_frames:
+                        ok, frame_bgr = cap.read()
+                        if not ok or frame_bgr is None:
+                            last_error = "Camera frame read failed"
+                            try:
+                                cap.release()
+                            except Exception:
+                                pass
+                            cap, actual_source = open_camera(requested_source, CAMERA_WIDTH, CAMERA_HEIGHT, fps=CAMERA_CAPTURE_FPS)
+                            time.sleep(0.01)
+                            continue
+
+                        pose_result = _run_movenet_on_frame(frame_bgr, frame_index=frame_count)
+                        frame_results.append(pose_result)
+                        frame_count += 1
+                finally:
+                    try:
+                        cap.release()
+                    except Exception:
+                        pass
+    except Exception as exc:
+        reset_fall_detection_metrics(error=exc)
+        return {
+            "success": False,
+            "error": f"Unable to open camera: {exc}",
+        }, 500
+
+    summary = summarize_detection_window(frame_results) if summarize_detection_window is not None else {
         "frames_analyzed": len(frame_results),
         "fall_detected": False,
         "fall_score": 0.0,
@@ -1471,7 +1443,7 @@ def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=N
         "model": STATE.get("model_name"),
         "runtime": runtime,
         "camera_source": str(actual_source),
-        "camera_ready": bool(frame_results),
+        "camera_ready": True,
         "duration_s": round(time.time() - start_ts, 3),
         "frames_requested": max_frames,
         "frames_analyzed": summary.get("frames_analyzed", len(frame_results)),
@@ -1484,14 +1456,10 @@ def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=N
             "fall_frame_ratio": summary.get("fall_frame_ratio"),
             "max_consecutive_fall_frames": summary.get("max_consecutive_fall_frames"),
             "best_frame": summary.get("best_frame"),
-            "last_frame_error": last_error or ("No camera frames captured within detection window" if not frame_results else None),
-            "frame_read_failures": frame_read_failures,
+            "last_frame_error": last_error,
+            "mode": "window",
         },
     }
-    if not frame_results and last_error:
-        result["error"] = last_error
-    elif not frame_results:
-        result["error"] = "No camera frames captured within detection window"
     _update_fall_detection_snapshot(result)
     return result, 200
 
@@ -1889,13 +1857,18 @@ def status():
     response["runtime_capabilities"] = {
         "tflite_available": TFLITE_AVAILABLE,
         "onnx_available": ONNX_AVAILABLE,
-        "tensorrt_available": TENSORRT_AVAILABLE,
-        "cuda_runtime_available": CUDA_RUNTIME_AVAILABLE,
-        "tensorrt_engine_enabled": TENSORRT_ENGINE_ENABLED,
         "numpy_available": np is not None
     }
+    response["camera_backend"] = _camera_backend_snapshot()
     response["fall_detection"]["enabled"] = _is_fall_detection_model_info()
     response["benchmark_metrics"]["runtime"] = STATE.get("runtime")
+    response["camera"] = CAMERA_WORKER.status()
+    response["fall_watch"] = {
+        "running": _fall_watch_is_running(),
+        "fps": FALL_WATCH_FPS,
+        "window_frames": FALL_WATCH_WINDOW_FRAMES,
+        "last_result": _fall_watch_snapshot(),
+    }
     return jsonify(response)
 
 
@@ -1939,9 +1912,12 @@ def metrics():
             "fall_detected": STATE.get("fall_detection", {}).get("fall_detected"),
             "fall_score": STATE.get("fall_detection", {}).get("fall_score"),
             "label": STATE.get("fall_detection", {}).get("label"),
+            "frames_analyzed": STATE.get("fall_detection", {}).get("frames_analyzed"),
             "updated_at": STATE.get("fall_detection", {}).get("updated_at"),
             "last_error": STATE.get("fall_detection", {}).get("last_error"),
+            "watch_running": _fall_watch_is_running(),
         },
+        "camera": CAMERA_WORKER.status(),
         "benchmark": {
             "status": STATE.get("benchmark_metrics", {}).get("status"),
             "runtime": STATE.get("benchmark_metrics", {}).get("runtime"),
@@ -1988,17 +1964,17 @@ def deploy():
         return jsonify({"error": "This device only supports .tflite and .onnx artifacts"}), 400
     
     if model_ext == 'onnx' and not ONNX_AVAILABLE:
-        if not (TENSORRT_ENGINE_ENABLED and TENSORRT_AVAILABLE and CUDA_RUNTIME_AVAILABLE):
-            return jsonify({"error": "ONNX Runtime not installed and TensorRT engine path unavailable"}), 500
+        return jsonify({"error": "ONNX Runtime not installed on this device"}), 500
 
     try:
-        # Always drop any cached model before swapping artifacts on disk.
-        _unload_loaded_model("deploy")
-
         # Stop old model if running
         if STATE.get("status") == "running" or STATE.get("inference_active"):
             log(f"Stopping current model before deployment")
+            stop_fall_watch()
             set_state(status="ready", inference_active=False)
+
+        # Always drop any cached model before swapping artifacts on disk.
+        _unload_loaded_model("deploy")
         
         log(f"Starting deployment: {model_name}")
         predicted_energy = _safe_float(
@@ -2093,6 +2069,7 @@ def start_inference():
 def stop_inference():
     """Stop model inference"""
     if STATE["status"] == "running":
+        stop_fall_watch()
         set_state(status="ready", inference_active=False)
         log("Inference stopped")
         return jsonify({"message": "Inference stopped"})
@@ -2103,28 +2080,41 @@ def stop_inference():
 @app.route("/camera/fall-detect", methods=["POST"])
 def camera_fall_detect():
     """Run MoveNet-based fall detection on live webcam frames."""
-    try:
-        data = request.get_json(silent=True) or {}
-        result, status_code = _run_camera_fall_detection(
-            duration_s=data.get("duration_s"),
-            max_frames=data.get("max_frames"),
-            camera_source=data.get("camera_device") or data.get("camera_source"),
-            fast_mode=bool(data.get("fast_mode")),
-        )
-        return jsonify(result), status_code
-    except Exception as exc:
-        reset_fall_detection_metrics(error=exc)
-        return jsonify({
-            "success": False,
-            "error": f"Camera fall-detect endpoint failed: {exc}",
-            "frames_analyzed": 0,
-            "fall_detected": False,
-            "fall_score": 0.0,
-            "label": "no_frames",
-            "details": {
-                "last_frame_error": str(exc),
-            },
-        }), 500
+    data = request.get_json(silent=True) or {}
+    prefer_latest = str(data.get("prefer_latest", "true")).strip().lower() not in {"0", "false", "no", "off"}
+    result, status_code = _run_camera_fall_detection(
+        duration_s=data.get("duration_s"),
+        max_frames=data.get("max_frames"),
+        camera_source=data.get("camera_device") or data.get("camera_source"),
+        prefer_latest=prefer_latest,
+    )
+    return jsonify(result), status_code
+
+
+@app.route("/camera/fall-watch/start", methods=["POST"])
+def camera_fall_watch_start():
+    """Start continuous background fall detection on the live camera."""
+    data = request.get_json(silent=True) or {}
+    result, status_code = start_fall_watch(data.get("camera_device") or data.get("camera_source") or CAMERA_DEVICE)
+    return jsonify(result), status_code
+
+
+@app.route("/camera/fall-watch/stop", methods=["POST"])
+def camera_fall_watch_stop():
+    """Stop continuous background fall detection."""
+    return jsonify(stop_fall_watch())
+
+
+@app.route("/camera/fall-watch/status", methods=["GET"])
+def camera_fall_watch_status():
+    """Return continuous fall watch state without running a blocking detection window."""
+    return jsonify({
+        "success": True,
+        "running": _fall_watch_is_running(),
+        "watch": _fall_watch_snapshot(),
+        "camera": CAMERA_WORKER.status(),
+        "fall_detection": STATE.get("fall_detection"),
+    })
 
 
 @app.route("/camera/upload-video", methods=["POST"])
@@ -2147,6 +2137,16 @@ def camera_upload_video():
         return jsonify({"success": False, "error": f"Failed to save uploaded video: {exc}"}), 500
 
     return jsonify({"success": True, "video_path": save_path})
+
+
+@app.route("/camera/backend", methods=["GET"])
+def camera_backend():
+    """Return OpenCV/GStreamer backend details for camera troubleshooting."""
+    return jsonify({
+        "success": True,
+        "backend": _camera_backend_snapshot(),
+        "camera": CAMERA_WORKER.status(),
+    })
 
 
 @app.route("/camera/snapshot", methods=["GET"])
@@ -2177,68 +2177,119 @@ def camera_stream():
     annotate = str(request.args.get("annotate", "1")).strip().lower() not in {"0", "false", "no", "off"}
     camera_source = request.args.get("camera_device") or request.args.get("camera_source") or CAMERA_DEVICE
     try:
-        fps = float(request.args.get("fps", "5"))
+        fps = float(request.args.get("fps", str(CAMERA_STREAM_FPS)))
     except (TypeError, ValueError):
-        fps = 5.0
+        fps = CAMERA_STREAM_FPS
 
     try:
-        jpeg_quality = int(request.args.get("quality", "75"))
+        jpeg_quality = int(request.args.get("quality", str(CAMERA_STREAM_QUALITY)))
     except (TypeError, ValueError):
-        jpeg_quality = 75
+        jpeg_quality = CAMERA_STREAM_QUALITY
 
-    fps = max(0.5, min(fps, 24.0))
-    jpeg_quality = max(50, min(jpeg_quality, 90))
+    fps = max(0.5, min(fps, 30.0))
+    jpeg_quality = max(30, min(jpeg_quality, 90))
     boundary = "frame"
-    cv2 = _get_cv2_module()
-
-    if cv2 is None:
-        return jsonify({
-            "success": False,
-            "error": "OpenCV is not available in the agent image.",
-        }), 500
 
     def generate():
         frame_delay = 1.0 / fps if fps > 0 else 0.2
-        while True:
+        is_file_source = _is_file_camera_source(camera_source)
+
+        if not is_file_source:
+            # Reuse the shared camera worker so streaming and inference do not
+            # compete for /dev/video0.
+            actual_source = camera_source
             try:
-                frame_bgr, actual_source, frame_err = _read_camera_frame(camera_source)
-                if frame_bgr is None:
-                    reset_fall_detection_metrics(error=frame_err or "Camera frame read failed")
-                    time.sleep(0.2)
-                    continue
+                CAMERA_WORKER.ensure_started(camera_source=camera_source)
+                if FALL_WATCH_WITH_STREAM and _is_fall_detection_model_info():
+                    start_fall_watch(camera_source)
 
-                if annotate:
-                    frame_bgr = _draw_overlay_lines(frame_bgr, _build_camera_overlay_lines())
-
-                ok, encoded = cv2.imencode(
-                    ".jpg",
-                    frame_bgr,
-                    [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality],
-                )
-                if not ok:
-                    time.sleep(0.05)
-                    continue
-
-                _mark_camera_ready(actual_source)
-                frame_bytes = encoded.tobytes()
-                header = (
-                    f"--{boundary}\r\n"
-                    "Content-Type: image/jpeg\r\n"
-                    f"Content-Length: {len(frame_bytes)}\r\n"
-                    f"X-Camera-Source: {actual_source}\r\n"
-                    "\r\n"
-                ).encode("utf-8")
-                yield header + frame_bytes + b"\r\n"
-            except GeneratorExit:
-                return
-            except Exception:
-                time.sleep(0.25)
+                last_seq = None
+                while True:
+                    t_start = time.monotonic()
+                    try:
+                        frame_bgr, last_seq, _, actual_source = CAMERA_WORKER.get_frame(
+                            camera_source=camera_source,
+                            timeout=5.0,
+                            after_seq=last_seq,
+                        )
+                        frame_bytes = _encode_camera_frame(
+                            frame_bgr,
+                            jpeg_quality=jpeg_quality,
+                            annotate=annotate,
+                        )
+                        header = (
+                            f"--{boundary}\r\n"
+                            "Content-Type: image/jpeg\r\n"
+                            f"Content-Length: {len(frame_bytes)}\r\n"
+                            f"X-Camera-Source: {actual_source}\r\n"
+                            "\r\n"
+                        ).encode("utf-8")
+                        yield header + frame_bytes + b"\r\n"
+                    except GeneratorExit:
+                        return
+                    except Exception:
+                        time.sleep(0.1)
+                    else:
+                        elapsed = time.monotonic() - t_start
+                        remaining = frame_delay - elapsed
+                        if remaining > 0.001:
+                            time.sleep(remaining)
             finally:
-                time.sleep(frame_delay)
+                pass
+            return
+
+        # File-backed stream (e.g., uploaded MP4)
+        try:
+            import movenet_fall_detection as _mfd
+            cv2 = getattr(_mfd, "cv2", None)
+        except Exception:
+            cv2 = None
+
+        if cv2 is None:
+            return
+
+        cap = None
+        actual_source = camera_source
+        try:
+            cap, actual_source = open_camera(camera_source, CAMERA_WIDTH, CAMERA_HEIGHT, fps=fps)
+            _mark_camera_ready(actual_source)
+            while True:
+                try:
+                    ok, frame_bgr = cap.read()
+                    if not ok or frame_bgr is None:
+                        try:
+                            cap.release()
+                        except Exception:
+                            pass
+                        cap, actual_source = open_camera(camera_source, CAMERA_WIDTH, CAMERA_HEIGHT, fps=fps)
+                        continue
+
+                    frame_bytes = _encode_camera_frame(frame_bgr, jpeg_quality=jpeg_quality, annotate=annotate)
+                    header = (
+                        f"--{boundary}\r\n"
+                        "Content-Type: image/jpeg\r\n"
+                        f"Content-Length: {len(frame_bytes)}\r\n"
+                        f"X-Camera-Source: {actual_source}\r\n"
+                        "\r\n"
+                    ).encode("utf-8")
+                    yield header + frame_bytes + b"\r\n"
+                except GeneratorExit:
+                    return
+                except Exception:
+                    time.sleep(0.25)
+                finally:
+                    time.sleep(frame_delay)
+        finally:
+            if cap is not None:
+                try:
+                    cap.release()
+                except Exception:
+                    pass
 
     response = Response(generate(), mimetype=f"multipart/x-mixed-replace; boundary={boundary}")
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
     return response
 
 
@@ -2286,11 +2337,10 @@ def predict():
 
     try:
         with MODEL_LOCK:
-            if LOADED_INPUT_SIZE is None or (LOADED_INTERPRETER is None and LOADED_ONNX_SESSION is None and LOADED_TRT_RUNNER is None):
+            if LOADED_INPUT_SIZE is None or (LOADED_INTERPRETER is None and LOADED_ONNX_SESSION is None):
                 return jsonify({"error": "Model not loaded in memory"}), 400
             interpreter = LOADED_INTERPRETER
             session = LOADED_ONNX_SESSION
-            trt_runner = LOADED_TRT_RUNNER
             input_size = LOADED_INPUT_SIZE
             input_layout = LOADED_INPUT_LAYOUT
             input_meta = LOADED_INPUT_META
@@ -2301,10 +2351,6 @@ def predict():
             dummy_input = _build_dummy_input(input_layout or "nchw", input_size, getattr(input_meta, "shape", None), np.float32)
             outputs = session.run(None, {input_meta.name: dummy_input})
             output = outputs[0]
-        elif runtime == "tensorrt":
-            if trt_runner is None:
-                raise RuntimeError("TensorRT runner is not loaded")
-            output = trt_runner.infer()
         else:
             input_details = interpreter.get_input_details()[0]
             dtype = input_details["dtype"]
@@ -2411,12 +2457,7 @@ def _build_dummy_input(layout, input_size, shape=None, dtype=np.float32):
     return np.random.rand(*normalized_shape).astype(dtype)
 
 
-def _run_loaded_model_once_locked(runtime, interpreter, session, trt_runner, input_size, input_layout, input_meta, dummy_input=None):
-    if runtime == "tensorrt":
-        if trt_runner is None:
-            raise RuntimeError("TensorRT runner is not loaded")
-        return trt_runner.infer(dummy_input)
-
+def _run_loaded_model_once_locked(runtime, interpreter, session, input_size, input_layout, input_meta, dummy_input=None):
     if runtime == "onnx":
         if session is None or input_meta is None:
             raise RuntimeError("ONNX session is not loaded")
@@ -2454,18 +2495,15 @@ def benchmark_loaded_model(warmup_runs: int = 5, benchmark_runs: int = 30):
         runtime = LOADED_RUNTIME
         interpreter = LOADED_INTERPRETER
         session = LOADED_ONNX_SESSION
-        trt_runner = LOADED_TRT_RUNNER
         input_size = LOADED_INPUT_SIZE
         input_layout = LOADED_INPUT_LAYOUT
         input_meta = LOADED_INPUT_META
 
-        if input_size is None or (interpreter is None and session is None and trt_runner is None):
+        if input_size is None or (interpreter is None and session is None):
             raise RuntimeError("No loaded model is available for benchmarking")
 
         if runtime == "onnx":
             dummy_input = _build_dummy_input(input_layout or "nchw", input_size, getattr(input_meta, "shape", None), np.float32)
-        elif runtime == "tensorrt":
-            dummy_input = None
         else:
             input_details = interpreter.get_input_details()[0]
             dummy_input = _build_dummy_input(
@@ -2476,12 +2514,12 @@ def benchmark_loaded_model(warmup_runs: int = 5, benchmark_runs: int = 30):
             )
 
         for _ in range(warmup_runs):
-            _run_loaded_model_once_locked(runtime, interpreter, session, trt_runner, input_size, input_layout, input_meta, dummy_input)
+            _run_loaded_model_once_locked(runtime, interpreter, session, input_size, input_layout, input_meta, dummy_input)
 
         samples_s = []
         for _ in range(benchmark_runs):
             started = time.perf_counter()
-            _run_loaded_model_once_locked(runtime, interpreter, session, trt_runner, input_size, input_layout, input_meta, dummy_input)
+            _run_loaded_model_once_locked(runtime, interpreter, session, input_size, input_layout, input_meta, dummy_input)
             ended = time.perf_counter()
             samples_s.append(max(ended - started, 0.0))
 
@@ -2556,219 +2594,6 @@ def _load_onnx_model(model_path, input_size):
     session.run(None, {input_meta.name: dummy})
     return session, input_meta, normalized_input_size, layout
 
-
-def _check_cuda_status(status, action: str):
-    ok_value = getattr(cudart.cudaError_t, "cudaSuccess", 0) if CUDA_RUNTIME_AVAILABLE else 0
-    if int(status) != int(ok_value):
-        raise RuntimeError(f"CUDA call failed while {action}: {status}")
-
-
-def _to_concrete_shape(shape, fallback_shape):
-    concrete = []
-    for idx, dim in enumerate(shape):
-        try:
-            value = int(dim)
-        except Exception:
-            value = -1
-        if value <= 0:
-            value = int(fallback_shape[idx]) if idx < len(fallback_shape) else 1
-        concrete.append(max(1, value))
-    return tuple(concrete)
-
-
-class _TensorRTRunner:
-    """Minimal TensorRT engine runner using CUDA runtime API."""
-
-    def __init__(self, engine_path, input_size):
-        if not TENSORRT_AVAILABLE:
-            raise RuntimeError("TensorRT Python package is not available")
-        if not CUDA_RUNTIME_AVAILABLE:
-            raise RuntimeError("cuda-python runtime bindings are not available")
-        if not os.path.exists(engine_path):
-            raise FileNotFoundError(f"TensorRT engine file not found: {engine_path}")
-
-        logger = trt.Logger(trt.Logger.WARNING)
-        runtime = trt.Runtime(logger)
-        with open(engine_path, "rb") as f:
-            serialized_engine = f.read()
-        engine = runtime.deserialize_cuda_engine(serialized_engine)
-        if engine is None:
-            raise RuntimeError("Failed to deserialize TensorRT engine")
-
-        context = engine.create_execution_context()
-        if context is None:
-            raise RuntimeError("Failed to create TensorRT execution context")
-
-        self.logger = logger
-        self.runtime = runtime
-        self.engine = engine
-        self.context = context
-        self.engine_path = engine_path
-        self.input_size = input_size
-        self.input_index = None
-        self.output_indices = []
-
-        for binding_idx in range(self.engine.num_bindings):
-            if self.engine.binding_is_input(binding_idx):
-                self.input_index = binding_idx
-            else:
-                self.output_indices.append(binding_idx)
-
-        if self.input_index is None:
-            raise RuntimeError("TensorRT engine does not expose an input binding")
-        if not self.output_indices:
-            raise RuntimeError("TensorRT engine does not expose any output bindings")
-
-        raw_shape = tuple(self.engine.get_binding_shape(self.input_index))
-        self.layout, self.normalized_input_size = _infer_layout_and_size(raw_shape, input_size)
-
-    def close(self):
-        self.context = None
-        self.engine = None
-        self.runtime = None
-
-    def infer(self, dummy_input=None):
-        if self.context is None or self.engine is None:
-            raise RuntimeError("TensorRT runner is closed")
-
-        if dummy_input is None:
-            dummy_input = _build_dummy_input(
-                self.layout or "nchw",
-                self.normalized_input_size,
-                self.engine.get_binding_shape(self.input_index),
-                np.float32,
-            )
-
-        input_array = np.ascontiguousarray(dummy_input)
-        input_dtype = np.dtype(trt.nptype(self.engine.get_binding_dtype(self.input_index)))
-        if input_array.dtype != input_dtype:
-            input_array = input_array.astype(input_dtype, copy=False)
-
-        if any(int(dim) <= 0 for dim in self.engine.get_binding_shape(self.input_index)):
-            if not self.context.set_binding_shape(self.input_index, tuple(int(dim) for dim in input_array.shape)):
-                raise RuntimeError("Failed to set dynamic input shape for TensorRT context")
-
-        device_ptrs = {}
-        bindings = [0] * self.engine.num_bindings
-        output_buffers = {}
-
-        try:
-            for binding_idx in range(self.engine.num_bindings):
-                dtype = np.dtype(trt.nptype(self.engine.get_binding_dtype(binding_idx)))
-                if binding_idx == self.input_index:
-                    host_array = input_array
-                else:
-                    raw_shape = tuple(int(x) for x in self.context.get_binding_shape(binding_idx))
-                    concrete_shape = _to_concrete_shape(raw_shape, [1] * len(raw_shape))
-                    host_array = np.empty(concrete_shape, dtype=dtype)
-                    output_buffers[binding_idx] = host_array
-
-                nbytes = int(host_array.nbytes)
-                status, ptr = cudart.cudaMalloc(nbytes)
-                _check_cuda_status(status, f"allocating binding {binding_idx}")
-                device_ptrs[binding_idx] = ptr
-                bindings[binding_idx] = int(ptr)
-
-                if binding_idx == self.input_index:
-                    status = cudart.cudaMemcpy(
-                        ptr,
-                        input_array.ctypes.data,
-                        nbytes,
-                        cudart.cudaMemcpyKind.cudaMemcpyHostToDevice,
-                    )[0]
-                    _check_cuda_status(status, "copying input to device")
-
-            if not self.context.execute_v2(bindings):
-                raise RuntimeError("TensorRT execution failed")
-
-            first_output_idx = self.output_indices[0]
-            output_array = output_buffers[first_output_idx]
-            out_bytes = int(output_array.nbytes)
-            status = cudart.cudaMemcpy(
-                output_array.ctypes.data,
-                device_ptrs[first_output_idx],
-                out_bytes,
-                cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost,
-            )[0]
-            _check_cuda_status(status, "copying output to host")
-            return output_array
-        finally:
-            for ptr in device_ptrs.values():
-                try:
-                    cudart.cudaFree(ptr)
-                except Exception:
-                    pass
-
-
-def _build_tensorrt_engine(onnx_path, engine_path, input_size):
-    if not TENSORRT_AVAILABLE:
-        raise RuntimeError("TensorRT Python package is not available")
-
-    logger = trt.Logger(trt.Logger.WARNING)
-    builder = trt.Builder(logger)
-    network_flags = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
-    network = builder.create_network(network_flags)
-    parser = trt.OnnxParser(network, logger)
-
-    with open(onnx_path, "rb") as f:
-        if not parser.parse(f.read()):
-            errors = []
-            for idx in range(parser.num_errors):
-                errors.append(str(parser.get_error(idx)))
-            detail = " | ".join(errors) if errors else "unknown ONNX parser error"
-            raise RuntimeError(f"TensorRT ONNX parse failed: {detail}")
-
-    config = builder.create_builder_config()
-    if hasattr(config, "set_memory_pool_limit"):
-        config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, int(TENSORRT_WORKSPACE_BYTES))
-    else:
-        config.max_workspace_size = int(TENSORRT_WORKSPACE_BYTES)
-
-    if TENSORRT_FP16_ENABLED and builder.platform_has_fast_fp16:
-        config.set_flag(trt.BuilderFlag.FP16)
-
-    has_dynamic_input = False
-    profile = builder.create_optimization_profile()
-    for input_idx in range(network.num_inputs):
-        tensor = network.get_input(input_idx)
-        shape = tuple(int(dim) for dim in tensor.shape)
-        if any(dim <= 0 for dim in shape):
-            has_dynamic_input = True
-            layout, normalized = _infer_layout_and_size(shape, input_size)
-            c, h, w = normalized
-            fallback_shape = (1, h, w, c) if layout == "nhwc" else (1, c, h, w)
-            concrete = _to_concrete_shape(shape, fallback_shape)
-            profile.set_shape(tensor.name, concrete, concrete, concrete)
-
-    if has_dynamic_input:
-        config.add_optimization_profile(profile)
-
-    if hasattr(builder, "build_serialized_network"):
-        serialized = builder.build_serialized_network(network, config)
-        if serialized is None:
-            raise RuntimeError("TensorRT build_serialized_network returned None")
-        engine_bytes = bytes(serialized)
-    else:
-        engine = builder.build_engine(network, config)
-        if engine is None:
-            raise RuntimeError("TensorRT build_engine returned None")
-        engine_bytes = bytes(engine.serialize())
-
-    with open(engine_path, "wb") as f:
-        f.write(engine_bytes)
-
-
-def _load_tensorrt_engine(engine_path, input_size):
-    _ensure_numpy()
-    runner = _TensorRTRunner(engine_path, input_size)
-    _ = runner.infer()
-    input_meta = {
-        "name": str(runner.engine.get_binding_name(runner.input_index)),
-        "shape": list(runner.engine.get_binding_shape(runner.input_index)),
-        "_trt_runner": runner,
-    }
-    return runner, input_meta, runner.normalized_input_size, runner.layout
-
 #ss kq dd
 # -------- Energy measurement utilities (powercap-based) --------
 def _find_powercap_energy_file():
@@ -2821,15 +2646,10 @@ def measure_energy_during_inference(duration_s: float = 10.0):
 
     # Prepare model handles
     with MODEL_LOCK:
-        runtime = LOADED_RUNTIME
         interpreter = LOADED_INTERPRETER
-        session = LOADED_ONNX_SESSION
-        trt_runner = LOADED_TRT_RUNNER
-        input_meta = LOADED_INPUT_META
         input_size = LOADED_INPUT_SIZE
-        input_layout = LOADED_INPUT_LAYOUT
-    if input_size is None or (interpreter is None and session is None and trt_runner is None):
-        return {"success": False, "error": "Runtime is not loaded"}
+    if interpreter is None or input_size is None:
+        return {"success": False, "error": "Interpreter not loaded"}
 
     start_uj = _read_uint(energy_file)
     start_ts = time.time()
@@ -2837,19 +2657,7 @@ def measure_energy_during_inference(duration_s: float = 10.0):
     while (time.time() - start_ts) < duration_s:
         try:
             with MODEL_LOCK:
-                if runtime == "tflite":
-                    _run_single_inference_locked(interpreter, input_size)
-                else:
-                    _run_loaded_model_once_locked(
-                        runtime,
-                        interpreter,
-                        session,
-                        trt_runner,
-                        input_size,
-                        input_layout,
-                        input_meta,
-                        None,
-                    )
+                _run_single_inference_locked(interpreter, input_size)
             iters += 1
         except Exception:
             break
@@ -3166,11 +2974,11 @@ def start_model_inference():
     """
     Start model inference (runs in background thread)
 
-    Loads the active model artifact (.tflite/.onnx/.engine) and runs warmup forward.
-    Keeps the selected runtime handle in memory for /predict.
+    Loads TFLite model from CURRENT_MODEL_PATH and runs warmup forward.
+    Keeps interpreter in memory for /predict.
     """
     try:
-        global LOADED_INTERPRETER, LOADED_ONNX_SESSION, LOADED_TRT_RUNNER, LOADED_RUNTIME
+        global LOADED_INTERPRETER, LOADED_ONNX_SESSION, LOADED_RUNTIME
         global LOADED_MODEL_NAME, LOADED_MODEL_PATH, LOADED_INPUT_SIZE, LOADED_INPUT_LAYOUT, LOADED_INPUT_META, LOADED_AT
 
         log("Starting model inference...")
@@ -3183,49 +2991,15 @@ def start_model_inference():
             raise FileNotFoundError(f"Model file not found: {model_path}")
 
         input_size = _parse_input_size(model_info.get("input_size"))
+        stop_fall_watch()
         with MODEL_LOCK:
             # Ensure any previous cache is dropped before loading.
             _unload_loaded_model("start")
-            if model_path.endswith(".engine"):
-                try:
-                    trt_runner, input_meta, normalized_input_size, layout = _load_tensorrt_engine(model_path, input_size)
-                    LOADED_TRT_RUNNER = trt_runner
-                    LOADED_RUNTIME = "tensorrt"
-                    LOADED_INPUT_META = input_meta
-                except Exception as trt_engine_exc:
-                    onnx_fallback_path = os.path.splitext(model_path)[0] + ".onnx"
-                    if not os.path.exists(onnx_fallback_path):
-                        raise RuntimeError(f"Failed to load TensorRT engine and no ONNX fallback found: {trt_engine_exc}")
-                    log(f"Failed to load TensorRT engine, falling back to ONNX artifact: {trt_engine_exc}")
-                    model_path = onnx_fallback_path
-                    session, input_meta, normalized_input_size, layout = _load_onnx_model(model_path, input_size)
-                    LOADED_ONNX_SESSION = session
-                    LOADED_RUNTIME = "onnx"
-                    LOADED_INPUT_META = input_meta
-            elif model_path.endswith(".onnx"):
-                trt_ready = TENSORRT_ENGINE_ENABLED and TENSORRT_AVAILABLE and CUDA_RUNTIME_AVAILABLE
-                if trt_ready:
-                    engine_path = os.path.splitext(model_path)[0] + ".engine"
-                    try:
-                        if not os.path.exists(engine_path) or os.path.getmtime(engine_path) < os.path.getmtime(model_path):
-                            log("Building TensorRT engine from ONNX...")
-                            _build_tensorrt_engine(model_path, engine_path, input_size)
-                        trt_runner, input_meta, normalized_input_size, layout = _load_tensorrt_engine(engine_path, input_size)
-                        LOADED_TRT_RUNNER = trt_runner
-                        LOADED_RUNTIME = "tensorrt"
-                        LOADED_INPUT_META = input_meta
-                        model_path = engine_path
-                    except Exception as trt_exc:
-                        log(f"TensorRT engine path unavailable, falling back to ONNX Runtime: {trt_exc}")
-                        session, input_meta, normalized_input_size, layout = _load_onnx_model(model_path, input_size)
-                        LOADED_ONNX_SESSION = session
-                        LOADED_RUNTIME = "onnx"
-                        LOADED_INPUT_META = input_meta
-                else:
-                    session, input_meta, normalized_input_size, layout = _load_onnx_model(model_path, input_size)
-                    LOADED_ONNX_SESSION = session
-                    LOADED_RUNTIME = "onnx"
-                    LOADED_INPUT_META = input_meta
+            if model_path.endswith(".onnx"):
+                session, input_meta, normalized_input_size, layout = _load_onnx_model(model_path, input_size)
+                LOADED_ONNX_SESSION = session
+                LOADED_RUNTIME = "onnx"
+                LOADED_INPUT_META = input_meta
             else:
                 interpreter, input_meta, normalized_input_size, layout = _load_tflite_model(model_path, input_size)
                 LOADED_INTERPRETER = interpreter
@@ -3246,6 +3020,12 @@ def start_model_inference():
         budget = STATE.get("energy_metrics", {}).get("budget_mwh")
         if budget is not None:
             log(f"Energy budget assigned: {budget} mWh")
+        if FALL_WATCH_AUTO_START and _is_fall_detection_model_info():
+            result, status_code = start_fall_watch(CAMERA_DEVICE)
+            if status_code == 200:
+                log("Continuous fall watch auto-started")
+            else:
+                log(f"Continuous fall watch auto-start skipped: {result.get('error')}")
 
     except Exception as e:
         err_msg = f"Error starting inference: {e}"
@@ -3258,16 +3038,15 @@ def start_model_inference():
 if __name__ == "__main__":
     log("Jetson ML Agent starting...")
     log(f"Model directory: {MODEL_DIR}")
-    
+
     # Restore state from previous session
     load_state_from_disk()
-    
+
     # Check if there's an existing model
     active_model_path = _get_active_model_path()
     if active_model_path and os.path.exists(active_model_path):
         STATE["artifact_path"] = active_model_path
-        ext = os.path.splitext(active_model_path)[1].lower()
-        STATE["runtime"] = "tensorrt" if ext == ".engine" else ext.lstrip(".")
+        STATE["runtime"] = os.path.splitext(active_model_path)[1].lstrip(".")
         size = os.path.getsize(active_model_path)
         log(f"Found existing model: {size} bytes")
         if STATE.get("model_name"):
@@ -3278,6 +3057,6 @@ if __name__ == "__main__":
     if FNB58_AUTO_START:
         start_fnb58_monitor()
         ensure_fnb58_retry_loop()
-    
-    # Start Flask server (threaded to keep stream responsive during fall checks)
+
+    # Start Flask server
     app.run(host="0.0.0.0", port=8000, threaded=True)

@@ -14,31 +14,40 @@ $VENV_PYTHON = Join-Path $VENV_DIR "Scripts\python.exe"
 $REQ_FILE = Join-Path $ROOT_DIR "ml-controller\requirements.txt"
 
 function Resolve-Python {
-    # Prefer Python 3.11, but fall back to any available Python so local testing can still run.
+    # Accept Python 3.9+ (prefer 3.11 > 3.12 > 3.10 > 3.9 > any 3.x)
+    $minMinor = 9
+    $bestExe = $null
+    $bestMinor = -1
+
+    # Try py launcher with preferred versions first
     $pyLauncher = Get-Command py -ErrorAction SilentlyContinue
     if ($pyLauncher) {
-        try {
-            $exe = & py -3.11 -c "import sys; print(sys.executable)" 2>$null
-            if ($LASTEXITCODE -eq 0 -and $exe) { return $exe.Trim() }
-            $exe = & py -3 -c "import sys; print(sys.executable)" 2>$null
-            if ($LASTEXITCODE -eq 0 -and $exe) { return $exe.Trim() }
-        } catch {}
+        foreach ($tryMinor in @(11, 12, 10, 9, 13, 14)) {
+            try {
+                $exe = & py "-3.$tryMinor" -c "import sys; print(sys.executable)" 2>$null
+                if ($LASTEXITCODE -eq 0 -and $exe) {
+                    if ($tryMinor -ge $minMinor -and ($bestExe -eq $null -or $tryMinor -eq 11)) {
+                        $bestExe = $exe.Trim(); $bestMinor = $tryMinor
+                        if ($tryMinor -eq 11) { return $bestExe }
+                    }
+                }
+            } catch {}
+        }
+        if ($bestExe) { return $bestExe }
     }
 
-    $candidates = @(
-        "python3.11",
-        "python3",
-        "python"
-    )
-
-    foreach ($cmd in $candidates) {
+    # Fallback: scan PATH
+    foreach ($cmd in @("python3", "python")) {
         $found = Get-Command $cmd -ErrorAction SilentlyContinue
         if ($found) {
             try {
                 $ver = & $cmd -c "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')" 2>$null
-                if ($LASTEXITCODE -eq 0 -and $ver.Trim() -eq "3.11") {
-                    $exe = & $cmd -c "import sys; print(sys.executable)" 2>$null
-                    if ($LASTEXITCODE -eq 0 -and $exe) { return $exe.Trim() }
+                if ($LASTEXITCODE -eq 0 -and $ver) {
+                    $parts = $ver.Trim().Split('.')
+                    if ([int]$parts[0] -eq 3 -and [int]$parts[1] -ge $minMinor) {
+                        $exe = & $cmd -c "import sys; print(sys.executable)" 2>$null
+                        if ($LASTEXITCODE -eq 0 -and $exe) { return $exe.Trim() }
+                    }
                 }
             } catch {}
         }
@@ -49,8 +58,8 @@ function Resolve-Python {
 
 function Ensure-Venv($pythonExe) {
     if (-not $pythonExe) {
-        Write-Host "[ERROR] No usable Python installation found." -ForegroundColor Red
-        Write-Host "        Tip: install Python 3.10+ or Python 3.11 and re-run." -ForegroundColor Yellow
+        Write-Host "[ERROR] Python 3.9+ not found. Install Python and re-run." -ForegroundColor Red
+        Write-Host "        Tip: winget install -e --id Python.Python.3.11 --scope user" -ForegroundColor Yellow
         exit 1
     }
 
@@ -60,9 +69,14 @@ function Ensure-Venv($pythonExe) {
     } else {
         try {
             $ver = & $VENV_PYTHON -c "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')" 2>$null
-            if ($LASTEXITCODE -ne 0 -or [version]$ver.Trim() -lt [version]'3.10') {
+            if ($LASTEXITCODE -ne 0) {
                 $needCreate = $true
-                Write-Host "[WARNING] Existing .venv Python version is too old (found: $ver). Will rebuild venv." -ForegroundColor Yellow
+            } else {
+                $parts = $ver.Trim().Split('.')
+                if ([int]$parts[0] -ne 3 -or [int]$parts[1] -lt 9) {
+                    $needCreate = $true
+                    Write-Host "[WARNING] Existing .venv Python too old (found: $ver). Will rebuild venv." -ForegroundColor Yellow
+                }
             }
         } catch {
             $needCreate = $true
@@ -75,7 +89,7 @@ function Ensure-Venv($pythonExe) {
             Write-Host "[INFO] Backing up existing venv to $bak" -ForegroundColor Cyan
             Move-Item -Force $VENV_DIR $bak
         }
-        Write-Host "[OK] Creating virtual environment (.venv) with Python 3.11..." -ForegroundColor Green
+        Write-Host "[OK] Creating virtual environment (.venv)..." -ForegroundColor Green
         & $pythonExe -m venv $VENV_DIR
         if ($LASTEXITCODE -ne 0) {
             Write-Host "[ERROR] Failed to create venv." -ForegroundColor Red
