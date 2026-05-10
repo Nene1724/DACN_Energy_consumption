@@ -91,18 +91,7 @@ DACN_Energy_consumption/
 │   │   └── fnb58_telemetry_collector.py
 │   ├── Dockerfile                         # Balena build for Jetson Nano
 │   └── docker-compose.yml
-│
-├── Paper/
-│   ├── ver2.tex                           # IEEE paper source (6 pages)
-│   ├── ver2.pdf                           # Compiled PDF
-│   └── figures/                           # All paper figures (PNG)
-│
-├── train_final.py                         # Train XGBoost device-specific models
-├── generate_paper_figures.py              # Generate academic figures
-├── gen_ui_figs.py                         # Generate UI screenshot figures for paper
-├── quick_experiment.py                    # Compare ET / XGBoost / Stacking on CV
-├── start_web.ps1                          # Windows: start controller
-└── CLAUDE.md                              # Codebase guidance for AI assistants
+└── start_web.ps1                          # Windows: start controller
 ```
 
 ---
@@ -153,24 +142,6 @@ balena device ssh 7c5c930
 6. Monitor canary results in Deployment Logs
 7. Switch to **Monitoring** to track live energy telemetry from FNB58
 
-### Train Energy Prediction Models
-
-```bash
-# Retrain XGBoost models from scratch
-.\.venv\Scripts\python train_final.py
-# Saves jetson_energy_model.pkl + rpi5_energy_model.pkl to ml-controller/artifacts/
-
-# Quick experiment: compare ExtraTrees / XGBoost / Stacking via 5-fold CV
-.\.venv\Scripts\python quick_experiment.py
-```
-
-### Generate Paper Figures
-
-```bash
-.\.venv\Scripts\python generate_paper_figures.py   # academic figures (Fig 1–13)
-.\.venv\Scripts\python gen_ui_figs.py               # UI screenshots (Fig 4, Fig 15)
-# All saved to Paper/figures/
-```
 
 ### Compile the Paper
 
