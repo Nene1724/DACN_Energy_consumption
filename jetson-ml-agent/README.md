@@ -92,12 +92,26 @@ Example payload from exporter command:
 
 ```json
 {
+	"energy_kind": "cumulative",
 	"energy_wh": 0.0182,
 	"power_w": 2.9,
 	"duration_s": 22.6,
 	"timestamp": "2026-03-30T15:10:00Z"
 }
 ```
+
+For inference-window telemetry, send an explicit delta sample instead:
+
+```json
+{
+	"energy_kind": "delta",
+	"delta_mwh": 12.5,
+	"power_mw": 2900,
+	"timestamp": "2026-03-30T15:10:00Z"
+}
+```
+
+The `/telemetry` endpoint rejects `energy_kind="delta"` payloads that carry `energy_wh`.
 
 Run collector:
 

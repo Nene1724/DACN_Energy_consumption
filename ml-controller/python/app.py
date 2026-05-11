@@ -56,6 +56,9 @@ BALENA_DEFAULT_TIMEOUT = int(os.getenv("BALENA_API_TIMEOUT", "30"))
 BALENA_PUBLIC_URL_CACHE_TTL_S = max(30, int(os.getenv("BALENA_PUBLIC_URL_CACHE_TTL_S", "300") or "300"))
 BALENA_PUBLIC_URL_NEGATIVE_TTL_S = max(15, int(os.getenv("BALENA_PUBLIC_URL_NEGATIVE_TTL_S", "60") or "60"))
 BALENA_PUBLIC_URL_CACHE = {}
+# In-memory cache of last known good device state to avoid overwriting on temporary fetch failures
+DEVICE_STATE_CACHE = {}
+DEVICE_STATE_CACHE_TTL_S = max(10, int(os.getenv("DEVICE_STATE_CACHE_TTL_S", "30")))
 MODEL_ANALYZE_MAX_MB = int(os.getenv("MODEL_ANALYZE_MAX_MB", "128"))
 
 
@@ -234,6 +237,81 @@ def _build_device_urls(bbb_ip: Optional[str], device_uuid: Optional[str], suffix
     if bbb_ip:
         urls_to_try.append(("local", f"http://{bbb_ip}:8000{suffix}"))
     return urls_to_try
+
+
+def _fetch_device_json(bbb_ip: Optional[str], device_uuid: Optional[str], suffix: str, timeout: int = 10):
+    urls_to_try = _build_device_urls(bbb_ip, device_uuid, suffix)
+    last_error = None
+    for _, url in urls_to_try:
+        try:
+            resp = requests.get(url, timeout=timeout)
+            resp.raise_for_status()
+            payload = resp.json()
+            return payload, None
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
+            last_error = str(exc)
+            continue
+        except Exception as exc:
+            last_error = str(exc)
+            continue
+    return None, (last_error or "Unable to connect to device")
+
+
+def _normalize_device_state_payload(*, device_id: Optional[str], device_ip: Optional[str], device_name: Optional[str], status_payload: Optional[dict], metrics_payload: Optional[dict], fetch_error: Optional[str] = None):
+    status_payload = status_payload if isinstance(status_payload, dict) else {}
+    metrics_payload = metrics_payload if isinstance(metrics_payload, dict) else {}
+    model_name = status_payload.get("model_name") or ((status_payload.get("model_info") or {}).get("model_name"))
+    meter = status_payload.get("meter_metrics") or metrics_payload.get("meter") or {}
+    energy_semantics = status_payload.get("energy_semantics") or metrics_payload.get("energy_semantics") or {}
+
+    connectivity_state = "online" if status_payload else "offline"
+    deployment_state = status_payload.get("status") if status_payload else "offline"
+    inference_state = "running" if status_payload.get("inference_active") else ("unknown" if not status_payload else "paused")
+
+    latest_inference_delta = energy_semantics.get("latest_inference_delta_mwh")
+    if latest_inference_delta is None:
+        latest_inference_delta = meter.get("latest_inference_delta_mwh")
+    session_energy = energy_semantics.get("session_energy_mwh")
+    if session_energy is None:
+        session_energy = meter.get("session_energy_mwh") or meter.get("measured_energy_mwh")
+
+    # Structured normalization log
+    try:
+        norm_log = {
+            "device_id": device_id,
+            "latest_inference_delta_source": "energy_semantics" if energy_semantics.get("latest_inference_delta_mwh") is not None else ("meter.latest_inference_delta_mwh" if meter.get("latest_inference_delta_mwh") is not None else "none"),
+            "session_energy_source": "energy_semantics" if energy_semantics.get("session_energy_mwh") is not None else ("meter.session_energy_mwh" if meter.get("session_energy_mwh") is not None else ("meter.measured_energy_mwh" if meter.get("measured_energy_mwh") is not None else "none")),
+            "meter_keys": {k: meter.get(k) for k in ("total_energy_wh", "session_energy_mwh", "measured_energy_mwh", "latest_inference_delta_mwh")},
+        }
+        print(f"[NORMALIZE] {json.dumps(norm_log)}")
+    except Exception:
+        pass
+
+    last_error = fetch_error or status_payload.get("error") or meter.get("error")
+    if connectivity_state == "offline" and not last_error:
+        last_error = "Failed to fetch"
+
+    return {
+        "device_id": device_id or device_ip,
+        "device_ip": device_ip,
+        "device_name": device_name,
+        "connectivity_state": connectivity_state,
+        "deployment_state": deployment_state,
+        "model_name": model_name,
+        "inference_state": inference_state,
+        "inference_active": bool(status_payload.get("inference_active")) if status_payload else None,
+        "energy": {
+            "latest_inference_delta_mwh": _safe_float(latest_inference_delta),
+            "session_energy_mwh": _safe_float(session_energy),
+            "total_energy_wh": _safe_float((energy_semantics.get("total_energy_wh") if energy_semantics else None) or meter.get("total_energy_wh")),
+            "latest_timed_measurement_mwh": _safe_float((energy_semantics.get("latest_timed_measurement_mwh") if energy_semantics else None) or meter.get("latest_timed_measurement_mwh")),
+            "predicted_mwh": _safe_float((status_payload.get("energy_metrics") or {}).get("predicted_mwh")) if status_payload else None,
+        },
+        "last_update": status_payload.get("last_update") or metrics_payload.get("timestamp"),
+        "last_error": last_error,
+        "status": status_payload,
+        "metrics": metrics_payload,
+    }
 
 
 def _normalize_device_key(device_type: str) -> str:
@@ -1275,6 +1353,90 @@ def get_status():
         "error": "Unable to connect to device",
         "device_offline": True
     }), 200
+
+
+@app.route("/api/device/state", methods=["GET"])
+def get_device_state():
+    """Normalized single-device state for all frontend panels.
+
+    Accepts: bbb_ip or device_uuid (+ optional device_name).
+    """
+    bbb_ip = request.args.get("bbb_ip")
+    device_uuid = request.args.get("device_uuid")
+    device_name = request.args.get("device_name")
+
+    if not bbb_ip and not device_uuid:
+        return jsonify({"success": False, "error": "bbb_ip or device_uuid is required"}), 400
+
+    status_payload, status_err = _fetch_device_json(bbb_ip, device_uuid, "/status", timeout=10)
+    metrics_payload, _ = _fetch_device_json(bbb_ip, device_uuid, "/metrics", timeout=10)
+
+    # If both fetches failed, attempt to serve last known good cached state
+    cache_key = device_uuid or bbb_ip
+    if not status_payload and not metrics_payload:
+        cached = DEVICE_STATE_CACHE.get(cache_key)
+        if cached:
+            age = time.time() - float(cached.get("timestamp", 0))
+            if age <= DEVICE_STATE_CACHE_TTL_S:
+                cached_state = cached.get("device_state")
+                # Mark as stale but preserve previous good state
+                if isinstance(cached_state, dict):
+                    out = dict(cached_state)
+                    out["connectivity_state"] = "stale"
+                    out["last_error"] = status_err or "fetch_failed"
+                    print(f"[DEVICE-STATE] returning cached state for {cache_key} (age={age:.1f}s)")
+                    return jsonify({"success": True, "device_state": out, "cached": True})
+        # No fresh cache available -> fall through to offline response
+
+    normalized = _normalize_device_state_payload(
+        device_id=device_uuid,
+        device_ip=bbb_ip,
+        device_name=device_name,
+        status_payload=status_payload,
+        metrics_payload=metrics_payload,
+        fetch_error=status_err,
+    )
+
+    cached = DEVICE_STATE_CACHE.get(cache_key)
+    if isinstance(cached, dict):
+        cached_state = cached.get("device_state") if isinstance(cached.get("device_state"), dict) else {}
+        if cached_state:
+            if not status_payload:
+                if cached_state.get("connectivity_state") is not None:
+                    normalized["connectivity_state"] = cached_state.get("connectivity_state")
+                for key in ("model_name", "deployment_state", "inference_state", "inference_active", "status"):
+                    if normalized.get(key) in (None, "", "offline", "unknown") and cached_state.get(key) is not None:
+                        normalized[key] = cached_state.get(key)
+            if not metrics_payload:
+                cached_energy = cached_state.get("energy") if isinstance(cached_state.get("energy"), dict) else {}
+                normalized_energy = normalized.get("energy") if isinstance(normalized.get("energy"), dict) else {}
+                for key in ("latest_inference_delta_mwh", "session_energy_mwh", "total_energy_wh", "latest_timed_measurement_mwh", "predicted_mwh"):
+                    if normalized_energy.get(key) is None and cached_energy.get(key) is not None:
+                        normalized_energy[key] = cached_energy.get(key)
+                normalized["energy"] = normalized_energy
+                if normalized.get("model_name") is None and cached_state.get("model_name") is not None:
+                    normalized["model_name"] = cached_state.get("model_name")
+
+    # Enrich with latest controller-side measured report if available
+    model_name = normalized.get("model_name")
+    latest_energy_report = _get_latest_energy_report(device_id=device_uuid, model_name=model_name)
+    if latest_energy_report:
+        normalized["latest_energy_report"] = latest_energy_report
+    # Update cache for this device key
+    cache_key = device_uuid or bbb_ip
+    try:
+        DEVICE_STATE_CACHE[cache_key] = {
+            "device_state": normalized,
+            "timestamp": time.time()
+        }
+        print(f"[DEVICE-STATE] cached state for {cache_key}")
+    except Exception:
+        pass
+
+    return jsonify({
+        "success": True,
+        "device_state": normalized,
+    })
 
 @app.route("/api/device/metrics", methods=["GET"])
 def get_device_metrics():

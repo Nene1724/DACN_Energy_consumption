@@ -1,10 +1,36 @@
 import os
 import threading
 import uuid
+import copy
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, Response
 import requests
+import json
+from dataclasses import dataclass, field
+from typing import Optional, Dict
+
+
+@dataclass
+class InferenceEnergyMeasurement:
+    inference_id: str
+    start_energy_wh: Optional[float]
+    start_ts: str
+    start_sample_ts: Optional[float]
+    device_session_id: int
+    status: str = "started"
+    created_monotonic: float = 0.0
+
+    def to_dict(self):
+        return {
+            "inference_id": self.inference_id,
+            "start_energy_wh": self.start_energy_wh,
+            "start_ts": self.start_ts,
+            "start_sample_ts": self.start_sample_ts,
+            "device_session_id": self.device_session_id,
+            "status": self.status,
+            "created_monotonic": self.created_monotonic,
+        }
 
 import shutil
 import time
@@ -112,6 +138,11 @@ FALL_WATCH_WINDOW_FRAMES = max(4, int(os.getenv("FALL_WATCH_WINDOW_FRAMES", "16"
 FALL_WATCH_WITH_STREAM = (os.getenv("FALL_WATCH_WITH_STREAM", "true").strip().lower() in ("1", "true", "yes", "on"))
 FALL_WATCH_AUTO_START = (os.getenv("FALL_WATCH_AUTO_START", "false").strip().lower() in ("1", "true", "yes", "on"))
 VIDEO_UPLOAD_DIR = (os.getenv("VIDEO_UPLOAD_DIR") or "/data/uploaded_videos").strip()
+INFERENCE_SAMPLE_WAIT_S = max(0.05, float(os.getenv("INFERENCE_SAMPLE_WAIT_S", "0.6")))
+INFERENCE_MIN_MEASURE_INTERVAL_S = max(0.0, float(os.getenv("INFERENCE_MIN_MEASURE_INTERVAL_S", "0.0")))
+INFERENCE_CLEANUP_INTERVAL_S = max(1.0, float(os.getenv("INFERENCE_CLEANUP_INTERVAL_S", "5.0")))
+INFERENCE_STALE_TIMEOUT_S = max(5.0, float(os.getenv("INFERENCE_STALE_TIMEOUT_S", "30.0")))
+MAX_REASONABLE_INFERENCE_MWH = float(os.getenv("MAX_REASONABLE_INFERENCE_MWH", "500.0"))
 
 # Used only for simulated fallback telemetry when the OS doesn't expose temp sensors.
 _SIM_TEMP_START_TS = time.time()
@@ -211,7 +242,16 @@ def _create_meter_metrics():
         "power_mw": None,
         "total_energy_wh": None,
         "baseline_energy_wh": None,
+        # session cumulative (mWh) for display only
         "measured_energy_mwh": None,
+        # Explicit semantic fields to avoid cumulative-vs-delta confusion
+        "session_energy_mwh": None,
+        "latest_inference_delta_mwh": None,
+        "latest_timed_measurement_mwh": None,
+        # timestamp of last meter sample observed (monotonic time)
+        "last_sample_ts": None,
+        # incremented when device/session resets are detected
+        "device_session_id": 0,
         "last_values": {},
         "error": None,
     }
@@ -262,9 +302,18 @@ STATE = {
     "inference_active": False,
     "energy_metrics": _create_energy_metrics(),
     "meter_metrics": _create_meter_metrics(),
+    # Per-inference measurement store: inference_id -> {start_energy_wh, start_ts, start_sample_ts, status, created_at}
+    "inference_measurements": {},
     "fall_detection": _create_fall_detection_metrics(),
     "benchmark_metrics": _create_benchmark_metrics(),
 }
+
+# Lock protecting meter and inference measurement state
+METER_LOCK = threading.Lock()
+STATE_LOCK = threading.RLock()
+
+# Background cleanup thread control
+_INFERENCE_CLEANUP_THREAD = {"thread": None, "stop": False}
 
 # In-memory runtime cache
 LOADED_INTERPRETER = None
@@ -278,10 +327,98 @@ LOADED_INPUT_META = None
 LOADED_AT = None
 MODEL_LOCK = threading.RLock()
 CAMERA_LOCK = threading.RLock()
+INFERENCE_EXECUTION_LOCK = threading.RLock()
+MEASUREMENT_TRACE_LOCK = threading.RLock()
+ACTIVE_MEASUREMENT_WINDOW = {"current": None}
 FNB58_MONITOR = {"reader": None, "thread": None}
 FNB58_RETRY_LOOP = {"thread": None}
 FALL_WATCH = {"thread": None, "stop": threading.Event(), "running": False, "last_result": None}
 FALL_WATCH_LOCK = threading.RLock()
+
+
+def _classify_request_for_measurement(path: str, method: str) -> str:
+    request_path = str(path or "")
+    if request_path.startswith("/predict") or request_path.startswith("/camera/fall-detect") or request_path.startswith("/measure_energy"):
+        return "inference"
+    if request_path.startswith("/benchmark"):
+        return "benchmark"
+    if request_path.startswith("/status") or request_path.startswith("/metrics") or request_path.startswith("/camera/snapshot") or request_path.startswith("/camera/stream"):
+        return "polling"
+    return "other"
+
+
+def _append_request_to_active_window(request_path: str, request_method: str, response_status: int | None = None):
+    with MEASUREMENT_TRACE_LOCK:
+        window = ACTIVE_MEASUREMENT_WINDOW.get("current")
+        if not window:
+            return
+        entry = {
+            "timestamp": _now_iso(),
+            "path": request_path,
+            "method": request_method,
+            "classification": _classify_request_for_measurement(request_path, request_method),
+        }
+        if response_status is not None:
+            entry["status_code"] = int(response_status)
+        window.setdefault("requests_during_window", []).append(entry)
+        if entry["classification"] != "inference":
+            window["non_inference_activity_detected"] = True
+
+
+def _begin_measurement_window(inference_id: str, trigger_source: str):
+    window = {
+        "measurement_id": inference_id,
+        "window_start_ts": _now_iso(),
+        "window_start_monotonic": time.monotonic(),
+        "trigger_source": trigger_source,
+        "owner_thread_id": threading.get_ident(),
+        "requests_during_window": [],
+        "inference_count": 1,
+        "non_inference_activity_detected": False,
+    }
+    with MEASUREMENT_TRACE_LOCK:
+        ACTIVE_MEASUREMENT_WINDOW["current"] = window
+    try:
+        log(f"[ENERGY-WINDOW-START] {json.dumps({k: window[k] for k in ('measurement_id', 'window_start_ts', 'trigger_source')})}")
+    except Exception:
+        pass
+    return window
+
+
+def _end_measurement_window(window: dict, before_total_wh: Optional[float], after_total_wh: Optional[float], delta_mwh: Optional[float]):
+    now_iso = _now_iso()
+    ended_window = dict(window or {})
+    ended_window["window_end_ts"] = now_iso
+    try:
+        started_monotonic = float(ended_window.get("window_start_monotonic") or time.monotonic())
+    except Exception:
+        started_monotonic = time.monotonic()
+    ended_window["duration_ms"] = round(max(time.monotonic() - started_monotonic, 0.0) * 1000.0, 3)
+    ended_window["before_total_wh"] = before_total_wh
+    ended_window["after_total_wh"] = after_total_wh
+    ended_window["delta_mwh"] = delta_mwh
+    ended_window["requests_during_window"] = list(ended_window.get("requests_during_window") or [])
+    ended_window["non_inference_activity_detected"] = bool(ended_window.get("non_inference_activity_detected"))
+    try:
+        log(f"[ENERGY-WINDOW-END] {json.dumps(ended_window)}")
+    except Exception:
+        pass
+    with MEASUREMENT_TRACE_LOCK:
+        if ACTIVE_MEASUREMENT_WINDOW.get("current") and ACTIVE_MEASUREMENT_WINDOW["current"].get("measurement_id") == ended_window.get("measurement_id"):
+            ACTIVE_MEASUREMENT_WINDOW["current"] = None
+    return ended_window
+
+
+@app.before_request
+def _trace_active_measurement_request():
+    with MEASUREMENT_TRACE_LOCK:
+        window = ACTIVE_MEASUREMENT_WINDOW.get("current")
+        if not window:
+            return None
+        if int(window.get("owner_thread_id") or -1) == threading.get_ident():
+            return None
+    _append_request_to_active_window(request.path, request.method)
+    return None
 
 
 class SharedCameraWorker:
@@ -546,6 +683,22 @@ def record_energy_sample(energy_mwh, power_mw=None, latency_s=None, note=None, t
         "energy_metrics": metrics
     }
 
+    # Structured log for incoming energy sample
+    try:
+        meter = STATE.get("meter_metrics") or {}
+        incoming_log = {
+            "energy_mwh": energy_mwh,
+            "power_mw": power_mw,
+            "source": source,
+            "note": note,
+            "meter_total_energy_wh": meter.get("total_energy_wh"),
+            "meter_session_energy_mwh": meter.get("session_energy_mwh"),
+            "timestamp": timestamp
+        }
+        log(f"[ENERGY-SAMPLE-IN] {json.dumps(incoming_log)}")
+    except Exception:
+        pass
+
     if over_budget and STATE.get("status") == "running":
         message = (
             f"Energy budget exceeded: "
@@ -588,6 +741,24 @@ def _derive_energy_payload(payload):
             energy_mwh = power_mw * (duration_s / 3600.0)
             parsed_from = "power_duration"
     return energy_mwh, power_mw, parsed_from
+
+
+def _reject_telemetry_payload(reason: str, expected: str, payload: dict):
+    event = {
+        "event": "telemetry_rejected",
+        "reason": reason,
+        "payload": payload,
+        "timestamp": _now_iso(),
+    }
+    try:
+        log(f"[TELEMETRY-REJECTED] {json.dumps(event)}")
+    except Exception:
+        pass
+    return jsonify({
+        "error": "Invalid telemetry payload",
+        "reason": reason,
+        "expected": expected,
+    }), 400
 
 
 def save_state_to_disk():
@@ -645,9 +816,10 @@ def load_state_from_disk():
 
 def set_state(**kwargs):
     """Update agent state"""
-    for k, v in kwargs.items():
-        STATE[k] = v
-    STATE["last_update"] = _now_iso()
+    with STATE_LOCK:
+        for k, v in kwargs.items():
+            STATE[k] = v
+        STATE["last_update"] = _now_iso()
     # Persist important state changes to disk
     if (
         "model_name" in kwargs or
@@ -659,6 +831,26 @@ def set_state(**kwargs):
         "inference_active" in kwargs
     ):
         save_state_to_disk()
+
+
+def _build_state_snapshot():
+    """Build a deep-copied, lock-protected status snapshot."""
+    with STATE_LOCK:
+        with METER_LOCK:
+            snap = copy.deepcopy(STATE)
+    return snap
+
+
+def _build_energy_semantics_snapshot(state_obj=None):
+    state_obj = state_obj or STATE
+    meter = state_obj.get("meter_metrics") or {}
+    energy = state_obj.get("energy_metrics") or {}
+    return {
+        "total_energy_wh": _safe_float(meter.get("total_energy_wh")),
+        "session_energy_mwh": _safe_float(meter.get("session_energy_mwh") if meter.get("session_energy_mwh") is not None else meter.get("measured_energy_mwh")),
+        "latest_inference_delta_mwh": _safe_float(meter.get("latest_inference_delta_mwh") if meter.get("latest_inference_delta_mwh") is not None else energy.get("latest_mwh")),
+        "latest_timed_measurement_mwh": _safe_float(meter.get("latest_timed_measurement_mwh")),
+    }
 
 
 def _auto_start_model_on_boot():
@@ -686,53 +878,290 @@ def _auto_start_model_on_boot():
 
 
 def _update_meter_snapshot(result=None, *, status=None, connected=None, port=None, error=None):
-    meter = STATE.get("meter_metrics") or _create_meter_metrics()
-    if status is not None:
-        meter["status"] = status
-    if connected is not None:
-        meter["connected"] = connected
-    if port is not None:
-        meter["port"] = port
-    if error is not None:
-        meter["error"] = error
-    meter["updated_at"] = _now_iso()
+    # All meter updates guarded by METER_LOCK to avoid races with readers and
+    # inference lifecycle operations.
+    with METER_LOCK:
+        meter = STATE.get("meter_metrics") or _create_meter_metrics()
+        if status is not None:
+            meter["status"] = status
+        if connected is not None:
+            meter["connected"] = connected
+        if port is not None:
+            meter["port"] = port
+        if error is not None:
+            meter["error"] = error
+        meter["updated_at"] = _now_iso()
 
-    if result:
-        last_values = result.get("last_values") or {}
-        meter["last_values"] = dict(last_values)
-        if result.get("transport"):
-            meter["transport"] = result.get("transport")
-        meter["voltage_v"] = _safe_float(last_values.get("voltage_v"))
-        meter["current_a"] = _safe_float(last_values.get("current_a"))
-        meter["power_w"] = _safe_float(last_values.get("power_w"))
-        meter["power_mw"] = (meter["power_w"] * 1000.0) if meter["power_w"] is not None else None
-        meter["total_energy_wh"] = _safe_float(last_values.get("energy_wh"))
+        if result:
+            last_values = result.get("last_values") or {}
+            meter["last_values"] = dict(last_values)
+            if result.get("transport"):
+                meter["transport"] = result.get("transport")
+            meter["voltage_v"] = _safe_float(last_values.get("voltage_v"))
+            meter["current_a"] = _safe_float(last_values.get("current_a"))
+            meter["power_w"] = _safe_float(last_values.get("power_w"))
+            meter["power_mw"] = (meter["power_w"] * 1000.0) if meter["power_w"] is not None else None
+            new_total_wh = _safe_float(last_values.get("energy_wh"))
 
-        if meter.get("baseline_energy_wh") is None and meter["total_energy_wh"] is not None:
-            meter["baseline_energy_wh"] = meter["total_energy_wh"]
+            prev_total_wh = _safe_float(meter.get("total_energy_wh"))
+            # Detect rollback/reconnect: significant drop in cumulative total
+            if prev_total_wh is not None and new_total_wh is not None and new_total_wh < prev_total_wh - 0.0001:
+                # Structured reconnect event
+                meter["device_session_id"] = int(meter.get("device_session_id", 0)) + 1
+                log(f"[ENERGY] Device reconnect/rollback detected (session {meter['device_session_id']}): prev={prev_total_wh} Wh new={new_total_wh} Wh")
+                # Reset session baseline to current total to avoid spurious negative session energy
+                meter["baseline_energy_wh"] = new_total_wh
+                # Invalidate any in-progress inference measurements from prior session
+                STATE["inference_measurements"] = {}
 
-        baseline_wh = _safe_float(meter.get("baseline_energy_wh"))
-        if baseline_wh is not None and meter["total_energy_wh"] is not None:
-            measured_energy_mwh = max(meter["total_energy_wh"] - baseline_wh, 0.0) * 1000.0
-            meter["measured_energy_mwh"] = round(measured_energy_mwh, 4)
-            record_energy_sample(
-                measured_energy_mwh,
-                power_mw=meter["power_mw"],
-                note=last_values,
-                timestamp=meter["updated_at"],
-                source=result.get("meter_source") or "fnb58_meter",
-            )
+            meter["total_energy_wh"] = new_total_wh
+            # mark sample timestamp (monotonic time) when we observed a new total
+            if new_total_wh is not None:
+                meter["last_sample_ts"] = time.monotonic()
 
-    STATE["meter_metrics"] = meter
+            # Log structured meter update for tracing
+            try:
+                meter_log = {
+                    "total_energy_wh": meter.get("total_energy_wh"),
+                    "baseline_energy_wh": meter.get("baseline_energy_wh"),
+                    "session_energy_mwh": meter.get("session_energy_mwh"),
+                    "last_sample_ts": meter.get("last_sample_ts"),
+                    "device_session_id": meter.get("device_session_id"),
+                    "transport": meter.get("transport"),
+                }
+                log(f"[METER-UPDATE] {json.dumps(meter_log)}")
+            except Exception:
+                pass
+
+            if meter.get("baseline_energy_wh") is None and meter["total_energy_wh"] is not None:
+                meter["baseline_energy_wh"] = meter["total_energy_wh"]
+
+            baseline_wh = _safe_float(meter.get("baseline_energy_wh"))
+            if baseline_wh is not None and meter["total_energy_wh"] is not None:
+                # session cumulative energy (mWh) for display only
+                session_energy_mwh = max(meter["total_energy_wh"] - baseline_wh, 0.0) * 1000.0
+                meter["measured_energy_mwh"] = round(session_energy_mwh, 4)
+                meter["session_energy_mwh"] = round(session_energy_mwh, 4)
+
+        STATE["meter_metrics"] = meter
+
+
+def _start_inference_cleanup_thread_if_needed():
+    if _INFERENCE_CLEANUP_THREAD.get("thread") is None:
+        def _cleanup_loop():
+            while not _INFERENCE_CLEANUP_THREAD.get("stop"):
+                try:
+                    now = time.monotonic()
+                    with METER_LOCK:
+                        ims = STATE.get("inference_measurements") or {}
+                        stale = [iid for iid, v in ims.items() if now - float(v.get("created_monotonic", now)) > INFERENCE_STALE_TIMEOUT_S]
+                        for iid in stale:
+                            log(f"[ENERGY] Cleaning stale inference measurement {iid}")
+                            ims.pop(iid, None)
+                        STATE["inference_measurements"] = ims
+                except Exception:
+                    pass
+                time.sleep(INFERENCE_CLEANUP_INTERVAL_S)
+
+        t = threading.Thread(target=_cleanup_loop, name="inference-cleanup", daemon=True)
+        _INFERENCE_CLEANUP_THREAD["thread"] = t
+        t.start()
+
+
+def start_inference_measurement(inference_id: Optional[str] = None, trigger_source: Optional[str] = None):
+    """Start a per-inference measurement and store it in STATE['inference_measurements'].
+
+    Returns the `inference_id` used.
+    """
+    _start_inference_cleanup_thread_if_needed()
+    if not inference_id:
+        inference_id = str(uuid.uuid4())
+    now_iso = _now_iso()
+    now_mon = time.monotonic()
+    window = _begin_measurement_window(inference_id, trigger_source or "inference")
+    with METER_LOCK:
+        meter = STATE.get("meter_metrics") or _create_meter_metrics()
+        total_wh = _safe_float(meter.get("total_energy_wh"))
+        last_sample_ts = meter.get("last_sample_ts")
+        device_session = int(meter.get("device_session_id", 0))
+        im_obj = InferenceEnergyMeasurement(
+            inference_id=inference_id,
+            start_energy_wh=total_wh,
+            start_ts=now_iso,
+            start_sample_ts=float(last_sample_ts) if last_sample_ts is not None else None,
+            device_session_id=device_session,
+            created_monotonic=now_mon,
+        )
+        im = im_obj.to_dict()
+        im["trigger_source"] = trigger_source or "inference"
+        im["window_start_ts"] = window.get("window_start_ts")
+        im["window_start_monotonic"] = window.get("window_start_monotonic")
+        im["requests_during_window"] = []
+        im["inference_count"] = 1
+        im["non_inference_activity_detected"] = False
+        ims = STATE.get("inference_measurements") or {}
+        ims[inference_id] = im
+        STATE["inference_measurements"] = ims
+    return inference_id
+
+
+def end_inference_measurement(inference_id: Optional[str] = None, note: Optional[dict] = None, wait_for_sample: bool = True):
+    """Complete a per-inference measurement by id.
+
+    Waits (up to INFERENCE_SAMPLE_WAIT_S) for a new meter sample after the
+    inference start to avoid zero-length measurements. Returns a dict with
+    measurement details and status. Uses METER_LOCK to synchronize.
+    """
+    now_iso = _now_iso()
+    now_mon = time.monotonic()
+
+    # Fetch and remove measurement under lock when done
+    with METER_LOCK:
+        ims = STATE.get("inference_measurements") or {}
+        im = ims.get(inference_id) if inference_id else None
+        if im is None and inference_id is None:
+            # If no id supplied and only one measurement exists, pick it
+            if len(ims) == 1:
+                inference_id = next(iter(ims.keys()))
+                im = ims.get(inference_id)
+
+        if im is None:
+            return {"inference_id": inference_id, "status": "missing_start", "note": "No matching inference start found", "timestamp": now_iso}
+
+        # snapshot start info
+        start_energy_wh = _safe_float(im.get("start_energy_wh"))
+        start_sample_ts = im.get("start_sample_ts")
+        device_session_at_start = int(im.get("device_session_id", 0))
+
+    # Optionally wait for a fresh sample after inference
+    waited = False
+    if wait_for_sample:
+        deadline = time.monotonic() + INFERENCE_SAMPLE_WAIT_S
+        while time.monotonic() < deadline:
+            with METER_LOCK:
+                current_sample_ts = (STATE.get("meter_metrics") or {}).get("last_sample_ts")
+            # If we saw a new sample after the start, break
+            if start_sample_ts is None or (current_sample_ts is not None and current_sample_ts > float(start_sample_ts)):
+                break
+            waited = True
+            time.sleep(0.02)
+
+    with METER_LOCK:
+        meter = STATE.get("meter_metrics") or _create_meter_metrics()
+        total_wh = _safe_float(meter.get("total_energy_wh"))
+        current_device_session = int(meter.get("device_session_id", 0))
+
+        result = {
+            "inference_id": inference_id,
+            "before_wh": start_energy_wh,
+            "after_wh": total_wh,
+            "delta_mwh": None,
+            "status": "ok",
+            "note": None,
+            "waited_for_sample": waited,
+            "timestamp": now_iso,
+        }
+
+        # If device session changed, invalidate measurement
+        if current_device_session != device_session_at_start:
+            # stale due to reconnect/reset
+            ims = STATE.get("inference_measurements") or {}
+            ims.pop(inference_id, None)
+            STATE["inference_measurements"] = ims
+            result["status"] = "device_session_changed"
+            result["note"] = "Device session changed since start (reconnect/reset)"
+            return result
+
+        if start_energy_wh is None or total_wh is None:
+            result["status"] = "missing_total"
+            result["note"] = "Missing start or current total energy; cannot compute delta"
+            ims = STATE.get("inference_measurements") or {}
+            ims.pop(inference_id, None)
+            STATE["inference_measurements"] = ims
+            return result
+
+        delta_wh = total_wh - start_energy_wh
+        if delta_wh < 0:
+            # Negative delta indicates reconnect/reset or rollover; discard
+            result["status"] = "negative_delta"
+            result["note"] = "Negative delta detected after reconnect/reset; measurement discarded"
+            ims = STATE.get("inference_measurements") or {}
+            ims.pop(inference_id, None)
+            STATE["inference_measurements"] = ims
+            # Adjust baseline to current to avoid future negative deltas
+            meter["baseline_energy_wh"] = total_wh
+            STATE["meter_metrics"] = meter
+            return result
+
+        delta_mwh = delta_wh * 1000.0
+        result["delta_mwh"] = round(delta_mwh, 6)
+        meter["latest_inference_delta_mwh"] = result["delta_mwh"]
+
+        # Semantic sanity checks
+        if delta_mwh > MAX_REASONABLE_INFERENCE_MWH:
+            log(f"[ENERGY][WARN] Unreasonable inference energy {delta_mwh} mWh for {inference_id}; possible accumulation bug")
+            result["note"] = "unreasonable_delta"
+
+        # Mark low-confidence if we didn't see a fresh sample after inference
+        if result["delta_mwh"] == 0.0 or not waited:
+            # If no new sample, mark low confidence rather than corrupt data
+            result["note"] = (result.get("note") or "") + " low_confidence_missing_sample"
+
+        # Record canonical per-inference sample
+        record_energy_sample(
+            result["delta_mwh"],
+            power_mw=meter.get("power_mw"),
+            latency_s=None,
+            note=note or {"inference_window": (im.get("start_ts"), now_iso)},
+            timestamp=now_iso,
+            source="fnb58_inference_delta",
+        )
+
+        # remove measurement entry
+        ims = STATE.get("inference_measurements") or {}
+        ims.pop(inference_id, None)
+        STATE["inference_measurements"] = ims
+        STATE["meter_metrics"] = meter
+
+        window = None
+        with MEASUREMENT_TRACE_LOCK:
+            window = ACTIVE_MEASUREMENT_WINDOW.get("current") if ACTIVE_MEASUREMENT_WINDOW.get("current") else None
+        if window and window.get("measurement_id") == inference_id:
+            window = dict(window)
+            window["requests_during_window"] = list(window.get("requests_during_window") or [])
+            window["inference_count"] = int(window.get("inference_count") or 1)
+            window["non_inference_activity_detected"] = bool(window.get("non_inference_activity_detected"))
+            _end_measurement_window(window, start_energy_wh, total_wh, result["delta_mwh"])
+
+        # Extended structured log
+        # Build detailed debug payload requested for runtime tracing
+        try:
+            debug_obj = {
+                "inference_id": inference_id,
+                "before_total_wh": start_energy_wh,
+                "after_total_wh": total_wh,
+                "raw_delta_mwh": (None if start_energy_wh is None or total_wh is None else (total_wh - start_energy_wh) * 1000.0),
+                "session_energy_mwh": meter.get("session_energy_mwh"),
+                "latest_inference_delta_mwh": meter.get("latest_inference_delta_mwh"),
+                "telemetry_energy_kind": "computed_delta",
+                "timestamp": now_iso,
+                "status": result.get("status"),
+                "waited_for_sample": waited,
+            }
+            log(f"[ENERGY-INFERENCE-TRACE] {json.dumps(debug_obj)}")
+        except Exception:
+            pass
+        return result
 
 
 def _reset_meter_baseline():
-    meter = STATE.get("meter_metrics") or _create_meter_metrics()
-    total_wh = _safe_float(meter.get("total_energy_wh"))
-    meter["baseline_energy_wh"] = total_wh
-    meter["measured_energy_mwh"] = 0.0 if total_wh is not None else None
-    meter["updated_at"] = _now_iso()
-    STATE["meter_metrics"] = meter
+    with METER_LOCK:
+        meter = STATE.get("meter_metrics") or _create_meter_metrics()
+        total_wh = _safe_float(meter.get("total_energy_wh"))
+        meter["baseline_energy_wh"] = total_wh
+        meter["measured_energy_mwh"] = 0.0 if total_wh is not None else None
+        meter["updated_at"] = _now_iso()
+        STATE["meter_metrics"] = meter
 
 
 def _refresh_meter_from_reader(reader):
@@ -1390,7 +1819,16 @@ def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=N
                     time.sleep(0.05)
                     continue
 
-                pose_result = _run_movenet_on_frame(frame_bgr, frame_index=frame_count)
+                def _run_frame():
+                    return _run_movenet_on_frame(frame_bgr, frame_index=frame_count)
+
+                with INFERENCE_EXECUTION_LOCK:
+                    frame_measurement = start_inference_measurement(f"fall_frame_{frame_count}", trigger_source="camera_fall_detection")
+                    pose_result = _run_movenet_on_frame(frame_bgr, frame_index=frame_count)
+                    try:
+                        end_inference_measurement(frame_measurement, note={"frame_index": frame_count, "trigger_source": "camera_fall_detection"}, wait_for_sample=False)
+                    except Exception:
+                        log("[ENERGY] end_inference_measurement failed")
                 frame_results.append(pose_result)
                 frame_count += 1
         else:
@@ -1416,7 +1854,13 @@ def _run_camera_fall_detection(duration_s=None, max_frames=None, camera_source=N
                             time.sleep(0.01)
                             continue
 
-                        pose_result = _run_movenet_on_frame(frame_bgr, frame_index=frame_count)
+                        with INFERENCE_EXECUTION_LOCK:
+                            frame_measurement = start_inference_measurement(f"fall_frame_{frame_count}", trigger_source="camera_fall_detection")
+                            pose_result = _run_movenet_on_frame(frame_bgr, frame_index=frame_count)
+                            try:
+                                end_inference_measurement(frame_measurement, note={"frame_index": frame_count, "trigger_source": "camera_fall_detection"}, wait_for_sample=False)
+                            except Exception:
+                                log("[ENERGY] end_inference_measurement failed")
                         frame_results.append(pose_result)
                         frame_count += 1
                 finally:
@@ -1853,7 +2297,7 @@ def metrics_debug():
 @app.route("/status", methods=["GET"])
 def status():
     """Return current agent status with runtime capabilities"""
-    response = dict(STATE)
+    response = _build_state_snapshot()
     response["runtime_capabilities"] = {
         "tflite_available": TFLITE_AVAILABLE,
         "onnx_available": ONNX_AVAILABLE,
@@ -1863,6 +2307,7 @@ def status():
     response["fall_detection"]["enabled"] = _is_fall_detection_model_info()
     response["benchmark_metrics"]["runtime"] = STATE.get("runtime")
     response["camera"] = CAMERA_WORKER.status()
+    response["energy_semantics"] = _build_energy_semantics_snapshot(response)
     response["fall_watch"] = {
         "running": _fall_watch_is_running(),
         "fps": FALL_WATCH_FPS,
@@ -1882,6 +2327,7 @@ def metrics():
     temp = real_temp if real_temp is not None else _simulated_temperature_c()
     temp_source = "sysfs" if real_temp is not None else "simulated"
 
+    energy_semantics = _build_energy_semantics_snapshot()
     return jsonify({
         "success": True,
         "timestamp": _now_iso(),
@@ -1903,8 +2349,13 @@ def metrics():
             "transport": STATE.get("meter_metrics", {}).get("transport"),
             "power_mw": STATE.get("meter_metrics", {}).get("power_mw"),
             "measured_energy_mwh": STATE.get("meter_metrics", {}).get("measured_energy_mwh"),
+            "session_energy_mwh": energy_semantics.get("session_energy_mwh"),
+            "total_energy_wh": energy_semantics.get("total_energy_wh"),
+            "latest_inference_delta_mwh": energy_semantics.get("latest_inference_delta_mwh"),
+            "latest_timed_measurement_mwh": energy_semantics.get("latest_timed_measurement_mwh"),
             "updated_at": STATE.get("meter_metrics", {}).get("updated_at"),
         },
+        "energy_semantics": energy_semantics,
         "fall_detection": {
             "enabled": STATE.get("fall_detection", {}).get("enabled"),
             "camera_ready": STATE.get("fall_detection", {}).get("camera_ready"),
@@ -2336,30 +2787,31 @@ def predict():
     _ensure_numpy()
 
     try:
-        with MODEL_LOCK:
-            if LOADED_INPUT_SIZE is None or (LOADED_INTERPRETER is None and LOADED_ONNX_SESSION is None):
-                return jsonify({"error": "Model not loaded in memory"}), 400
-            interpreter = LOADED_INTERPRETER
-            session = LOADED_ONNX_SESSION
-            input_size = LOADED_INPUT_SIZE
-            input_layout = LOADED_INPUT_LAYOUT
-            input_meta = LOADED_INPUT_META
-            runtime = LOADED_RUNTIME
+        with INFERENCE_EXECUTION_LOCK:
+            with MODEL_LOCK:
+                if LOADED_INPUT_SIZE is None or (LOADED_INTERPRETER is None and LOADED_ONNX_SESSION is None):
+                    return jsonify({"error": "Model not loaded in memory"}), 400
+                interpreter = LOADED_INTERPRETER
+                session = LOADED_ONNX_SESSION
+                input_size = LOADED_INPUT_SIZE
+                input_layout = LOADED_INPUT_LAYOUT
+                input_meta = LOADED_INPUT_META
+                runtime = LOADED_RUNTIME
 
-        c, h, w = input_size
-        if runtime == "onnx":
-            dummy_input = _build_dummy_input(input_layout or "nchw", input_size, getattr(input_meta, "shape", None), np.float32)
-            outputs = session.run(None, {input_meta.name: dummy_input})
-            output = outputs[0]
-        else:
-            input_details = interpreter.get_input_details()[0]
-            dtype = input_details["dtype"]
-            shape = input_details["shape"]
-            dummy_input = _build_dummy_input(input_layout or "nhwc", input_size, shape, dtype)
-            interpreter.set_tensor(input_details["index"], dummy_input)
-            interpreter.invoke()
-            output_details = interpreter.get_output_details()[0]
-            output = interpreter.get_tensor(output_details["index"])
+            c, h, w = input_size
+            if runtime == "onnx":
+                dummy_input = _build_dummy_input(input_layout or "nchw", input_size, getattr(input_meta, "shape", None), np.float32)
+                outputs = session.run(None, {input_meta.name: dummy_input})
+                output = outputs[0]
+            else:
+                input_details = interpreter.get_input_details()[0]
+                dtype = input_details["dtype"]
+                shape = input_details["shape"]
+                dummy_input = _build_dummy_input(input_layout or "nhwc", input_size, shape, dtype)
+                interpreter.set_tensor(input_details["index"], dummy_input)
+                interpreter.invoke()
+                output_details = interpreter.get_output_details()[0]
+                output = interpreter.get_tensor(output_details["index"])
 
         flat = output.flatten()
         sample = flat[:5].tolist() if flat.size else []
@@ -2479,6 +2931,26 @@ def _run_loaded_model_once_locked(runtime, interpreter, session, input_size, inp
     return interpreter.get_tensor(output_details["index"])
 
 
+def _measure_single_inference_execution(trigger_source: str, run_callable):
+    inference_id = f"inf_{uuid.uuid4().hex}"
+    with INFERENCE_EXECUTION_LOCK:
+        start_inference_measurement(inference_id, trigger_source=trigger_source)
+        before_total_wh = _safe_float((STATE.get("meter_metrics") or {}).get("total_energy_wh"))
+        run_callable()
+        after_total_wh = _safe_float((STATE.get("meter_metrics") or {}).get("total_energy_wh"))
+        delta_mwh = None
+        if before_total_wh is not None and after_total_wh is not None:
+            delta_mwh = round(max(after_total_wh - before_total_wh, 0.0) * 1000.0, 6)
+        end_inference_measurement(inference_id, note={"trigger_source": trigger_source}, wait_for_sample=False)
+        return {
+            "inference_id": inference_id,
+            "before_total_wh": before_total_wh,
+            "after_total_wh": after_total_wh,
+            "delta_mwh": delta_mwh,
+            "trigger_source": trigger_source,
+        }
+
+
 def benchmark_loaded_model(warmup_runs: int = 5, benchmark_runs: int = 30):
     """
     Benchmark the currently loaded model on-device using the exact runtime in memory.
@@ -2491,37 +2963,38 @@ def benchmark_loaded_model(warmup_runs: int = 5, benchmark_runs: int = 30):
     if STATE.get("status") not in ("running", "ready"):
         raise RuntimeError("Model is not ready for benchmarking")
 
-    with MODEL_LOCK:
-        runtime = LOADED_RUNTIME
-        interpreter = LOADED_INTERPRETER
-        session = LOADED_ONNX_SESSION
-        input_size = LOADED_INPUT_SIZE
-        input_layout = LOADED_INPUT_LAYOUT
-        input_meta = LOADED_INPUT_META
+    with INFERENCE_EXECUTION_LOCK:
+        with MODEL_LOCK:
+            runtime = LOADED_RUNTIME
+            interpreter = LOADED_INTERPRETER
+            session = LOADED_ONNX_SESSION
+            input_size = LOADED_INPUT_SIZE
+            input_layout = LOADED_INPUT_LAYOUT
+            input_meta = LOADED_INPUT_META
 
-        if input_size is None or (interpreter is None and session is None):
-            raise RuntimeError("No loaded model is available for benchmarking")
+            if input_size is None or (interpreter is None and session is None):
+                raise RuntimeError("No loaded model is available for benchmarking")
 
-        if runtime == "onnx":
-            dummy_input = _build_dummy_input(input_layout or "nchw", input_size, getattr(input_meta, "shape", None), np.float32)
-        else:
-            input_details = interpreter.get_input_details()[0]
-            dummy_input = _build_dummy_input(
-                input_layout or "nhwc",
-                input_size,
-                input_details.get("shape"),
-                input_details.get("dtype", np.float32),
-            )
+            if runtime == "onnx":
+                dummy_input = _build_dummy_input(input_layout or "nchw", input_size, getattr(input_meta, "shape", None), np.float32)
+            else:
+                input_details = interpreter.get_input_details()[0]
+                dummy_input = _build_dummy_input(
+                    input_layout or "nhwc",
+                    input_size,
+                    input_details.get("shape"),
+                    input_details.get("dtype", np.float32),
+                )
 
-        for _ in range(warmup_runs):
-            _run_loaded_model_once_locked(runtime, interpreter, session, input_size, input_layout, input_meta, dummy_input)
+            for _ in range(warmup_runs):
+                _run_loaded_model_once_locked(runtime, interpreter, session, input_size, input_layout, input_meta, dummy_input)
 
-        samples_s = []
-        for _ in range(benchmark_runs):
-            started = time.perf_counter()
-            _run_loaded_model_once_locked(runtime, interpreter, session, input_size, input_layout, input_meta, dummy_input)
-            ended = time.perf_counter()
-            samples_s.append(max(ended - started, 0.0))
+            samples_s = []
+            for _ in range(benchmark_runs):
+                started = time.perf_counter()
+                _run_loaded_model_once_locked(runtime, interpreter, session, input_size, input_layout, input_meta, dummy_input)
+                ended = time.perf_counter()
+                samples_s.append(max(ended - started, 0.0))
 
     if not samples_s:
         raise RuntimeError("Benchmark produced no samples")
@@ -2632,7 +3105,7 @@ def _run_single_inference_locked(interpreter, input_size):
 
 
 def measure_energy_during_inference(duration_s: float = 10.0):
-    """Measure energy using powercap energy_uj while running inferences."""
+    """Measure energy for exactly one inference execution using powercap energy_uj."""
     energy_file = _find_powercap_energy_file()
     if energy_file is None:
         return {
@@ -2653,14 +3126,14 @@ def measure_energy_during_inference(duration_s: float = 10.0):
 
     start_uj = _read_uint(energy_file)
     start_ts = time.time()
-    iters = 0
-    while (time.time() - start_ts) < duration_s:
-        try:
-            with MODEL_LOCK:
-                _run_single_inference_locked(interpreter, input_size)
-            iters += 1
-        except Exception:
-            break
+    try:
+        measurement_meta = _measure_single_inference_execution(
+            "measure_energy_endpoint",
+            lambda: _run_single_inference_locked(interpreter, input_size),
+        )
+        iters = 1
+    except Exception as exc:
+        return {"success": False, "error": f"Inference execution failed: {exc}"}
 
     end_uj = _read_uint(energy_file)
     end_ts = time.time()
@@ -2679,6 +3152,7 @@ def measure_energy_during_inference(duration_s: float = 10.0):
         "sensor_type": "powercap",
         "duration_s": elapsed_s,
         "iterations": iters,
+        "measurement": measurement_meta,
         "actual_energy_mwh": energy_mwh,
         "avg_power_mw": avg_power_mw
     }
@@ -2691,6 +3165,12 @@ def measure_energy_endpoint():
     report = measure_energy_during_inference(duration_s=duration_s)
     if not report.get("success"):
         return jsonify(report), 400
+
+    # Timed measurement semantic: explicit field for UI separation
+    with METER_LOCK:
+        meter = STATE.get("meter_metrics") or _create_meter_metrics()
+        meter["latest_timed_measurement_mwh"] = _safe_float(report.get("actual_energy_mwh"))
+        STATE["meter_metrics"] = meter
 
     # Optionally post to controller
     try:
@@ -2781,6 +3261,10 @@ def measure_energy_fnb58():
                 "avg_power_mw": round(avg_power_mw, 4) if avg_power_mw is not None else None,
                 "last_values": meter_after.get("last_values"),
             }
+            with METER_LOCK:
+                meter_state = STATE.get("meter_metrics") or _create_meter_metrics()
+                meter_state["latest_timed_measurement_mwh"] = _safe_float(response.get("actual_energy_mwh"))
+                STATE["meter_metrics"] = meter_state
             try:
                 controller = data.get("controller_url") or STATE.get("controller_url") or CONTROLLER_URL
                 if controller and response.get("actual_energy_mwh") is not None:
@@ -2878,6 +3362,10 @@ def measure_energy_fnb58():
             "meter_source": result.get("meter_source"),
             "transport": result.get("transport"),
         }
+        with METER_LOCK:
+            meter_state = STATE.get("meter_metrics") or _create_meter_metrics()
+            meter_state["latest_timed_measurement_mwh"] = _safe_float(response.get("actual_energy_mwh"))
+            STATE["meter_metrics"] = meter_state
         _update_meter_snapshot(result, status="connected", connected=True, port=resolved_port, error=None)
         
         # Post to controller if available
@@ -2929,23 +3417,81 @@ def telemetry():
     if data is None:
         return jsonify({"error": "Missing telemetry payload"}), 400
 
-    energy, power, parsed_from = _derive_energy_payload(data)
-    if energy is None:
-        return jsonify({"error": "No supported energy fields found in telemetry payload"}), 400
+    energy_kind = str(data.get("energy_kind") or "").strip().lower()
+    if energy_kind not in {"delta", "cumulative"}:
+        return _reject_telemetry_payload(
+            reason="energy_kind is required and must be either 'delta' or 'cumulative'",
+            expected="Provide energy_kind='delta' with explicit delta_mwh or energy_kind='cumulative' with energy_wh",
+            payload=data,
+        )
+
+    if energy_kind == "delta":
+        if data.get("energy_wh") is not None:
+            return _reject_telemetry_payload(
+                reason="energy_wh appears cumulative and cannot be used with energy_kind='delta'",
+                expected="Provide explicit delta_mwh or use energy_kind='cumulative'",
+                payload=data,
+            )
+        delta_mwh = _safe_float(data.get("delta_mwh"))
+        if delta_mwh is None:
+            return _reject_telemetry_payload(
+                reason="delta_mwh is required when energy_kind='delta'",
+                expected="Provide explicit delta_mwh or use energy_kind='cumulative'",
+                payload=data,
+            )
+        if data.get("energy_mwh") is not None:
+            return _reject_telemetry_payload(
+                reason="energy_mwh is ambiguous and cannot be used with energy_kind='delta'",
+                expected="Provide explicit delta_mwh or use energy_kind='cumulative'",
+                payload=data,
+            )
+        energy = delta_mwh
+        power = _safe_float(data.get("power_mw"))
+        if power is None and data.get("power_w") is not None:
+            power = _safe_float(data.get("power_w")) * 1000.0
+        parsed_from = "delta_mwh"
+    else:
+        if data.get("delta_mwh") is not None:
+            return _reject_telemetry_payload(
+                reason="delta_mwh cannot be used with energy_kind='cumulative'",
+                expected="Provide energy_wh for cumulative telemetry or delta_mwh for delta telemetry",
+                payload=data,
+            )
+        energy_wh = _safe_float(data.get("energy_wh"))
+        if energy_wh is None:
+            return _reject_telemetry_payload(
+                reason="energy_wh is required when energy_kind='cumulative'",
+                expected="Provide energy_wh for cumulative telemetry or delta_mwh for delta telemetry",
+                payload=data,
+            )
+        energy = energy_wh * 1000.0
+        power = _safe_float(data.get("power_mw"))
+        if power is None and data.get("power_w") is not None:
+            power = _safe_float(data.get("power_w")) * 1000.0
+        parsed_from = "energy_wh"
 
     latency = data.get("latency_s")
     note = data.get("note") or data.get("meter_note")
     timestamp = data.get("timestamp")
     source = data.get("source") or data.get("meter_source") or parsed_from
 
-    within_budget = record_energy_sample(
-        energy,
-        power_mw=power,
-        latency_s=latency,
-        note=note,
-        timestamp=timestamp,
-        source=source
-    )
+    # Structured telemetry ingestion log
+    try:
+        log(f"[TELEMETRY] kind={energy_kind} parsed_from={parsed_from} energy={energy} power_mw={power} source={source} timestamp={timestamp}")
+    except Exception:
+        pass
+
+    within_budget = True
+    if energy_kind == "delta":
+        # Delta telemetry participates in budget/history as inference-scale sample.
+        within_budget = record_energy_sample(
+            energy,
+            power_mw=power,
+            latency_s=latency,
+            note=note,
+            timestamp=timestamp,
+            source=source
+        )
 
     if any(key in data for key in ("voltage_v", "current_a", "power_w", "energy_wh")):
         _update_meter_snapshot({
@@ -2953,16 +3499,19 @@ def telemetry():
                 "voltage_v": data.get("voltage_v"),
                 "current_a": data.get("current_a"),
                 "power_w": data.get("power_w") or ((power or 0.0) / 1000.0 if power is not None else None),
-                "energy_wh": data.get("energy_wh") or (energy / 1000.0),
+                "energy_wh": data.get("energy_wh") if energy_kind == "cumulative" else None,
             }
         }, status="connected", connected=True, port=STATE.get("meter_metrics", {}).get("port"), error=None)
 
     message = "Telemetry ingested"
+    if energy_kind == "cumulative":
+        message = "Cumulative telemetry ingested (meter state only)"
     if not within_budget:
         message = "Telemetry ingested - energy budget exceeded, inference halted"
 
     return jsonify({
         "message": message,
+        "energy_kind": energy_kind,
         "parsed_from": parsed_from,
         "energy_metrics": STATE["energy_metrics"],
         "meter_metrics": STATE["meter_metrics"],

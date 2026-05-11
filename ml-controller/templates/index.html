@@ -515,6 +515,9 @@
         let selectedDeviceBudget = null;
         const deviceStatusCache = {};
         let lastDeploymentByDevice = {};
+        // Single authoritative frontend state store
+        const deviceStateStore = {};
+        let centralizedPollingInterval = null;
         const DEFAULT_BUDGET_MWH = 100; // Default energy budget in mWh
         const INITIAL_VIEW = "{{ initial_view|default('deployment') }}";
         const DEVICE_ENERGY_BUDGETS = {
@@ -1794,16 +1797,18 @@
             const reportedPredicted = latestEnergyReport && latestEnergyReport.predicted_mwh != null
                 ? Number(latestEnergyReport.predicted_mwh)
                 : null;
-            const reportedMeasured = latestEnergyReport && latestEnergyReport.actual_energy_mwh != null
-                ? Number(latestEnergyReport.actual_energy_mwh)
-                : null;
             const benchmarkPredicted = latestBenchmarkReport?.prediction?.predicted_energy_mwh != null
                 ? Number(latestBenchmarkReport.prediction.predicted_energy_mwh)
                 : null;
 
             const predicted = reportedPredicted ?? benchmarkPredicted ?? extractPredictedEnergyMwh(modelInfo)
                 ?? (energyMetrics && energyMetrics.predicted_mwh != null ? Number(energyMetrics.predicted_mwh) : null);
-            const measured = reportedMeasured;
+            const inferredDelta = Number(
+                meterMetrics?.latest_inference_delta_mwh
+                ?? meterMetrics?.energy?.latest_inference_delta_mwh
+                ?? energyMetrics?.latest_mwh
+            );
+            const measured = Number.isFinite(inferredDelta) ? inferredDelta : null;
 
             let latestSample = null;
             if (energyMetrics && Array.isArray(energyMetrics.history) && energyMetrics.history.length) {
@@ -1842,8 +1847,8 @@
                 ? formatTimestamp(latestSample.timestamp)
                 : (meterMetrics && meterMetrics.updated_at ? formatTimestamp(meterMetrics.updated_at) : 'N/A'));
 
-            if (Number.isFinite(predicted) && Number.isFinite(measured) && latestEnergyReport) {
-                noteEl.textContent = 'Using the latest controlled FNB58 measurement reported by the device.';
+            if (Number.isFinite(predicted) && Number.isFinite(measured)) {
+                noteEl.textContent = 'Comparing predicted per-inference energy against latest inference delta.';
             } else if (Number.isFinite(predicted) && latestBenchmarkReport?.prediction) {
                 noteEl.textContent = 'Prediction has been recalibrated from an on-device benchmark on the edge device.';
             } else if (Number.isFinite(predicted) && meterMetrics && meterMetrics.connected) {
@@ -1864,10 +1869,12 @@
             const currentEl = document.getElementById('meter_current');
             const powerEl = document.getElementById('meter_power');
             const energyEl = document.getElementById('meter_energy');
+            const inferenceEnergyEl = document.getElementById('meter_inference_energy');
+            const totalEnergyEl = document.getElementById('meter_total_energy');
             const updatedEl = document.getElementById('meter_updated');
             const errorEl = document.getElementById('meter_error');
 
-            if (!connectionEl || !portEl || !voltageEl || !currentEl || !powerEl || !energyEl || !updatedEl || !errorEl) {
+            if (!connectionEl || !portEl || !voltageEl || !currentEl || !powerEl || !energyEl || !updatedEl || !errorEl || !inferenceEnergyEl || !totalEnergyEl) {
                 return;
             }
 
@@ -1882,6 +1889,8 @@
                 currentEl.textContent = 'N/A';
                 powerEl.textContent = 'N/A';
                 energyEl.textContent = 'N/A';
+                inferenceEnergyEl.textContent = 'N/A';
+                totalEnergyEl.textContent = 'N/A';
                 updatedEl.textContent = 'N/A';
                 errorEl.textContent = 'No meter data available';
                 return;
@@ -1895,17 +1904,22 @@
             const current = Number(meter.current_a ?? meter.last_values?.current_a);
             const powerMw = Number(meter.power_mw ?? meter.avg_power_mw ?? meter.last_values?.power_mw);
             const powerW = Number.isFinite(powerMw) ? powerMw / 1000 : Number(meter.power_w ?? meter.last_values?.power_w);
-            const energyMwh = Number(
+            const sessionEnergyMwh = Number(
+                meter.session_energy_mwh ??
                 meter.measured_energy_mwh ??
                 meter.energy_mwh ??
                 meter.total_energy_mwh ??
                 meter.last_values?.energy_mwh
             );
+            const latestInferenceDeltaMwh = Number(meter.latest_inference_delta_mwh);
+            const totalEnergyWh = Number(meter.total_energy_wh ?? meter.last_values?.energy_wh);
 
             voltageEl.textContent = Number.isFinite(voltage) ? `${formatMetric(voltage, 2)} V` : 'N/A';
             currentEl.textContent = Number.isFinite(current) ? `${formatMetric(current, 3)} A` : 'N/A';
             powerEl.textContent = Number.isFinite(powerW) ? `${formatMetric(powerW, 3)} W` : 'N/A';
-            energyEl.textContent = Number.isFinite(energyMwh) ? `${formatMetric(energyMwh, 2)} mWh` : 'N/A';
+            inferenceEnergyEl.textContent = Number.isFinite(latestInferenceDeltaMwh) ? `${formatMetric(latestInferenceDeltaMwh, 2)} mWh` : 'N/A';
+            energyEl.textContent = Number.isFinite(sessionEnergyMwh) ? `${formatMetric(sessionEnergyMwh, 2)} mWh` : 'N/A';
+            totalEnergyEl.textContent = Number.isFinite(totalEnergyWh) ? `${formatMetric(totalEnergyWh, 4)} Wh` : 'N/A';
             updatedEl.textContent = meter.updated_at ? formatTimestamp(meter.updated_at) : 'N/A';
             errorEl.textContent = meter.error || (connected ? 'Streaming' : 'No live readings yet');
         }
@@ -2813,27 +2827,30 @@
 
         function startMetricsPolling() {
             console.log('Started metrics polling');
-            
-            // Clear existing interval
-            if (metricsPollInterval) {
-                clearInterval(metricsPollInterval);
+
+            if (centralizedPollingInterval) {
+                clearInterval(centralizedPollingInterval);
             }
-            
-            // Fetch immediately
-            fetchDeviceMetrics();
-            
-            // Then poll every 5 seconds
-            metricsPollInterval = setInterval(() => {
-                fetchDeviceMetrics();
-            }, 5000);
+
+            const tick = async () => {
+                try {
+                    await refreshDeviceModelStatus();
+                    fetchDeviceMetrics();
+                } catch (err) {
+                    console.warn('Central polling tick failed:', err);
+                }
+            };
+
+            tick();
+            centralizedPollingInterval = setInterval(tick, 5000);
         }
 
         function stopMetricsPolling() {
             console.log('Stopped metrics polling');
-            
-            if (metricsPollInterval) {
-                clearInterval(metricsPollInterval);
-                metricsPollInterval = null;
+
+            if (centralizedPollingInterval) {
+                clearInterval(centralizedPollingInterval);
+                centralizedPollingInterval = null;
             }
         }
 
@@ -2850,41 +2867,30 @@
             }
 
             const deviceUuid = document.getElementById('device_uuid')?.value || '';
-            console.log('Fetching metrics for device:', bbbIp, 'UUID:', deviceUuid);
-            const requestDeviceKey = `${deviceUuid}|${bbbIp}`;
-            
-            // Use UUID for cross-network support
-            const params = new URLSearchParams();
-            if (deviceUuid) params.append('device_uuid', deviceUuid);
-            if (bbbIp) params.append('bbb_ip', bbbIp);
+            const key = deviceUuid || bbbIp;
+            const stored = deviceStateStore[key];
 
-            Promise.all([
-                fetch(`/api/device/metrics?${params}`).then(res => res.json()),
-                fetch(`/api/status?${params}`).then(res => res.json()).catch(() => ({ success: false }))
-            ])
-                .then(([metricsData, statusData]) => {
-                    const currentBbbIp = document.getElementById('bbb_ip')?.value || '';
-                    const currentDeviceUuid = document.getElementById('device_uuid')?.value || '';
-                    const currentDeviceKey = `${currentDeviceUuid}|${currentBbbIp}`;
-                    if (requestDeviceKey !== currentDeviceKey || (activeSelectedDeviceKey && requestDeviceKey !== activeSelectedDeviceKey)) {
-                        // Ignore stale responses from a previously selected device.
-                        return;
+            if (stored && stored.metrics) {
+                updateDeviceMetrics(stored.metrics, stored.status || null);
+                if (stored.status) {
+                    updateDeviceStatus(stored.status);
+                }
+                return;
+            }
+
+            // If store does not have selected device yet, fetch once and populate store.
+            fetchDeviceModelStatus({ uuid: deviceUuid || null, endpoint: bbbIp || null, device_name: 'Selected device' })
+                .then((res) => {
+                    const normalized = res?.normalized || null;
+                    if (normalized?.metrics) {
+                        updateDeviceMetrics(normalized.metrics, normalized.status || null);
                     }
-
-                    console.log('Metrics API response:', metricsData);
-
-                    if (metricsData.success) {
-                        updateDeviceMetrics(metricsData, statusData && statusData.success ? statusData.status : null);
-                    } else {
-                        console.warn('Failed to fetch device metrics:', metricsData.error || 'No metrics data');
-                    }
-
-                    if (statusData && statusData.success) {
-                        updateDeviceStatus(statusData.status);
+                    if (normalized?.status) {
+                        updateDeviceStatus(normalized.status);
                     }
                 })
-                .catch(err => {
-                    console.error('Error fetching device metrics:', err);
+                .catch((err) => {
+                    console.warn('Selected-device fetch failed:', err);
                 });
         }
 
@@ -4798,43 +4804,91 @@
         }
         
         // Device Model Status Functions
-        let deviceStatusRefreshInterval = null;
         let cachedDeviceStatuses = {}; // Cache previous status to avoid unnecessary re-renders
+
+        function getDeviceKey(device = {}) {
+            return device.uuid || device.endpoint || device.device_id || '';
+        }
+
+        function upsertDeviceState(state) {
+            const key = getDeviceKey(state || {});
+            if (!key) return;
+            deviceStateStore[key] = {
+                ...(deviceStateStore[key] || {}),
+                ...state
+            };
+        }
+
+        function getSelectedDeviceState() {
+            const key = activeSelectedDeviceKey || `${document.getElementById('device_uuid')?.value || ''}|${document.getElementById('bbb_ip')?.value || ''}`;
+            const [uuid, endpoint] = String(key || '').split('|');
+            return deviceStateStore[uuid] || deviceStateStore[endpoint] || null;
+        }
         
         async function fetchDeviceModelStatus(device) {
             try {
                 const params = new URLSearchParams();
                 if (device.uuid) params.append('device_uuid', device.uuid);
                 if (device.endpoint) params.append('bbb_ip', device.endpoint);
+                if (device.device_name || device.name) params.append('device_name', device.device_name || device.name);
 
-                const response = await fetch(`/api/status?${params.toString()}`, {
+                const response = await fetch(`/api/device/state?${params.toString()}`, {
                     method: 'GET',
                     signal: AbortSignal.timeout(10000)
                 });
                 
                 const result = await response.json();
-                
-                if (result.success && result.status) {
+
+                if (result.success && result.device_state) {
+                    const normalized = result.device_state;
+                    upsertDeviceState({
+                        ...normalized,
+                        uuid: device.uuid,
+                        endpoint: device.endpoint,
+                    });
                     return {
                         device: device,
-                        status: result.status.status || 'unknown',
-                        model_name: result.status.model_name || 'None',
-                        inference_active: result.status.inference_active || false,
-                        error: result.status.error || null,
-                        last_update: result.status.last_update || null
+                        status: normalized.deployment_state || 'unknown',
+                        model_name: normalized.model_name || 'N/A',
+                        inference_active: normalized.inference_state === 'running',
+                        inference_state: normalized.inference_state || 'unknown',
+                        error: normalized.last_error || null,
+                        last_update: normalized.last_update || null,
+                        connectivity_state: normalized.connectivity_state || 'offline',
+                        normalized: normalized,
                     };
                 } else {
                     return {
                         device: device,
                         status: 'offline',
-                        error: result.error || 'Unknown error'
+                        model_name: null,
+                        inference_active: null,
+                        inference_state: 'unknown',
+                        connectivity_state: 'offline',
+                        error: result.error || 'Failed to fetch',
+                        normalized: {
+                            model_name: null,
+                            inference_state: 'unknown',
+                            connectivity_state: 'offline',
+                            error: result.error || 'Failed to fetch',
+                        }
                     };
                 }
             } catch (err) {
                 return {
                     device: device,
                     status: 'offline',
-                    error: err.message
+                    model_name: null,
+                    inference_active: null,
+                    inference_state: 'unknown',
+                    connectivity_state: 'offline',
+                    error: err.message || 'Failed to fetch',
+                    normalized: {
+                        model_name: null,
+                        inference_state: 'unknown',
+                        connectivity_state: 'offline',
+                        error: err.message || 'Failed to fetch',
+                    }
                 };
             }
         }
@@ -4883,10 +4937,10 @@
                     </div>
                     <div style="display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; font-size: 12px; color: var(--muted);">
                         <strong style="color: var(--text);">Model:</strong>
-                        <span style="font-weight: 600; color: ${result.model_name !== 'None' ? 'var(--accent)' : 'var(--muted)'};">${result.model_name}</span>
+                        <span style="font-weight: 600; color: ${result.model_name && result.model_name !== 'N/A' ? 'var(--accent)' : 'var(--muted)'};">${result.model_name || 'N/A'}</span>
                         
                         <strong style="color: var(--text);">Inference:</strong>
-                        <span>${result.inference_active ? '✅ Active' : '⏸️ Paused'}</span>
+                        <span>${result.inference_state === 'running' ? '✅ Active' : (result.connectivity_state === 'offline' ? 'Offline' : (result.inference_state === 'paused' ? '⏸️ Paused' : 'Unknown'))}</span>
                         
                         ${result.error ? `
                             <strong style="color: var(--danger);">Error:</strong>
@@ -4967,20 +5021,11 @@
         
         // Auto-refresh device status every 10 seconds when panel is visible
         function startDeviceStatusAutoRefresh() {
-            stopDeviceStatusAutoRefresh();
-            deviceStatusRefreshInterval = setInterval(() => {
-                const panel = document.getElementById('device_model_status_panel');
-                if (panel && panel.style.display !== 'none') {
-                    refreshDeviceModelStatus();
-                }
-            }, 10000); // Refresh every 10 seconds
+            // Device status refresh is driven by centralized polling manager.
         }
         
         function stopDeviceStatusAutoRefresh() {
-            if (deviceStatusRefreshInterval) {
-                clearInterval(deviceStatusRefreshInterval);
-                deviceStatusRefreshInterval = null;
-            }
+            // No-op: handled by centralized polling manager.
         }
         
         // Device selection change is handled in populateDeviceSelectors

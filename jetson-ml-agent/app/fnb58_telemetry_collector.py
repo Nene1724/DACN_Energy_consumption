@@ -20,10 +20,7 @@ def _normalize_payload(raw, source_name):
     if not isinstance(raw, dict):
         return None
 
-    payload = {
-        "energy_mwh": _as_float(raw.get("energy_mwh")),
-        "energy_wh": _as_float(raw.get("energy_wh")),
-        "energy_mah": _as_float(raw.get("energy_mah")),
+    base_payload = {
         "voltage_v": _as_float(raw.get("voltage_v") or raw.get("voltage")),
         "power_w": _as_float(raw.get("power_w")),
         "power_mw": _as_float(raw.get("power_mw")),
@@ -35,11 +32,25 @@ def _normalize_payload(raw, source_name):
         "timestamp": raw.get("timestamp") or datetime.now(timezone.utc).isoformat(),
     }
 
-    has_energy = any(
-        payload.get(key) is not None
-        for key in ("energy_mwh", "energy_wh", "energy_mah", "power_w", "power_mw")
-    )
-    return payload if has_energy else None
+    delta_mwh = _as_float(raw.get("delta_mwh"))
+    if delta_mwh is not None:
+        payload = dict(base_payload)
+        payload.update({
+            "energy_kind": "delta",
+            "delta_mwh": delta_mwh,
+        })
+        return payload
+
+    energy_wh = _as_float(raw.get("energy_wh"))
+    if energy_wh is not None:
+        payload = dict(base_payload)
+        payload.update({
+            "energy_kind": "cumulative",
+            "energy_wh": energy_wh,
+        })
+        return payload
+
+    return None
 
 
 def read_from_command(command):

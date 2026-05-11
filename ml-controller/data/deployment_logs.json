@@ -604,11 +604,231 @@
         },
         "used_url_type": "local"
       }
+    },
+    {
+      "timestamp": "2026-05-10T12:17:29.134083Z",
+      "type": "info",
+      "message": "Starting deployment of 'squeezenet1_1' to device 192.168.137.164",
+      "metadata": {
+        "model_name": "squeezenet1_1",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.164",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-05-10T12:17:38.615457Z",
+      "type": "success",
+      "message": "Deploy thành công model 'squeezenet1_1' lên thiết bị 192.168.137.164 (via public URL)",
+      "metadata": {
+        "model_name": "squeezenet1_1",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.164",
+        "model_path": "D:\\KLTN_Hub\\Repo_All\\DACN_Energy_consumption\\ml-controller\\model_store\\squeezenet1_1.onnx",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": 29.98996075,
+          "message": "Deployment successful",
+          "model_info": {
+            "artifact_file": "squeezenet1_1.onnx",
+            "artifact_format": "onnx",
+            "device_type": "jetson_nano",
+            "energy_avg_mwh": 10.28,
+            "energy_category": "excellent",
+            "gflops": 0.71495,
+            "gmacs": 0.357475,
+            "input_size": [
+              1,
+              3,
+              224,
+              224
+            ],
+            "latency_avg_s": 0.101435,
+            "model_name": "squeezenet1_1",
+            "params_m": 1.233288,
+            "predicted_energy_mwh": 10.28,
+            "prediction_mape_pct": 21.07900438055828,
+            "prediction_reason": "Energy consumption (10.3 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+            "size_mb": 4.720796,
+            "source_type": "uploaded_custom_model",
+            "throughput_iter_per_s": 16.6489
+          },
+          "model_name": "squeezenet1_1",
+          "model_path": "/data/models/current_model.onnx",
+          "model_size_bytes": 4950113
+        },
+        "used_url_type": "public"
+      }
+    },
+    {
+      "timestamp": "2026-05-10T12:19:37.398413Z",
+      "type": "info",
+      "message": "Starting deployment of 'yolov5n' to device 192.168.137.164",
+      "metadata": {
+        "model_name": "yolov5n",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.164",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-05-10T12:19:53.692874Z",
+      "type": "success",
+      "message": "Deploy thành công model 'yolov5n' lên thiết bị 192.168.137.164 (via public URL)",
+      "metadata": {
+        "model_name": "yolov5n",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.164",
+        "model_path": "D:\\KLTN_Hub\\Repo_All\\DACN_Energy_consumption\\ml-controller\\model_store\\yolov5n.onnx",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": 29.98996075,
+          "message": "Deployment successful",
+          "model_info": {
+            "artifact_file": "yolov5n.onnx",
+            "artifact_format": "onnx",
+            "device_type": "jetson_nano",
+            "energy_avg_mwh": 11.31,
+            "energy_category": "excellent",
+            "gflops": 2.44339,
+            "gmacs": 1.221695,
+            "input_size": [
+              1,
+              3,
+              224,
+              224
+            ],
+            "latency_avg_s": 0.16873,
+            "model_name": "yolov5n",
+            "params_m": 1.867405,
+            "predicted_energy_mwh": 11.31,
+            "prediction_mape_pct": 21.07900438055828,
+            "prediction_reason": "Energy consumption (11.3 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+            "size_mb": 7.554398,
+            "source_type": "uploaded_custom_model",
+            "throughput_iter_per_s": 9.1741
+          },
+          "model_name": "yolov5n",
+          "model_path": "/data/models/current_model.onnx",
+          "model_size_bytes": 7921360
+        },
+        "used_url_type": "public"
+      }
+    },
+    {
+      "timestamp": "2026-05-10T13:42:20.223060Z",
+      "type": "info",
+      "message": "Starting deployment of 'shufflenet_v2_x0_5' to device 192.168.137.164",
+      "metadata": {
+        "model_name": "shufflenet_v2_x0_5",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.164",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-05-10T13:42:26.890761Z",
+      "type": "success",
+      "message": "Deploy thành công model 'shufflenet_v2_x0_5' lên thiết bị 192.168.137.164 (via public URL)",
+      "metadata": {
+        "model_name": "shufflenet_v2_x0_5",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.137.164",
+        "model_path": "D:\\KLTN_Hub\\Repo_All\\DACN_Energy_consumption\\ml-controller\\model_store\\shufflenet_v2_x0_5.onnx",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": 29.98996075,
+          "message": "Deployment successful",
+          "model_info": {
+            "artifact_file": "shufflenet_v2_x0_5.onnx",
+            "artifact_format": "onnx",
+            "device_type": "jetson_nano",
+            "energy_avg_mwh": 7.21,
+            "energy_category": "excellent",
+            "gflops": 0.086102,
+            "gmacs": 0.043051,
+            "input_size": [
+              1,
+              3,
+              224,
+              224
+            ],
+            "latency_avg_s": 0.058173,
+            "model_name": "shufflenet_v2_x0_5",
+            "params_m": 1.360032,
+            "predicted_energy_mwh": 7.21,
+            "prediction_mape_pct": 21.07900438055828,
+            "prediction_reason": "Energy consumption (7.2 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+            "size_mb": 5.24915,
+            "source_type": "uploaded_custom_model",
+            "throughput_iter_per_s": 23.8987
+          },
+          "model_name": "shufflenet_v2_x0_5",
+          "model_path": "/data/models/current_model.onnx",
+          "model_size_bytes": 5504133
+        },
+        "used_url_type": "public"
+      }
+    },
+    {
+      "timestamp": "2026-05-11T13:13:55.785525Z",
+      "type": "info",
+      "message": "Starting deployment of 'squeezenet1_1' to device 192.168.1.30",
+      "metadata": {
+        "model_name": "squeezenet1_1",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.1.30",
+        "fleet": null
+      }
+    },
+    {
+      "timestamp": "2026-05-11T13:14:05.111536Z",
+      "type": "success",
+      "message": "Deploy thành công model 'squeezenet1_1' lên thiết bị 192.168.1.30 (via public URL)",
+      "metadata": {
+        "model_name": "squeezenet1_1",
+        "device_uuid": "7c5c93028893443c5105aaa5d739538f",
+        "device_endpoint": "192.168.1.30",
+        "model_path": "D:\\KLTN_Hub\\Repo_All\\DACN_Energy_consumption\\ml-controller\\model_store\\squeezenet1_1.onnx",
+        "fleet": null,
+        "device_response": {
+          "energy_budget_mwh": 29.98996075,
+          "message": "Deployment successful",
+          "model_info": {
+            "artifact_file": "squeezenet1_1.onnx",
+            "artifact_format": "onnx",
+            "device_type": "jetson_nano",
+            "energy_avg_mwh": 10.28,
+            "energy_category": "excellent",
+            "gflops": 0.71495,
+            "gmacs": 0.357475,
+            "input_size": [
+              1,
+              3,
+              224,
+              224
+            ],
+            "latency_avg_s": 0.101435,
+            "model_name": "squeezenet1_1",
+            "params_m": 1.233288,
+            "predicted_energy_mwh": 10.28,
+            "prediction_mape_pct": 21.07900438055828,
+            "prediction_reason": "Energy consumption (10.3 mWh) is within excellent range (< 29.98996075 mWh) for jetson_nano",
+            "size_mb": 4.720796,
+            "source_type": "uploaded_custom_model",
+            "throughput_iter_per_s": 16.6489
+          },
+          "model_name": "squeezenet1_1",
+          "model_path": "/data/models/current_model.onnx",
+          "model_size_bytes": 4950113
+        },
+        "used_url_type": "public"
+      }
     }
   ],
   "metadata": {
     "created_at": "2025-12-13T00:00:00Z",
-    "last_updated": "2026-05-06T16:42:49.340184Z",
-    "total_deployments": 34
+    "last_updated": "2026-05-11T13:14:05.113057Z",
+    "total_deployments": 38
   }
 }
