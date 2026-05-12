@@ -122,9 +122,9 @@ CURRENT_MODEL_BASENAME = os.path.join(MODEL_DIR, "current_model")
 STATE_FILE_PATH = os.path.join(MODEL_DIR, "agent_state.json")
 ENERGY_HISTORY_LIMIT = 40
 CONTROLLER_URL = os.getenv("CONTROLLER_URL", "")
-FNB58_AUTO_START = (os.getenv("FNB58_AUTO_START", "true").strip().lower() in ("1", "true", "yes", "on"))
+FNB58_AUTO_START = (os.getenv("FNB58_AUTO_START", "false").strip().lower() in ("1", "true", "yes", "on"))
 FNB58_PORT = (os.getenv("FNB58_PORT") or "").strip()
-FNB58_RETRY_INTERVAL_S = max(2.0, float(os.getenv("FNB58_RETRY_INTERVAL_S", "5")))
+FNB58_RETRY_INTERVAL_S = max(2.0, float(os.getenv("FNB58_RETRY_INTERVAL_S", "15")))
 CAMERA_DEVICE = (os.getenv("CAMERA_DEVICE") or "/dev/video0").strip()
 CAMERA_WIDTH = int(os.getenv("CAMERA_WIDTH", "640") or "640")
 CAMERA_HEIGHT = int(os.getenv("CAMERA_HEIGHT", "480") or "480")
@@ -347,7 +347,7 @@ def _classify_request_for_measurement(path: str, method: str) -> str:
     return "other"
 
 
-def _append_request_to_active_window(request_path: str, request_method: str, response_status: int | None = None):
+def _append_request_to_active_window(request_path: str, request_method: str, response_status: Optional[int] = None):
     with MEASUREMENT_TRACE_LOCK:
         window = ACTIVE_MEASUREMENT_WINDOW.get("current")
         if not window:
@@ -676,7 +676,22 @@ def record_energy_sample(energy_mwh, power_mw=None, latency_s=None, note=None, t
             metrics["mape_pct"] = round(sum(error_samples) / len(error_samples), 4)
 
     budget = metrics.get("budget_mwh")
-    over_budget = budget is not None and sample["energy_mwh"] > budget
+    # Explicit aggregation-level semantics:
+    # - If source indicates benchmark aggregation, use average energy for budget check
+    # - Otherwise use the sample energy (per-inference)
+    energy_for_budget_check = sample["energy_mwh"]
+    aggregation_note = None
+    if isinstance(source, str) and "benchmark" in source.lower():
+        # Benchmark telemetry might be aggregated across multiple runs
+        # Extract run count if available in note
+        benchmark_runs = None
+        if isinstance(note, dict):
+            benchmark_runs = note.get("benchmark_runs")
+        if benchmark_runs and benchmark_runs > 1:
+            energy_for_budget_check = round(sample["energy_mwh"] / benchmark_runs, 6)
+            aggregation_note = f"Benchmark aggregation: total={sample['energy_mwh']} mWh, runs={benchmark_runs}, avg={energy_for_budget_check} mWh"
+    
+    over_budget = budget is not None and energy_for_budget_check > budget
     metrics["status"] = "over_budget" if over_budget else "ok"
 
     state_update = {
@@ -693,8 +708,11 @@ def record_energy_sample(energy_mwh, power_mw=None, latency_s=None, note=None, t
             "note": note,
             "meter_total_energy_wh": meter.get("total_energy_wh"),
             "meter_session_energy_mwh": meter.get("session_energy_mwh"),
-            "timestamp": timestamp
+            "timestamp": timestamp,
         }
+        if aggregation_note:
+            incoming_log["aggregation_semantics"] = aggregation_note
+            incoming_log["energy_for_budget_check"] = energy_for_budget_check
         log(f"[ENERGY-SAMPLE-IN] {json.dumps(incoming_log)}")
     except Exception:
         pass
@@ -702,7 +720,8 @@ def record_energy_sample(energy_mwh, power_mw=None, latency_s=None, note=None, t
     if over_budget and STATE.get("status") == "running":
         message = (
             f"Energy budget exceeded: "
-            f"{sample['energy_mwh']} mWh > budget {budget} mWh"
+            f"{energy_for_budget_check} mWh (used for budget check) > budget {budget} mWh"
+            f"{(' [aggregated from ' + aggregation_note + ']') if aggregation_note else ''}"
         )
         log(message)
         state_update.update(
@@ -1578,6 +1597,8 @@ def _fall_watch_is_running():
 
 
 def _build_fall_watch_result(summary, actual_source, duration_s=0.0):
+    best_frame = summary.get("best_frame") or {}
+    window_score = summary.get("top_k_avg_score", summary.get("fall_score", 0.0))
     result = {
         "success": True,
         "timestamp": _now_iso(),
@@ -1589,10 +1610,13 @@ def _build_fall_watch_result(summary, actual_source, duration_s=0.0):
         "frames_requested": FALL_WATCH_WINDOW_FRAMES,
         "frames_analyzed": summary.get("frames_analyzed", 0),
         "fall_detected": summary.get("fall_detected", False),
-        "fall_score": summary.get("fall_score", 0.0),
+        "fall_score": window_score,
         "label": summary.get("label"),
         "details": {
+            "window_fall_score": window_score,
+            "best_frame_score": best_frame.get("fall_score"),
             "avg_fall_score": summary.get("avg_fall_score"),
+            "top_k_avg_score": summary.get("top_k_avg_score"),
             "fall_frames": summary.get("fall_frames"),
             "fall_frame_ratio": summary.get("fall_frame_ratio"),
             "max_consecutive_fall_frames": summary.get("max_consecutive_fall_frames"),
@@ -2995,9 +3019,22 @@ def benchmark_loaded_model(warmup_runs: int = 5, benchmark_runs: int = 30):
                 _run_loaded_model_once_locked(runtime, interpreter, session, input_size, input_layout, input_meta, dummy_input)
                 ended = time.perf_counter()
                 samples_s.append(max(ended - started, 0.0))
-
     if not samples_s:
         raise RuntimeError("Benchmark produced no samples")
+
+    benchmark_energy_deltas_mwh = []
+    # Collect energy deltas from inference measurements
+    ims = STATE.get("inference_measurements") or {}
+    for im_id, im_data in ims.items():
+        if im_data.get("trigger_source") == "benchmark":
+            delta = im_data.get("final_delta_mwh")
+            if delta is not None:
+                benchmark_energy_deltas_mwh.append(delta)
+
+    benchmark_total_energy_mwh = sum(benchmark_energy_deltas_mwh) if benchmark_energy_deltas_mwh else None
+    benchmark_avg_energy_mwh = None
+    if benchmark_total_energy_mwh is not None and len(benchmark_energy_deltas_mwh) > 0:
+        benchmark_avg_energy_mwh = round(benchmark_total_energy_mwh / len(benchmark_energy_deltas_mwh), 6)
 
     lat_avg = float(np.mean(samples_s))
     lat_std = float(np.std(samples_s))
@@ -3021,6 +3058,9 @@ def benchmark_loaded_model(warmup_runs: int = 5, benchmark_runs: int = 30):
         "input_size": list(input_size),
         "input_layout": input_layout,
         "sample_latencies_ms": [round(sample * 1000.0, 3) for sample in samples_s[: min(10, len(samples_s))]],
+        "benchmark_total_energy_mwh": round(benchmark_total_energy_mwh, 6) if benchmark_total_energy_mwh is not None else None,
+        "benchmark_avg_energy_mwh": benchmark_avg_energy_mwh,
+        "benchmark_energy_deltas": benchmark_energy_deltas_mwh[:min(10, len(benchmark_energy_deltas_mwh))] if benchmark_energy_deltas_mwh else [],
     }
 
     model_info = STATE.get("model_info") or {}

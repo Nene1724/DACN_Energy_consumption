@@ -230,12 +230,13 @@ def _sanitize_model_base_name(value: str) -> str:
 def _build_device_urls(bbb_ip: Optional[str], device_uuid: Optional[str], suffix: str):
     suffix = suffix if suffix.startswith("/") else f"/{suffix}"
     urls_to_try = []
+    # Prefer local LAN endpoint first for dashboard polling responsiveness.
+    if bbb_ip:
+        urls_to_try.append(("local", f"http://{bbb_ip}:8000{suffix}"))
     if device_uuid:
         public_url = get_device_public_url(device_uuid)
         if public_url:
             urls_to_try.append(("public", f"{public_url}{suffix}"))
-    if bbb_ip:
-        urls_to_try.append(("local", f"http://{bbb_ip}:8000{suffix}"))
     return urls_to_try
 
 
@@ -653,6 +654,24 @@ def _benchmark_and_repredict_device(
         "prediction_error": prediction_error,
         "used_url_type": used_url_type,
     }
+    # Extract benchmark aggregation semantics for controller/UI
+    try:
+        bench_total = None
+        bench_avg = None
+        if isinstance(benchmark_result, dict):
+            bench_total = _safe_float(benchmark_result.get("benchmark_total_energy_mwh") or benchmark_result.get("total_energy_mwh"))
+            bench_avg = _safe_float(benchmark_result.get("benchmark_avg_energy_mwh") or benchmark_result.get("avg_energy_mwh"))
+        report_item["benchmark_total_energy_mwh"] = bench_total
+        report_item["benchmark_avg_energy_mwh"] = bench_avg
+        # Choose comparison metric for downstream consumers
+        if bench_avg is not None:
+            report_item["comparison_metric_used"] = "benchmark_avg_energy_mwh"
+            report_item["budget_check_input"] = bench_avg
+        else:
+            report_item["comparison_metric_used"] = "benchmark_total_energy_mwh"
+            report_item["budget_check_input"] = bench_total
+    except Exception:
+        pass
     _append_benchmark_report(report_item)
     return report_item
 
@@ -1368,8 +1387,10 @@ def get_device_state():
     if not bbb_ip and not device_uuid:
         return jsonify({"success": False, "error": "bbb_ip or device_uuid is required"}), 400
 
-    status_payload, status_err = _fetch_device_json(bbb_ip, device_uuid, "/status", timeout=10)
-    metrics_payload, _ = _fetch_device_json(bbb_ip, device_uuid, "/metrics", timeout=10)
+    # Keep per-request latency low so UI polling does not hit browser-side abort timeout.
+    state_fetch_timeout = max(2, int(os.getenv("DEVICE_STATE_FETCH_TIMEOUT_S", "4") or "4"))
+    status_payload, status_err = _fetch_device_json(bbb_ip, device_uuid, "/status", timeout=state_fetch_timeout)
+    metrics_payload, _ = _fetch_device_json(bbb_ip, device_uuid, "/metrics", timeout=state_fetch_timeout)
 
     # If both fetches failed, attempt to serve last known good cached state
     cache_key = device_uuid or bbb_ip

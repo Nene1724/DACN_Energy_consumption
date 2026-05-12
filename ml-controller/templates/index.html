@@ -549,10 +549,11 @@
         let medicalWatchRequestInFlight = false;
         let medicalLastAnnouncedEventId = null;
         let medicalLatestEvents = [];
+        let medicalLatestDetection = null;
         let medicalPauseStreamForDetection = false;
         const MEDICAL_STREAM_FPS = 20;
         const MEDICAL_STREAM_QUALITY = 68;
-        const MEDICAL_WATCH_INTERVAL_MS = 3000;
+        const MEDICAL_WATCH_INTERVAL_MS = 1500;
 
         let medicalCameraLastStatus = 'No camera activity yet';
         let medicalCameraLastSource = null;
@@ -577,6 +578,8 @@
             } else {
                 medicalLatestEvents = [normalizedEvent, ...medicalLatestEvents];
             }
+
+            medicalLatestDetection = normalizedEvent;
 
             medicalLatestEvents = medicalLatestEvents.slice(0, 12);
             renderMedicalFallEvents(medicalLatestEvents);
@@ -1810,6 +1813,9 @@
             );
             const measured = Number.isFinite(inferredDelta) ? inferredDelta : null;
 
+            const benchmarkTotal = latestBenchmarkReport?.benchmark?.benchmark_total_energy_mwh ?? latestBenchmarkReport?.benchmark_total_energy_mwh ?? null;
+            const benchmarkAvg = latestBenchmarkReport?.benchmark?.benchmark_avg_energy_mwh ?? latestBenchmarkReport?.benchmark_avg_energy_mwh ?? null;
+
             let latestSample = null;
             if (energyMetrics && Array.isArray(energyMetrics.history) && energyMetrics.history.length) {
                 latestSample = energyMetrics.history[energyMetrics.history.length - 1];
@@ -1818,8 +1824,16 @@
             predictedEl.textContent = Number.isFinite(predicted) ? `${formatMetric(predicted, 2)} mWh` : 'N/A';
             measuredEl.textContent = Number.isFinite(measured) ? `${formatMetric(measured, 2)} mWh` : 'N/A';
 
-            if (Number.isFinite(predicted) && Number.isFinite(measured)) {
-                const absError = Math.abs(measured - predicted);
+            // Populate benchmark fields if available
+            const benchTotalEl = document.getElementById('compare_benchmark_total');
+            const benchAvgEl = document.getElementById('compare_benchmark_avg');
+            if (benchTotalEl) benchTotalEl.textContent = Number.isFinite(Number(benchmarkTotal)) ? `${formatMetric(Number(benchmarkTotal), 2)} mWh` : 'N/A';
+            if (benchAvgEl) benchAvgEl.textContent = Number.isFinite(Number(benchmarkAvg)) ? `${formatMetric(Number(benchmarkAvg), 2)} mWh` : 'N/A';
+
+            // Use benchmark average for comparison if available, otherwise use latest measured delta
+            const energyForComparison = Number.isFinite(Number(benchmarkAvg)) ? Number(benchmarkAvg) : (Number.isFinite(measured) ? measured : null);
+            if (Number.isFinite(predicted) && Number.isFinite(energyForComparison)) {
+                const absError = Math.abs(energyForComparison - predicted);
                 const errPct = predicted !== 0 ? (absError / Math.abs(predicted)) * 100 : null;
                 const accuracy = Number.isFinite(errPct) ? Math.max(0, 100 - errPct) : null;
 
@@ -1847,8 +1861,8 @@
                 ? formatTimestamp(latestSample.timestamp)
                 : (meterMetrics && meterMetrics.updated_at ? formatTimestamp(meterMetrics.updated_at) : 'N/A'));
 
-            if (Number.isFinite(predicted) && Number.isFinite(measured)) {
-                noteEl.textContent = 'Comparing predicted per-inference energy against latest inference delta.';
+            if (Number.isFinite(predicted) && Number.isFinite(energyForComparison)) {
+                noteEl.textContent = 'Comparing predicted per-inference energy against benchmark average (if available) or latest inference delta.';
             } else if (Number.isFinite(predicted) && latestBenchmarkReport?.prediction) {
                 noteEl.textContent = 'Prediction has been recalibrated from an on-device benchmark on the edge device.';
             } else if (Number.isFinite(predicted) && meterMetrics && meterMetrics.connected) {
@@ -2238,7 +2252,7 @@
 
         function renderMedicalWatch(status = null, fallbackMetrics = null) {
             const fall = status?.fall_detection || fallbackMetrics?.fall_detection || null;
-            const latestEvent = medicalLatestEvents[0] || status?.latest_fall_event || null;
+            const latestEvent = medicalLatestDetection || medicalLatestEvents[0] || status?.latest_fall_event || null;
             const activeEvent = medicalLatestEvents.find(item => item.fall_detected === true && !item.acknowledged)
                 || ((status?.latest_fall_event?.fall_detected && !status?.latest_fall_event?.acknowledged) ? status.latest_fall_event : null);
             const isWatchRunning = medicalWatchActive === true;
@@ -2288,9 +2302,14 @@
             }
             if (isWatchRunning || latestEvent) {
                 setText('medical_fall_label', latestEvent?.label || fall?.label || 'N/A');
-                const score = Number(latestEvent?.fall_score ?? fall?.fall_score);
+                const score = Number(
+                    latestEvent?.details?.window_fall_score
+                    ?? latestEvent?.fall_score
+                    ?? fall?.details?.window_fall_score
+                    ?? fall?.fall_score
+                );
                 setText('medical_fall_score', Number.isFinite(score) ? score.toFixed(3) : 'N/A');
-                setText('medical_frames_analyzed', fall?.frames_analyzed != null ? String(fall.frames_analyzed) : 'N/A');
+                setText('medical_frames_analyzed', latestEvent?.frames_analyzed != null ? String(latestEvent.frames_analyzed) : (fall?.frames_analyzed != null ? String(fall.frames_analyzed) : 'N/A'));
                 setText('medical_last_check', formatTimestamp(latestEvent?.timestamp || fall?.updated_at || null));
             } else {
                 setText('medical_fall_label', 'Waiting (watch stopped)');
@@ -2469,9 +2488,7 @@
                 placeholder.style.display = 'none';
             }
             image.style.display = 'block';
-            const streamUrl = deviceUuid
-                ? `https://${encodeURIComponent(deviceUuid)}.balena-devices.com/camera/stream?${params.toString()}`
-                : `/api/device/camera-stream?${params.toString()}`;
+            const streamUrl = `/api/device/camera-stream?${params.toString()}`;
             image.src = streamUrl;
 
             // One-shot fallback if the stream endpoint is unavailable.
@@ -2646,8 +2663,8 @@
                         }
                     };
                 }
-                loadMedicalFallEvents({ silent: true }).catch(() => {});
                 renderMedicalWatch(lastDeviceStatus, lastDeviceMetrics);
+                loadMedicalFallEvents({ silent: true }).catch(() => {});
                 refreshDeviceMetrics({ silent: true });
 
                 if (!options.silent) {
@@ -2759,9 +2776,9 @@
 
             setMedicalWatchState(true);
             await setMedicalFallWatchOnDevice(true, { silent: true });
-            await runMedicalFallDetection({ silent: true, background: true, durationS: 0.8, maxFrames: 1, fastMode: true, pauseStreamForDetection: false });
+            await runMedicalFallDetection({ silent: true, background: true, durationS: 1.2, maxFrames: 4, fastMode: true, pauseStreamForDetection: false });
             medicalWatchInterval = setInterval(() => {
-                runMedicalFallDetection({ silent: true, background: true, durationS: 0.8, maxFrames: 1, fastMode: true, pauseStreamForDetection: false });
+                runMedicalFallDetection({ silent: true, background: true, durationS: 1.2, maxFrames: 4, fastMode: true, pauseStreamForDetection: false });
             }, MEDICAL_WATCH_INTERVAL_MS);
             renderMedicalWatch(lastDeviceStatus, lastDeviceMetrics);
         }
@@ -4793,6 +4810,9 @@
             medicalCameraLastSourceContext = '';
             medicalCameraLastStatus = 'No camera activity yet';
             medicalCameraTransport = 'Idle';
+            medicalLatestDetection = null;
+            medicalLatestEvents = [];
+            medicalLastAnnouncedEventId = null;
             lastDeviceStatus = null;
             lastDeviceMetrics = null;
 
@@ -4956,6 +4976,9 @@
             return oldStatus.status !== newStatus.status ||
                    oldStatus.model_name !== newStatus.model_name ||
                    oldStatus.inference_active !== newStatus.inference_active ||
+                   oldStatus.inference_state !== newStatus.inference_state ||
+                   oldStatus.connectivity_state !== newStatus.connectivity_state ||
+                   oldStatus.last_update !== newStatus.last_update ||
                    oldStatus.error !== newStatus.error;
         }
         

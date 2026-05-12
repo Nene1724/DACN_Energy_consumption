@@ -141,3 +141,38 @@ python3 app/benchmark_mape.py --runs 30 --delay 2 --csv /data/mape_report.csv
 ```
 
 The script reads `predicted_mwh` from deployed model metadata and compares with measured telemetry from `/telemetry` history.
+
+## Energy Measurement Isolation
+
+For accurate per-inference energy accounting, the agent uses **inference-scoped measurement windows** to ensure that model computation energy is isolated from background polling, frame capture, and concurrent API activity.
+
+### Key Features
+
+- **Exclusive Windows:** Each inference gets its own measurement window. Concurrent requests are serialized behind a lock.
+- **Contamination Detection:** All HTTP requests that arrive during a window are logged separately with timing metadata.
+- **Per-Frame Isolation:** Camera fall detection measures each frame's pose inference independently (not the entire 2.5s camera session).
+- **Strict Telemetry Contract:** Energy payloads must distinguish cumulative meter readings from inference deltas.
+
+### Expected Behavior
+
+A single `/predict` request should produce:
+- Measurement window duration: **30–80 ms** (not 500 ms+ with background activity)
+- Energy delta: **model TDP × window duration / 1000** (accurate, not inflated by polling)
+- Contamination log: lists any `/status`, `/metrics`, or other requests that arrived during the window
+
+### Monitoring Energy Accuracy
+
+Check logs for `ENERGY-WINDOW-END` events:
+
+```bash
+docker logs <container> | grep ENERGY-WINDOW-END
+```
+
+Look for:
+- `"window_duration_ms": 45` (short windows = isolated)
+- `"non_inference_activity_detected": false` (clean measurements)
+- `"delta_mwh": 12.0` (consistent across runs)
+
+If `window_duration_ms > 200` or `non_inference_activity_detected: true` frequently, see [MEASUREMENT_ISOLATION.md](./MEASUREMENT_ISOLATION.md) for diagnosis.
+
+For detailed architecture and troubleshooting, see [MEASUREMENT_ISOLATION.md](./MEASUREMENT_ISOLATION.md).
