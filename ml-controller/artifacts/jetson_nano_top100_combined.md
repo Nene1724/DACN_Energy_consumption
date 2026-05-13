@@ -85,31 +85,31 @@
 
 | Rank | Model | Family | Source | Params (M) | GFLOPs | Latency (s) | Energy (mWh) | Ranking Score |
 |------|-------|--------|--------|--------|--------|--------|--------|----------|
-| 1 | tf_mobilenetv3_small_minimal_100 | MobileNet | benchmark | 2.0 | 0.06 | 0.0240 | 3.9 | 0.9400 |
-| 2 | mobilenetv3_small_050 | MobileNet | benchmark | 1.6 | 0.03 | 0.0321 | 4.1 | 0.9364 |
-| 3 | semnasnet_050 | Other | benchmark | 2.1 | 0.09 | 0.0400 | 7.4 | 0.9013 |
-| 4 | shufflenetv2_x0_25 | ShuffleNetV2 | unseen | 0.5 | 0.04 | 0.0941 | 11.6 | 0.8574 |
-| 5 | densenet_tiny | DenseNet | unseen | 0.8 | 0.06 | 0.1348 | 11.7 | 0.8490 |
-| 6 | regnetx_002 | RegNet | benchmark | 2.7 | 0.40 | 0.0649 | 12.3 | 0.8460 |
-| 7 | regnety_002 | RegNet | benchmark | 3.2 | 0.40 | 0.0676 | 12.4 | 0.8446 |
-| 8 | shufflenetv2_x0_33 | ShuffleNetV2 | unseen | 0.6 | 0.07 | 0.1389 | 11.7 | 0.8407 |
-| 9 | spnasnet_100 | Other | benchmark | 4.4 | 0.33 | 0.0409 | 14.0 | 0.8359 |
-| 10 | mnasnet_0_5 | MnasNet | unseen | 2.2 | 0.11 | 0.2320 | 11.8 | 0.8206 |
-| 11 | tf_efficientnet_lite0 | EfficientNet | benchmark | 4.7 | 0.39 | 0.0344 | 16.0 | 0.8175 |
-| 12 | ghostnet_130 | GhostNet | benchmark | 7.4 | 0.23 | 0.0572 | 15.9 | 0.8124 |
-| 13 | mobileosnet_small | MobileOSNet | unseen | 2.4 | 0.13 | 0.2854 | 11.8 | 0.8036 |
-| 14 | mobilenetv4_small | MobileNetV4 | unseen | 3.8 | 0.15 | 0.3187 | 11.8 | 0.7963 |
-| 15 | mobilenext_small | MobileNext | unseen | 3.2 | 0.15 | 0.3330 | 11.8 | 0.7939 |
-| 16 | ghostnet_100 | GhostNet | benchmark | 3.9 | 0.31 | 0.0550 | 20.2 | 0.7703 |
-| 17 | tf_efficientnet_b0 | EfficientNet | benchmark | 5.3 | 0.39 | 0.0520 | 20.3 | 0.7697 |
-| 18 | regnety_200mf | RegNetY | unseen | 3.2 | 0.21 | 0.4415 | 12.5 | 0.7079 |
-| 19 | regnetx_200mf | RegNetX | unseen | 2.3 | 0.21 | 0.4406 | 12.5 | 0.7043 |
-| 20 | mobilenetv3_large_100_miil | MobileNetV3 | unseen | 5.5 | 0.22 | 0.4651 | 12.7 | 0.6951 |
-| 21 | vit_tiny_r_s16_p8_224__b4__224 | ViT | benchmark | 6.3 | 1.08 | 0.0596 | 30.1 | 0.6714 |
-| 22 | mobilenetplus_small | MobileNetPlus | unseen | 4.1 | 0.23 | 0.5020 | 13.0 | 0.6539 |
-| 23 | resnet10t__b4__224 | ResNet | benchmark | 5.4 | 1.94 | 0.0650 | 34.9 | 0.6222 |
-| 24 | fbnet_a | FBNet | unseen | 4.3 | 0.27 | 0.5746 | 14.2 | 0.5454 |
-| 25 | levit_128 | ViT | benchmark | 0.4 | 9.21 | 0.0578 | 44.2 | 0.5314 |
+| 1 | tf_mobilenetv3_small_minimal_100 | MobileNet | benchmark | 2.0 | 0.06 | 0.0240 | 3.898562 | 0.9400 |
+| 2 | mobilenetv3_small_050 | MobileNet | benchmark | 1.6 | 0.03 | 0.0321 | 4.054775 | 0.9364 |
+| 3 | semnasnet_050 | Other | benchmark | 2.1 | 0.09 | 0.0400 | 7.387390 | 0.9013 |
+| 4 | shufflenetv2_x0_25 | ShuffleNetV2 | unseen | 0.5 | 0.04 | 0.0941 | 11.645696 | 0.8574 |
+| 5 | densenet_tiny | DenseNet | unseen | 0.8 | 0.06 | 0.1348 | 11.726317 | 0.8490 |
+| 6 | regnetx_002 | RegNet | benchmark | 2.7 | 0.40 | 0.0649 | 12.317061 | 0.8460 |
+| 7 | regnety_002 | RegNet | benchmark | 3.2 | 0.40 | 0.0676 | 12.392955 | 0.8446 |
+| 8 | shufflenetv2_x0_33 | ShuffleNetV2 | unseen | 0.6 | 0.07 | 0.1389 | 11.726317 | 0.8407 |
+| 9 | spnasnet_100 | Other | benchmark | 4.4 | 0.33 | 0.0409 | 13.954519 | 0.8359 |
+| 10 | mnasnet_0_5 | MnasNet | unseen | 2.2 | 0.11 | 0.2320 | 11.780079 | 0.8206 |
+| 11 | tf_efficientnet_lite0 | EfficientNet | benchmark | 4.7 | 0.39 | 0.0344 | 15.980419 | 0.8175 |
+| 12 | ghostnet_130 | GhostNet | benchmark | 7.4 | 0.23 | 0.0572 | 15.906913 | 0.8124 |
+| 13 | mobileosnet_small | MobileOSNet | unseen | 2.4 | 0.13 | 0.2854 | 11.761090 | 0.8036 |
+| 14 | mobilenetv4_small | MobileNetV4 | unseen | 3.8 | 0.15 | 0.3187 | 11.751727 | 0.7963 |
+| 15 | mobilenext_small | MobileNext | unseen | 3.2 | 0.15 | 0.3330 | 11.760479 | 0.7939 |
+| 16 | ghostnet_100 | GhostNet | benchmark | 3.9 | 0.31 | 0.0550 | 20.210864 | 0.7703 |
+| 17 | tf_efficientnet_b0 | EfficientNet | benchmark | 5.3 | 0.39 | 0.0520 | 20.340423 | 0.7697 |
+| 18 | regnety_200mf | RegNetY | unseen | 3.2 | 0.21 | 0.4415 | 12.536926 | 0.7079 |
+| 19 | regnetx_200mf | RegNetX | unseen | 2.3 | 0.21 | 0.4406 | 12.531635 | 0.7043 |
+| 20 | mobilenetv3_large_100_miil | MobileNetV3 | unseen | 5.5 | 0.22 | 0.4651 | 12.727865 | 0.6951 |
+| 21 | vit_tiny_r_s16_p8_224__b4__224 | ViT | benchmark | 6.3 | 1.08 | 0.0596 | 30.059702 | 0.6714 |
+| 22 | mobilenetplus_small | MobileNetPlus | unseen | 4.1 | 0.23 | 0.5020 | 13.031864 | 0.6539 |
+| 23 | resnet10t__b4__224 | ResNet | benchmark | 5.4 | 1.94 | 0.0650 | 34.873537 | 0.6222 |
+| 24 | fbnet_a | FBNet | unseen | 4.3 | 0.27 | 0.5746 | 14.150436 | 0.5454 |
+| 25 | levit_128 | ViT | benchmark | 0.4 | 9.21 | 0.0578 | 44.222500 | 0.5314 |
 
 ## Source Breakdown
 

@@ -213,7 +213,7 @@ class OutputGenerator:
                     'params_m': round(model['params_m'], 2),
                     'gflops': round(model['gflops'], 2),
                     'estimated_latency_s': round(model['estimated_latency_s'], 4),
-                    'predicted_energy_mwh': round(model['predicted_energy_mwh'], 1),
+                    'predicted_energy_mwh': f"{model['predicted_energy_mwh']:.6f}",
                     'confidence_score': round(model.get('confidence_score', 0.5), 3),
                     'diversity_score': round(model.get('diversity_score', 0.5), 3),
                     'ranking_score': round(model.get('ranking_score', 0.5), 4),
@@ -231,8 +231,8 @@ class OutputGenerator:
             },
             'statistics': {
                 'energy_range': [
-                    round(min(m['predicted_energy_mwh'] for m in models), 1),
-                    round(max(m['predicted_energy_mwh'] for m in models), 1)
+                    round(min(m['predicted_energy_mwh'] for m in models), 6),
+                    round(max(m['predicted_energy_mwh'] for m in models), 6)
                 ],
                 'latency_range': [
                     round(min(m['estimated_latency_s'] for m in models), 4),
@@ -301,10 +301,10 @@ class OutputGenerator:
             f.write("|------|-------|--------|--------|--------|--------|--------|--------|----------|\n")
             
             for rank, model in enumerate(models[:25], 1):
-                f.write(f"| {rank} | {model['name']} | {model.get('inferred_family', model.get('family', 'N/A'))} | "
-                       f"{model['source']} | {model['params_m']:.1f} | {model['gflops']:.2f} | "
-                       f"{model['estimated_latency_s']:.4f} | {model['predicted_energy_mwh']:.1f} | "
-                       f"{model.get('ranking_score', 0):.4f} |\n")
+                  f.write(f"| {rank} | {model['name']} | {model.get('inferred_family', model.get('family', 'N/A'))} | "
+                      f"{model['source']} | {model['params_m']:.1f} | {model['gflops']:.2f} | "
+                      f"{model['estimated_latency_s']:.4f} | {model['predicted_energy_mwh']:.6f} | "
+                      f"{model.get('ranking_score', 0):.4f} |\n")
             
             f.write("\n## Source Breakdown\n\n")
             f.write(f"- **Unseen Models:** {len(unseen)} real architectures from timm/torchvision (NOT in 360 benchmark)\n")

@@ -6,8 +6,8 @@
   },
   "statistics": {
     "energy_range": [
-      3.9,
-      44.2
+      3.898562,
+      44.2225
     ],
     "latency_range": [
       0.024,
