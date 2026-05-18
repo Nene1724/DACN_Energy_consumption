@@ -1,0 +1,1358 @@
+[
+  {
+    "line": 2,
+    "model": "tf_mobilenetv3_small_minimal_100",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 3,
+    "model": "mobilenetv3_small_050",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 4,
+    "model": "semnasnet_050",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 5,
+    "model": "regnetx_002",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 6,
+    "model": "regnety_002",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 7,
+    "model": "spnasnet_100",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 8,
+    "model": "tf_efficientnet_lite0",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 9,
+    "model": "ghostnet_130",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 10,
+    "model": "ghostnet_100",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 11,
+    "model": "tf_efficientnet_b0",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 12,
+    "model": "mobilenetv3_large_100_miil",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 13,
+    "model": "levit_128",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 14,
+    "model": "pvt_v2_b1",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 15,
+    "model": "pvt_v2_b0",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 16,
+    "model": "resnet18d",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 17,
+    "model": "xception",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 18,
+    "model": "resnet34d",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 19,
+    "model": "coatnet_0_224",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 20,
+    "model": "coatnet_nano_cc_224",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 21,
+    "model": "coatnet_nano_rw_224",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 22,
+    "model": "coatnet_pico_rw_224",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 23,
+    "model": "coatnet_rmlp_nano_rw_224",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 24,
+    "model": "coatnext_nano_rw_224",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 25,
+    "model": "convmixer_1024_20_ks9_p14",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 26,
+    "model": "convmixer_768_32",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 27,
+    "model": "convnext_atto",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 28,
+    "model": "convnext_atto_ols",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 29,
+    "model": "convnext_femto",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 30,
+    "model": "convnext_femto_ols",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 31,
+    "model": "convnext_nano",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 32,
+    "model": "convnext_nano_ols",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 33,
+    "model": "convnext_pico_ols",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 34,
+    "model": "crossvit_9_240",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 35,
+    "model": "crossvit_9_dagger_240",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 36,
+    "model": "cs3darknet_focus_l",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 37,
+    "model": "cs3darknet_focus_m",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 38,
+    "model": "cs3darknet_focus_s",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 39,
+    "model": "cs3darknet_l",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 40,
+    "model": "cs3darknet_m",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 41,
+    "model": "cs3darknet_s",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 42,
+    "model": "cs3sedarknet_l",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 43,
+    "model": "cs3sedarknet_xdw",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 44,
+    "model": "cspresnet50d",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 45,
+    "model": "cspresnext50",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 46,
+    "model": "darknet17",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 47,
+    "model": "darknet21",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 48,
+    "model": "deit3_small_patch16_224",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 49,
+    "model": "deit3_small_patch16_224_in21ft1k",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 50,
+    "model": "densenet121d",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 51,
+    "model": "densenetblur121d",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 52,
+    "model": "dla34",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 53,
+    "model": "dla46_c",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 54,
+    "model": "dla46x_c",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 55,
+    "model": "dla60",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 56,
+    "model": "dla60_res2net",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 57,
+    "model": "dla60_res2next",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 58,
+    "model": "dla60x",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 59,
+    "model": "dla60x_c",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 60,
+    "model": "dpn68",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 61,
+    "model": "dpn68b",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 62,
+    "model": "eca_nfnet_l0",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 63,
+    "model": "eca_resnet33ts",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 64,
+    "model": "eca_resnext26ts",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 65,
+    "model": "eca_vovnet39b",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 66,
+    "model": "ecaresnet101d_pruned",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 67,
+    "model": "ecaresnet50d_pruned",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 68,
+    "model": "ecaresnext26t_32x4d",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 69,
+    "model": "ecaresnext50t_32x4d",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 70,
+    "model": "edgenext_small_rw",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 71,
+    "model": "edgenext_xx_small",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 72,
+    "model": "efficientnet_b2a",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 73,
+    "model": "efficientnet_b3a",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 74,
+    "model": "ese_vovnet19b_dw",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 75,
+    "model": "ese_vovnet19b_slim",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 76,
+    "model": "ese_vovnet19b_slim_dw",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 77,
+    "model": "ese_vovnet39b",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 78,
+    "model": "ese_vovnet39b_evos",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 79,
+    "model": "fbnetc_100",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 80,
+    "model": "fbnetv3_g",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 81,
+    "model": "gcresnet33ts",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 82,
+    "model": "gcresnext26ts",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 83,
+    "model": "gcresnext50ts",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 84,
+    "model": "gcvit_xtiny",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 85,
+    "model": "gcvit_xxtiny",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 86,
+    "model": "gernet_m",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 87,
+    "model": "gernet_s",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 88,
+    "model": "gluon_inception_v3",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 89,
+    "model": "gluon_resnet18_v1b",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 90,
+    "model": "gluon_resnet34_v1b",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 91,
+    "model": "gmixer_12_224",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 92,
+    "model": "gmixer_24_224",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 93,
+    "model": "gmlp_s16_224",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 94,
+    "model": "hardcorenas_a",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 95,
+    "model": "hardcorenas_b",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 96,
+    "model": "hardcorenas_c",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 97,
+    "model": "hardcorenas_d",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 98,
+    "model": "hardcorenas_e",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 99,
+    "model": "hardcorenas_f",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 100,
+    "model": "hrnet_w18",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 101,
+    "model": "lambda_resnet26t",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 102,
+    "model": "lambda_resnet50ts",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 103,
+    "model": "lcnet_150",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 104,
+    "model": "legacy_seresnet18",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 105,
+    "model": "legacy_seresnet34",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 106,
+    "model": "legacy_seresnext26_32x4d",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 107,
+    "model": "levit_256",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 108,
+    "model": "mixer_s16_224",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 109,
+    "model": "mixnet_l",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 110,
+    "model": "mixnet_xl",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 111,
+    "model": "mixnet_xxl",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 112,
+    "model": "mnasnet_a1",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 113,
+    "model": "mnasnet_b1",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 114,
+    "model": "mobilevitv2_050",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 115,
+    "model": "mobilevitv2_075",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 116,
+    "model": "mobilevitv2_100",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 117,
+    "model": "mobilevitv2_125",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 118,
+    "model": "mobilevitv2_150",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 119,
+    "model": "mobilevitv2_150_384_in22ft1k",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 120,
+    "model": "mobilevitv2_150_in22ft1k",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 121,
+    "model": "mobilevitv2_175",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 122,
+    "model": "mobilevitv2_175_384_in22ft1k",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 123,
+    "model": "mobilevitv2_175_in22ft1k",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 124,
+    "model": "mobilevitv2_200",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 125,
+    "model": "mobilevitv2_200_384_in22ft1k",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 126,
+    "model": "mobilevitv2_200_in22ft1k",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 127,
+    "model": "mvitv2_tiny",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 128,
+    "model": "nf_ecaresnet26",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 129,
+    "model": "nf_resnet26",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 130,
+    "model": "nf_seresnet26",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 131,
+    "model": "pit_s_224",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 132,
+    "model": "pit_s_distilled_224",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 133,
+    "model": "pit_xs_224",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 134,
+    "model": "pit_xs_distilled_224",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 135,
+    "model": "poolformer_s12",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 136,
+    "model": "poolformer_s24",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 137,
+    "model": "pvt_v2_b0",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 138,
+    "model": "pvt_v2_b1",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 139,
+    "model": "pvt_v2_b2_li",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 140,
+    "model": "regnety_040s_gn",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 141,
+    "model": "repvgg_b0",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 142,
+    "model": "resmlp_12_224_dino",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 143,
+    "model": "resmlp_12_distilled_224",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 144,
+    "model": "resnest14d",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 145,
+    "model": "resnest26d",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 146,
+    "model": "resnet18d",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 147,
+    "model": "resnet32ts",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 148,
+    "model": "resnet33ts",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 149,
+    "model": "resnet34d",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 150,
+    "model": "resnetblur18",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 151,
+    "model": "resnext26ts",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 152,
+    "model": "rexnet_130",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 153,
+    "model": "rexnet_150",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 154,
+    "model": "rexnet_200",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 155,
+    "model": "rexnetr_100",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 156,
+    "model": "rexnetr_130",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 157,
+    "model": "rexnetr_150",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 158,
+    "model": "rexnetr_200",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 159,
+    "model": "sedarknet21",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 160,
+    "model": "semobilevit_s",
+    "missing": [
+      "params_m",
+      "gflops",
+      "gmacs",
+      "size_mb",
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 161,
+    "model": "seresnet18",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 162,
+    "model": "seresnet33ts",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 163,
+    "model": "seresnet34",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 164,
+    "model": "seresnext26d_32x4d",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 165,
+    "model": "seresnext26t_32x4d",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 166,
+    "model": "seresnext26tn_32x4d",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 167,
+    "model": "seresnext26ts",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 168,
+    "model": "skresnet18",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 169,
+    "model": "skresnet34",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  },
+  {
+    "line": 170,
+    "model": "ssl_resnet18",
+    "missing": [
+      "latency_avg_s",
+      "throughput_iter_per_s"
+    ]
+  }
+]
